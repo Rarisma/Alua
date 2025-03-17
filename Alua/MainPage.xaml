@@ -1,0 +1,50 @@
+﻿<Page x:Class="Alua.MainPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:models="clr-namespace:Alua.Models"
+      xmlns:alua="clr-namespace:Alua"
+      Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Page.Resources>
+        <alua:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+    </Page.Resources>
+
+    <ScrollViewer>
+      <ItemsRepeater ItemsSource="{x:Bind AppVM.Games, Mode=OneWay}">
+          <ItemsRepeater.ItemTemplate>
+              <DataTemplate x:DataType="models:Game">
+                    <Grid HorizontalAlignment="Stretch" Width="400" Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- App Icon -->
+                        <Image  Grid.Column="0" Grid.Row="0" Grid.ColumnSpan="1" Grid.RowSpan="4" Source="{x:Bind Icon}"
+                                HorizontalAlignment="Left" Margin="0,0,20,0"/>
+
+                        <!-- Achievement Count -->
+                        <TextBlock Grid.Column="1" Grid.Row="0" Text="{x:Bind Name}" HorizontalAlignment="Left"/>
+
+                        <!-- Achievement Count -->
+                        <TextBlock Text="{x:Bind StatusText}" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                                   Visibility="{x:Bind HasAchievements,
+                                   Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                        <!-- Progress Bar -->
+                        <ProgressBar Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Minimum="0"
+                                     Width="150" HorizontalAlignment="Left"
+                                     Value="{x:Bind UnlockedCount}" Maximum="{x:Bind Achievements.Count}" />
+
+                    </Grid>
+              </DataTemplate>
+          </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+  </ScrollViewer>
+</Page>

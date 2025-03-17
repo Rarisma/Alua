@@ -1,0 +1,10 @@
+{
+  "background_color": "#ffffff",
+  "description": "Alua",
+  "display": "standalone",
+  "name": "Alua",
+  "short_name": "Alua",
+  "start_url": "/index.html",
+  "theme_color": "#ffffff",
+  "scope": "/"
+}
