@@ -39,5 +39,22 @@ public sealed partial class MainPage : Page
             AppVM.Games.Count, AppVM.Games.Sum(x => x.Achievements.Count));
         
     }
-    
+
+    /// <summary>
+    /// Open Game Page
+    /// </summary>
+    private void OpenGame(object sender, RoutedEventArgs e)
+    {
+        Game game = (Game)((Button)sender).DataContext;
+
+        if (game.Achievements.Count == 0)
+        {
+            
+        }
+        else
+        {
+            AppVM.SelectedGame = game;
+            App.RootFrame.Navigate(typeof(GamePage));
+        }
+    }
 }

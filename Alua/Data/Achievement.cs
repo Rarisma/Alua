@@ -46,7 +46,7 @@ public class Achievement
     /// </summary>
     [JsonInclude]
     [JsonPropertyName("Icon")]
-    public string IconUrl { get; set; }
+    public string Icon { get; set; }
 
     /// <summary>
     /// Is the achievement hidden/secret

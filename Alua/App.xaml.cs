@@ -12,6 +12,8 @@ public partial class App : Application
     /// Instance of app settings
     /// </summary>
     public static Settings Settings;
+
+    public static Frame RootFrame;
     
     public static ObservableCollection<Game> Games = new();
     /// <summary>
@@ -23,7 +25,7 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    protected Window? MainWindow { get; private set; }
+    public Window? MainWindow { get; private set; }
     protected IHost? Host { get; private set; }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
@@ -96,16 +98,17 @@ public partial class App : Application
             // Create a Frame to act as the navigation context and navigate to the first page
             rootFrame = new Frame();
 
+            RootFrame = rootFrame;
             // Place the frame in the current Window
-            MainWindow.Content = rootFrame;
+            MainWindow.Content = RootFrame;
         }
 
-        if (rootFrame.Content == null)
+        if (RootFrame.Content == null)
         {
             // When the navigation stack isn't restored navigate to the first page,
             // configuring the new page by passing required information as a navigation
             // parameter
-            rootFrame.Navigate(typeof(MainPage), args.Arguments);
+            RootFrame.Navigate(typeof(MainPage), args.Arguments);
         }
         
         // Ensure the current window is active

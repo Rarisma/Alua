@@ -1,5 +1,5 @@
 using System.Collections.ObjectModel;
-
+//Some things can never be fixed, they must be destroyed.
 namespace Alua.Services;
 /// <summary>
 /// Main VM.
@@ -25,6 +25,12 @@ public class AppVM  : ObservableRecipient
     {
         get => _games;
         set => SetProperty(ref _games, value);
-        
+    }
+
+    private Game _selectedGame;
+    public Game SelectedGame
+    {
+        get => _selectedGame;
+        set => SetProperty(ref _selectedGame, value);
     }
 }

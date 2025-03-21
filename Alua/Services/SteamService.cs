@@ -96,7 +96,7 @@ public static async Task<List<Achievement>> GetPlayerAchievementsAsync(string ap
                                              unlockTimeProp.GetInt64() > 0
                                              ? UnixTimeStampToDateTime(unlockTimeProp.GetInt64())
                                              : (DateTime?)null,
-                                IconUrl = null,
+                                Icon = null,
                                 IsHidden = false,
                                 CurrentProgress = null,
                                 MaxProgress = null

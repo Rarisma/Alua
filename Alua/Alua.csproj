@@ -1,6 +1,6 @@
 <Project Sdk="Uno.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net9.0-android;net9.0-windows10.0.26100;net9.0-browserwasm;net9.0-desktop</TargetFrameworks>
+        <TargetFrameworks>net8.0-desktop</TargetFrameworks>
 
         <OutputType>Exe</OutputType>
         <UnoSingleProject>true</UnoSingleProject>
@@ -47,11 +47,18 @@
       <PackageReference Include="dotenv.net" />
       <PackageReference Include="SteamWebAPI2" />
     </ItemGroup>
-    
+
     <ItemGroup>
         <Content Include=".env">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="GamePage.xaml.cs">
+        <DependentUpon>NewPage.xaml</DependentUpon>
+        <IsDefaultItem>true</IsDefaultItem>
+      </Compile>
     </ItemGroup>
 
 </Project>

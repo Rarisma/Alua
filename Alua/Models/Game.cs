@@ -79,7 +79,7 @@ public class Game
             if (UnlockedCount > 0)
             {
                 return $"{UnlockedCount} / {Achievements.Count} " +
-                       $"({((double)UnlockedCount / Achievements.Count * 100)}%)";
+                       $"({(Math.Floor((double)UnlockedCount / Achievements.Count * 100))}%)";
             }
 
             return $"Not Started ({Achievements.Count} Achievements)";
