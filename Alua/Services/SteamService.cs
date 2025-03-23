@@ -51,10 +51,8 @@ public static async Task<List<Achievement>> GetPlayerAchievementsAsync(string ap
 {
     try
     {
-        // Build the request URL.
+        // Get the player's achievements.
         string url = $"http://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v0001/?appid={appId}&key={apiKey}&steamid={steamUserId}&l=en";
-        
-        // Create a cancellation token with a 5-second timeout.
         using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5)))
         {
             var response = await _httpClient.GetAsync(url, cts.Token);
@@ -67,7 +65,7 @@ public static async Task<List<Achievement>> GetPlayerAchievementsAsync(string ap
             {
                 if (doc.RootElement.TryGetProperty("playerstats", out var playerstats))
                 {
-                    // If the API indicates failure (e.g. no achievements available), log and return an empty list.
+                    // Check for API failure.
                     if (playerstats.TryGetProperty("success", out var successElement) &&
                         !successElement.GetBoolean())
                     {
@@ -84,25 +82,58 @@ public static async Task<List<Achievement>> GetPlayerAchievementsAsync(string ap
                         {
                             var achievement = new Achievement
                             {
-                                // "apiname" is the unique identifier.
                                 Id = element.GetProperty("apiname").GetString(),
-                                // Optional language-dependent fields.
                                 Title = element.TryGetProperty("name", out var nameProp) ? nameProp.GetString() : null,
                                 Description = element.TryGetProperty("description", out var descProp) ? descProp.GetString() : null,
-                                // "achieved" is returned as 1 or 0.
                                 IsUnlocked = element.GetProperty("achieved").GetInt32() == 1,
-                                // "unlocktime" is a Unix timestamp (seconds since 1970-01-01).
                                 UnlockedOn = element.TryGetProperty("unlocktime", out var unlockTimeProp) &&
                                              unlockTimeProp.GetInt64() > 0
                                              ? UnixTimeStampToDateTime(unlockTimeProp.GetInt64())
                                              : (DateTime?)null,
-                                Icon = null,
+                                Icon = null, // Will be updated below.
                                 IsHidden = false,
                                 CurrentProgress = null,
                                 MaxProgress = null
                             };
 
                             achievements.Add(achievement);
+                        }
+                    }
+                }
+            }
+
+            // Retrieve the achievement definitions (including icons).
+            string schemaUrl = $"http://api.steampowered.com/ISteamUserStats/GetSchemaForGame/v2/?key={apiKey}&appid={appId}&l=en";
+            var schemaResponse = await _httpClient.GetAsync(schemaUrl, cts.Token);
+            schemaResponse.EnsureSuccessStatusCode();
+            var schemaJson = await schemaResponse.Content.ReadAsStringAsync();
+
+            using (JsonDocument schemaDoc = JsonDocument.Parse(schemaJson))
+            {
+                if (schemaDoc.RootElement.TryGetProperty("game", out var gameElement) &&
+                    gameElement.TryGetProperty("availableGameStats", out var availableGameStats) &&
+                    availableGameStats.TryGetProperty("achievements", out var schemaAchievements) &&
+                    schemaAchievements.ValueKind == JsonValueKind.Array)
+                {
+                    // Create a mapping from achievement name to its icon URL.
+                    var iconDict = new Dictionary<string, string>();
+                    foreach (var def in schemaAchievements.EnumerateArray())
+                    {
+                        if (def.TryGetProperty("name", out var nameProp))
+                        {
+                            string name = nameProp.GetString();
+                            if (def.TryGetProperty("icon", out var iconProp))
+                            {
+                                iconDict[name] = iconProp.GetString();
+                            }
+                        }
+                    }
+                    // Update each achievement with its icon, if available.
+                    foreach (var achievement in achievements)
+                    {
+                        if (iconDict.TryGetValue(achievement.Id, out var iconUrl))
+                        {
+                            achievement.Icon = iconUrl;
                         }
                     }
                 }

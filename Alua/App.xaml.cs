@@ -82,6 +82,7 @@ public partial class App : Application
         MainWindow = builder.Window;
         DotEnv.Load();
         var envVars = DotEnv.Read();
+        AppConfig.SteamAPIKey = envVars["SteamAPI"];
 #if DEBUG
         MainWindow.UseStudio();
 #endif
