@@ -1,7 +1,9 @@
+using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Text.Json.Serialization;
 using Alua.Data;
-
+//GARY HIT EM WITH THE
 namespace Alua.Models;
 
 /// <summary>
@@ -53,7 +55,8 @@ public class Game
     /// <summary>
     /// Returns true if the user has unlocked any achievements
     /// </summary>
-    public bool HasAchievements => Achievements.Count != 0;
+    [JsonIgnore]
+    public bool HasAchievements => Achievements != null & Achievements.Count != 0;
 
     /// <summary>
     /// Returns
@@ -62,6 +65,7 @@ public class Game
     /// - X of Y (Complete%) if the user has unlocked some achievements
     /// - Not started (X Achievements) if the user hasn't unlocked any achievements
     /// </summary>
+    [JsonIgnore]
     public string StatusText
     {
         get

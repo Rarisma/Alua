@@ -2,7 +2,6 @@
     x:Class="Alua.GamePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:models="clr-namespace:Alua.Models"
     xmlns:alua="clr-namespace:Alua"
     xmlns:data="clr-namespace:Alua.Data"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
@@ -54,19 +53,15 @@
             </Border>
 
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
-                <!-- Game Title -->
+                <!-- Game Title, Achievement Count and Progress  -->
                 <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap"/>
 
-                <!-- Achievement Count and Progress -->
-                <StackPanel Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <TextBlock Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                    <ProgressBar Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
-                                 Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"
-                                 Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"
-                                 Width="150"
-                                 Height="10"
-                                 VerticalAlignment="Center"/>
-                </StackPanel>
+                <TextBlock Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+
+                <ProgressBar Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
+                             Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"
+                             Value="{x:Bind AppVM.SelectedGame.UnlockedCount}" Width="150" Height="10" VerticalAlignment="Center"
+                             Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}"/>
             </StackPanel>
         </Grid>
 

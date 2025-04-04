@@ -1,21 +1,17 @@
 using System.Collections.ObjectModel;
-using Alua.Data;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using dotenv.net;
 using Uno.Resizetizer;
 
 namespace Alua;
-public partial class App : Application
+public partial class App
 {
-    /// <summary>
-    /// Instance of app settings
-    /// </summary>
-    public static Settings Settings;
+    private static Frame? _rootFrame;
+    public static Frame? Frame;
 
-    public static Frame RootFrame;
+    public static XamlRoot XamlRoot => MainWindow.Content.XamlRoot;
     
-    public static ObservableCollection<Game> Games = new();
     /// <summary>
     /// Initializes the singleton application object. This is the first line of authored code
     /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -25,8 +21,8 @@ public partial class App : Application
         InitializeComponent();
     }
 
-    public Window? MainWindow { get; private set; }
-    protected IHost? Host { get; private set; }
+    private static Window? MainWindow { get; set; }
+    private IHost? Host { get;  set; }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -71,18 +67,18 @@ public partial class App : Application
                     configBuilder
                         .EmbeddedSource<App>()
                 )
-                .ConfigureServices((context, services) =>
+                .ConfigureServices(void (_, services) =>
                 {
                     services.AddSingleton<AppVM>();
-                    
-                    // TODO: Register your services
-                    //services.AddSingleton<IMyService, MyService>();
+                    var settings = SettingsVM.Load();
+                    services.AddSingleton<SettingsVM>(settings);
                 })
             );
         MainWindow = builder.Window;
         DotEnv.Load();
         var envVars = DotEnv.Read();
         AppConfig.SteamAPIKey = envVars["SteamAPI"];
+        AppConfig.RAAPIKey = envVars["RetroAPI"];
 #if DEBUG
         MainWindow.UseStudio();
 #endif
@@ -94,22 +90,23 @@ public partial class App : Application
         
         // Do not repeat app initialization when the Window already has content,
         // just ensure that the window is active
-        if (MainWindow.Content is not Frame rootFrame)
+        var rootFrame = MainWindow.Content as Frame;
+        if (rootFrame == null)
         {
             // Create a Frame to act as the navigation context and navigate to the first page
             rootFrame = new Frame();
 
-            RootFrame = rootFrame;
+            _rootFrame = rootFrame;
             // Place the frame in the current Window
-            MainWindow.Content = RootFrame;
+            MainWindow.Content = _rootFrame;
         }
 
-        if (RootFrame.Content == null)
+        if (_rootFrame.Content == null)
         {
             // When the navigation stack isn't restored navigate to the first page,
             // configuring the new page by passing required information as a navigation
             // parameter
-            RootFrame.Navigate(typeof(MainPage), args.Arguments);
+            _rootFrame.Navigate(typeof(MainPage), args.Arguments);
         }
         
         // Ensure the current window is active

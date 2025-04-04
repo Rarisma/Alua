@@ -1,60 +1,21 @@
-using System.Collections.ObjectModel;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using Serilog;
+
 //FHN walked so Alua could run.
 namespace Alua;
 
 public sealed partial class MainPage : Page
 {
-    public static ulong SteamID = 76561198411207982;
-    private AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
     public MainPage()
     {
         InitializeComponent();
-        test();
+        App.Frame = AppContentFrame;
+        App.Frame.Navigate(typeof(GameList));
+        App.Frame.Navigated += async (s, e) => { await Ioc.Default.GetService<SettingsVM>().Save(); };
     }
 
-    public async void test()
-    {
-        App.Settings = await Data.Settings.Load();
+    private void OpenSettings(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(SettingsPage));
+    private void OpenGamesList(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(GameList));
+    private void Back(object sender, RoutedEventArgs e) => App.Frame.GoBack();
 
-        //Try to load from settings.
-        if (!App.Settings.AllGames.Any())
-        {
-            Log.Information("No games found, scanning.");
-            
-            AppVM.Games = (await new SteamService(SteamID).GetOwnedGamesAsync()).ToObservableCollection();
-            App.Settings.AllGames = AppVM.Games.ToList();
-            Log.Information("Scan complete");
-        }
-        else
-        {
-            AppVM.Games = App.Settings.AllGames.ToObservableCollection();
-        }
-        
-        //Save scan results
-        await App.Settings.Save(App.Settings);
-        Log.Information("loaded {0} games, {1} achievements",
-            AppVM.Games.Count, AppVM.Games.Sum(x => x.Achievements.Count));
-        
-    }
-
-    /// <summary>
-    /// Open Game Page
-    /// </summary>
-    private void OpenGame(object sender, RoutedEventArgs e)
-    {
-        Game game = (Game)((Button)sender).DataContext;
-
-        if (game.Achievements.Count == 0)
-        {
-            
-        }
-        else
-        {
-            AppVM.SelectedGame = game;
-            App.RootFrame.Navigate(typeof(GamePage));
-        }
-    }
 }

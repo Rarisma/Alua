@@ -1,7 +1,9 @@
 <Project Sdk="Uno.Sdk">
     <PropertyGroup>
         <TargetFrameworks>net9.0-desktop</TargetFrameworks>
-
+        <TargetFrameworks Condition=" $([MSBuild]::IsOSPlatform('windows')) ">$(TargetFrameworks);net9.0-windows10.0.26100; net9.0-android;net9.0-browserwasm;net9.0-desktop</TargetFrameworks>
+        <TargetFrameworks Condition=" !$([MSBuild]::IsOSPlatform('linux')) ">$(TargetFrameworks);net9.0-ios;net9.0-maccatalyst</TargetFrameworks>
+        
         <OutputType>Exe</OutputType>
         <UnoSingleProject>true</UnoSingleProject>
 
@@ -59,6 +61,27 @@
         <DependentUpon>NewPage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
+      <Compile Update="GameList.xaml.cs">
+        <DependentUpon>GameList.xaml</DependentUpon>
+        <IsDefaultItem>true</IsDefaultItem>
+      </Compile>
+      <Compile Update="SettingsPage.xaml.cs">
+        <DependentUpon>SettingsPage.xaml</DependentUpon>
+        <IsDefaultItem>true</IsDefaultItem>
+      </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\SACHYA\Sachya\Sachya.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Page Update="GameList.xaml">
+        <SubType>Designer</SubType>
+      </Page>
+      <Page Update="SettingsPage.xaml">
+        <SubType>Designer</SubType>
+      </Page>
     </ItemGroup>
 
 </Project>
