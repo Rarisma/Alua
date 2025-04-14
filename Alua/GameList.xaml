@@ -2,53 +2,79 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:models="clr-namespace:Alua.Models"
-      xmlns:alua="clr-namespace:Alua"
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+      mc:Ignorable="d"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-    <Page.Resources>
-        <alua:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-    </Page.Resources>
 
-    <ScrollViewer HorizontalContentAlignment="Center" HorizontalAlignment="Center">
-      <ItemsRepeater ItemsSource="{x:Bind SettingsVM.Games, Mode=OneWay}">
-          <ItemsRepeater.ItemTemplate>
-              <DataTemplate x:DataType="models:Game">
-                  <Button Click="OpenGame">
-                      <Grid HorizontalAlignment="Stretch" Width="420" Margin="10">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="Auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="100"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- App Icon -->
-                            <Border Grid.Column="0" Grid.Row="0" Grid.RowSpan="4" Width="70" Height="70" CornerRadius="5"
-                                    Margin="0,0,5,0" Padding="1" Background="#000000">
-                                <Image Source="{x:Bind Icon}" HorizontalAlignment="Center"/>
-                            </Border>
-
-                            <!-- Game Name -->
-                            <TextBlock Grid.Column="1" Grid.Row="0" Text="{x:Bind Name}"
-                                       HorizontalAlignment="Left" TextWrapping="WrapWholeWords"/>
-
-                            <!-- Achievement Count -->
-                            <TextBlock Text="{x:Bind StatusText}" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                       />
-
-                            <!-- Progress Bar -->
-                            <ProgressBar Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Minimum="0"
-                                         Width="150" HorizontalAlignment="Left"
-                                         Value="{x:Bind UnlockedCount}" Maximum="{x:Bind Achievements.Count}" />
-
-                        </Grid>
-                  </Button>
-              </DataTemplate>
-          </ItemsRepeater.ItemTemplate>
-      </ItemsRepeater>
-  </ScrollViewer>
+    <RefreshContainer RefreshRequested="{x:Bind Refresh}">
+        <!-- Added Padding around the list content -->
+        <ScrollViewer Padding="12,0,12,12">
+            <ItemsRepeater ItemsSource="{x:Bind SettingsVM.Games, Mode=OneWay}"
+                           HorizontalAlignment="Stretch">
+                <ItemsRepeater.Layout>
+                    <UniformGridLayout
+                        MinRowSpacing="10"
+                        MinColumnSpacing="10"
+                        ItemsStretch="Fill" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="models:Game">
+                        <!--
+                        Button acts as the clickable card container.
+                        Using ThemeResources for background/border for theme adaptability.
+                        Padding provides internal spacing.
+                        HorizontalContentAlignment=Stretch ensures the Grid inside fills the Button.
+                        -->
+                        <Button Click="OpenGame"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Stretch"
+                                Padding="12"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                MinHeight="120">
+                            <Grid HorizontalAlignment="Stretch">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <!-- Left: Game Icon + Provider Icon -->
+                                <StackPanel Grid.Column="0"
+                                            VerticalAlignment="Top"
+                                            HorizontalAlignment="Center"
+                                            Margin="0,0,12,0"
+                                            Spacing="6">
+                                    <Border Width="64" Height="64"
+                                            CornerRadius="{StaticResource ControlCornerRadius}"
+                                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                        <Image Source="{x:Bind Icon}" Stretch="Uniform"/>
+                                    </Border>
+                                    <Image Source="{x:Bind ProviderImage}"
+                                           Height="20"
+                                           Stretch="Uniform"
+                                           HorizontalAlignment="Center"/>
+                                </StackPanel>
+                                <!-- Right: Content -->
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Text="{x:Bind Name}"
+                                               Style="{StaticResource BodyStrongTextBlockStyle}"
+                                               TextWrapping="Wrap"/>
+                                    <TextBlock Text="{x:Bind StatusText}"
+                                               Style="{StaticResource CaptionTextBlockStyle}"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                    <ProgressBar Minimum="0"
+                                                 Maximum="{x:Bind Achievements.Count}"
+                                                 Value="{x:Bind UnlockedCount}"
+                                                 HorizontalAlignment="Stretch"
+                                                 Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </ScrollViewer>
+    </RefreshContainer>
 </Page>

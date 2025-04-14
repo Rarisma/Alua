@@ -11,5 +11,12 @@
 
         <!-- Unimplemented features -->
         <TextBox Header="PSN Username" PlaceholderText="Enter your RA username here" MinWidth="250" Visibility="Collapsed"/>
+
+        <TextBlock Text="Acknowledgements:"/>
+        <TextBlock>
+            Achievement Icon - game-icons.net
+            All Logos and Icons are property of their respective owners.
+        </TextBlock>
     </StackPanel>
+
 </Page>

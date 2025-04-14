@@ -9,15 +9,15 @@ namespace Alua.Services;
 /// </summary>
 public class SettingsVM  : ObservableRecipient
 {
-    private List<Game> _Games;
+    private List<Game>? _games;
     /// <summary>
     /// All games we have data for.
     /// </summary>
     [JsonInclude, JsonPropertyName("Games")]
-    public List<Game> Games
+    public List<Game>? Games
     {
-        get => _Games;
-        set => SetProperty( ref _Games, value);
+        get => _games;
+        set => SetProperty( ref _games, value);
     }
 
     private string _steamID;

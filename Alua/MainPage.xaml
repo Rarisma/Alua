@@ -9,12 +9,26 @@
         </Grid.RowDefinitions>
 
         <!-- App content bar -->
-        <CommandBar HorizontalAlignment="Center" Grid.Row="0" OverflowButtonVisibility="Collapsed" >
+        <CommandBar HorizontalAlignment="Center" Grid.Row="0" OverflowButtonVisibility="Collapsed">
             <!-- TODO ADD ICONS-->
             <CommandBar.PrimaryCommands>
-                <AppBarButton Content="Back" Click="Back"/>
-                <AppBarButton Content="My Games" Click="OpenGamesList"/>
-                <AppBarButton Content="Settings" Click="OpenSettings"/>
+                <AppBarButton Content="Back" Click="Back">
+                    <AppBarButton.Icon>
+                        <SymbolIcon Symbol="Back"/>
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton Content="My Games" Click="OpenGamesList">
+                    <AppBarButton.Icon>
+                        <ImageIcon Source="/Assets/Icons/Achivement.png"/>
+                    </AppBarButton.Icon>
+                </AppBarButton>
+
+                <AppBarButton Content="Settings" Click="OpenSettings">
+                    <AppBarButton.Icon>
+                        <ImageIcon Source="/Assets/Icons/Settings.png"/>
+                    </AppBarButton.Icon>
+                </AppBarButton>
             </CommandBar.PrimaryCommands>
         </CommandBar>
 

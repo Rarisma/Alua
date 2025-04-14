@@ -44,25 +44,35 @@
             </Grid.ColumnDefinitions>
 
             <!-- App Icon -->
-            <Border Width="100" Height="100" CornerRadius="5" Background="Transparent" Padding="1" Margin="0,0,20,0">
-                <Image Source="{x:Bind AppVM.SelectedGame.Icon}" Stretch="UniformToFill">
-                    <Image.Clip>
-                        <RectangleGeometry Rect="0,0,100,100"/>
-                    </Image.Clip>
-                </Image>
+            <Border Width="64" Height="64" Margin="10"
+                    CornerRadius="{StaticResource ControlCornerRadius}"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                <Image Source="{x:Bind AppVM.SelectedGame.Icon}" Stretch="Uniform"/>
             </Border>
 
-            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="5">
-                <!-- Game Title, Achievement Count and Progress  -->
-                <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap"/>
+            <Grid Grid.Column="1" VerticalAlignment="Center">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Orientation="Horizontal">
+                    <Image Source="{x:Bind AppVM.SelectedGame.ProviderImage }" Height="20" Stretch="Uniform"
+                           HorizontalAlignment="Center" Margin="0,0,10,0"/>
 
-                <TextBlock Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                    <!-- Game Title -->
+                    <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap" />
+                </StackPanel>
 
-                <ProgressBar Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
-                             Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"
-                             Value="{x:Bind AppVM.SelectedGame.UnlockedCount}" Width="150" Height="10" VerticalAlignment="Center"
-                             Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource BoolToVisibilityConverter}, Mode=OneWay}"/>
-            </StackPanel>
+                <!-- Achievement Count / Status -->
+                <TextBlock Grid.Row="1" Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center"
+                           Margin="0,0,10,5"/>
+
+                <!-- Progress Bar -->
+                <ProgressBar Grid.Row="2" Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
+                    Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"  Width="150" Height="10"
+                    VerticalAlignment="Center" Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"/>
+            </Grid>
         </Grid>
 
         <!-- Achievements List -->

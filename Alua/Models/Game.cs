@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Text.Json.Serialization;
 using Alua.Data;
@@ -87,6 +88,26 @@ public class Game
             }
 
             return $"Not Started ({Achievements.Count} Achievements)";
+        }
+    }
+
+    /// <summary>
+    /// Returns provider (i.e. Steam/RetroAchievements) logo
+    /// </summary>
+    [JsonIgnore]
+    public string ProviderImage
+    {
+        get
+        {
+            switch (Platform)
+            {
+                case Platforms.Steam:
+                    return "ms-appx:///Assets/Icons/Steam.png";
+                case Platforms.RetroAchievements:
+                    return "ms-appx:///Assets/Icons/RetroAchievements.png";
+                default:
+                    return "ms-appx:///Assets/Icons/UnknownProvider.png";
+            }
         }
     }
 }
