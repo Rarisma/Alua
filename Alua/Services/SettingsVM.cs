@@ -35,7 +35,7 @@ public class SettingsVM  : ObservableRecipient
     /// <summary>
     /// Steam ID of user we are getting data for.
     /// </summary>
-    [JsonInclude, JsonPropertyName("SteamID")]
+    [JsonInclude, JsonPropertyName("RAUsername")]
     public string RetroAchivementsUsername
     {
         get => _RetroAchievementsUsername;
@@ -67,7 +67,6 @@ public class SettingsVM  : ObservableRecipient
     {
         try
         {
-
             string path = Path.Combine(ApplicationData.Current.LocalFolder.Path, "Settings.json");
             //Read from disk.
             Log.Information($"Loading settings from path");

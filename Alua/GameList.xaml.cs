@@ -1,3 +1,4 @@
+using Alua.Data;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
@@ -27,17 +28,29 @@ public sealed partial class GameList
             };
             dialog.ShowAsync();
         }
+
+        if (SettingsVM.Games == null)
+        {
+            SettingsVM.Games = new();
+        }
         
         //Try to load from settings.
-        if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID))
+       if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID) &&
+           SettingsVM.Games.All(g => g.Platform != Platforms.Steam))
         {
             Log.Information("No games found, scanning.");
             SettingsVM.Games = await new SteamService(SettingsVM.SteamID).GetOwnedGamesAsync();
+            Log.Information("Steam scan complete");
+        }
+
+        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchivementsUsername))
+            //&& SettingsVM.Games.All(g => g.Platform != Platforms.RetroAchievements))
+        {
             SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
-            Log.Information("Scan complete");
         }
         
+
         //Save scan results
         await SettingsVM.Save();
         Log.Information("loaded {0} games, {1} achievements",

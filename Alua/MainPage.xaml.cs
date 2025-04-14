@@ -10,8 +10,8 @@ public sealed partial class MainPage : Page
     {
         InitializeComponent();
         App.Frame = AppContentFrame;
-        App.Frame.Navigate(typeof(GameList));
         App.Frame.Navigated += async (s, e) => { await Ioc.Default.GetService<SettingsVM>().Save(); };
+        App.Frame.Navigate(typeof(GameList));
     }
 
     private void OpenSettings(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(SettingsPage));

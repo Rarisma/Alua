@@ -27,15 +27,15 @@ public class RetroAchievementsService
         }
 
         // Retrieve completed games using the legacy endpoint.
-        var completedGames = await _apiClient.GetUserCompletedGamesLegacyAsync(_username);
+        var completedGames = await _apiClient.GetUserCompletionProgressAsync(_username);
         var result = new List<Game>();
 
-        foreach (var completed in completedGames)
+        foreach (var completed in completedGames.Results)
         {
             var game = new Game
             {
-                Name = completed.Title,
-                Icon = completed.ImageIcon,
+                Name = completed.Title ?? "Unknown Game",
+                Icon =  "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
                 Author = string.Empty,
                 Platform = Platforms.RetroAchievements // Ensure your Platforms enum contains this value.
             };
@@ -48,12 +48,18 @@ public class RetroAchievementsService
 
                 foreach (var kvp in progress.Achievements)
                 {
+                    // Construct the full URL only if a badge name is available; otherwise fallback to a default icon.
+                    string iconUrl = string.IsNullOrWhiteSpace(kvp.Value.BadgeName)
+                        ? "default_icon.png"
+                        : $"https://i.retroachievements.org/Badge/{kvp.Value.BadgeName}.png";
+                    
                     game.Achievements.Add(new()
                     {
                         Title = kvp.Value.Title ?? "Achievement Name Unavailable",
                         Description = kvp.Value.Description ?? "Achievement Description Unavailable",
                         IsUnlocked = kvp.Value.DateEarned.HasValue,
-                        Id = kvp.Key
+                        Id = kvp.Key,
+                        Icon = iconUrl
                     });
                 }
             }
