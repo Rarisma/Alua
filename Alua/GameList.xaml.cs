@@ -50,9 +50,41 @@ public sealed partial class GameList : Page
     /// </summary>
     public async Task Refresh()
     {
+        List<Game> games = new();
         if (SettingsVM.SteamID != null)
         {
-            SettingsVM.Games = await new SteamService(SettingsVM.SteamID).GetRecentlyPlayedGames();
+            games.AddRange(await new SteamService(SettingsVM.SteamID).GetRecentlyPlayedGames());
+        }
+    
+        if (SettingsVM.RetroAchivementsUsername != null)
+        {
+            games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
+                .GetCompletedGamesAsync()).ToObservableCollection());
+        }
+    
+        // Update or add new games.
+        foreach (var newGame in games)
+        {
+            var existing = SettingsVM.Games.FirstOrDefault(g => g.Name == newGame.Name);
+            if (existing != null)
+            {
+                int index = SettingsVM.Games.IndexOf(existing);
+                SettingsVM.Games[index] = newGame;
+            }
+            else
+            {
+                SettingsVM.Games.Add(newGame);
+            }
+        }
+    
+        // Optionally remove games not present in the new list.
+        for (int i = SettingsVM.Games.Count - 1; i >= 0; i--)
+        {
+            var game = SettingsVM.Games[i];
+            if (!games.Any(g => g.Name == game.Name))
+            {
+                SettingsVM.Games.RemoveAt(i);
+            }
         }
     }
 
