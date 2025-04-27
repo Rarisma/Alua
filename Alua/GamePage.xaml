@@ -64,6 +64,8 @@
                     <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap" />
                 </StackPanel>
 
+                <TextBlock Text="Playtime: Placeholder" FontSize="24" TextWrapping="Wrap" />
+
                 <!-- Achievement Count / Status -->
                 <TextBlock Grid.Row="1" Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center"
                            Margin="0,0,10,5"/>

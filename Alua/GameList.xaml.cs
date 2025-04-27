@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Alua.Data;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
@@ -11,6 +12,12 @@ public sealed partial class GameList : Page
 {
     private AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    
+    private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
+    private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount }
+    private OrderBy _orderBy = OrderBy.Name;
+    // what the UI actually binds to
+
     public GameList()
     {
         InitializeComponent();
@@ -41,6 +48,8 @@ public sealed partial class GameList : Page
 
         //Save scan results
         await SettingsVM.Save();
+        AppVM.FilteredGames.Clear();
+        AppVM.FilteredGames.AddRange(SettingsVM.Games);
         Log.Information("loaded {0} games, {1} achievements",
             SettingsVM.Games.Count, SettingsVM.Games.Sum(x => x.Achievements.Count));
     }
@@ -86,8 +95,49 @@ public sealed partial class GameList : Page
                 SettingsVM.Games.RemoveAt(i);
             }
         }
+        
+        AppVM.FilteredGames.Clear();
+        AppVM.FilteredGames.AddRange(SettingsVM.Games);
     }
+    private void Filter_Changed(object sender, RoutedEventArgs e)
+    {
+        // read all four checkboxes
+        _hideComplete      = CheckHideComplete.IsChecked == true;
+        _hideNoAchievements = CheckNoAchievements.IsChecked == true;
+        _hideUnstarted     = CheckUnstarted.IsChecked == true;
+        _reverse           = CheckReverse.IsChecked == true;
 
+        // read which radio is checked
+        if (RadioName.IsChecked == true)            _orderBy = OrderBy.Name;
+        else if (RadioCompletion.IsChecked == true) _orderBy = OrderBy.CompletionPct;
+        else if (RadioTotal.IsChecked == true)      _orderBy = OrderBy.TotalCount;
+        else if (RadioUnlocked.IsChecked == true)   _orderBy = OrderBy.UnlockedCount;
+
+        RefreshFiltered();
+    }
+    
+    private void RefreshFiltered()
+    {
+        var list = SettingsVM.Games
+            .Where(g => !_hideComplete      || g.UnlockedCount < g.Achievements.Count)
+            .Where(g => !_hideNoAchievements || g.HasAchievements)
+            .Where(g => !_hideUnstarted     || g.UnlockedCount > 0);
+
+        list = _orderBy switch
+        {
+            OrderBy.Name          => list.OrderBy(g => g.Name),
+            OrderBy.CompletionPct => list.OrderBy(g => (double)g.UnlockedCount / g.Achievements.Count),
+            OrderBy.TotalCount    => list.OrderBy(g => g.Achievements.Count),
+            OrderBy.UnlockedCount => list.OrderBy(g => g.UnlockedCount),
+            _                     => list
+        };
+
+        if (_reverse) list = list.Reverse();
+
+        // replace the collection instance so ItemsRepeater sees the change
+        AppVM.FilteredGames = new ObservableCollection<Game>(list);
+        Bindings.Update();   // refresh x:Bind targets
+    }
     /// <summary>
     /// Open Game Page
     /// </summary>

@@ -12,11 +12,73 @@
 
     <RefreshContainer RefreshRequested="{x:Bind Refresh}">
         <!-- Added Padding around the list content -->
-        <ScrollViewer Padding="12,0,12,12">
+        <ScrollViewer Padding="12,0,12,12" >
             <StackPanel>
-                <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible" Click="{x:Bind Refresh}"
-                        skia:Visibility="Visible" android:Visibility="Visible" Margin="10"/>
-                <ItemsRepeater ItemsSource="{x:Bind SettingsVM.Games, Mode=OneWay}"
+                <StackPanel Orientation="Horizontal">
+                    <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible" Click="{x:Bind Refresh}"
+                            skia:Visibility="Visible" android:Visibility="Visible" Margin="10"/>
+                    <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
+                      <Button.Flyout>
+              <Flyout>
+                <Flyout.FlyoutPresenterStyle>
+                  <Style TargetType="FlyoutPresenter">
+                    <Setter Property="Padding" Value="16"/>
+                    <Setter Property="CornerRadius" Value="8"/>
+                    <Setter Property="MaxWidth" Value="300"/>
+                  </Style>
+                </Flyout.FlyoutPresenterStyle>
+
+                <StackPanel Spacing="12" Width="280">
+                  <!-- checkboxes -->
+                  <CheckBox x:Name="CheckHideComplete"
+                            Content="Hide 100% Complete"
+                            Checked="Filter_Changed"
+                            Unchecked="Filter_Changed"/>
+                  <CheckBox x:Name="CheckNoAchievements"
+                            Content="Hide games with no Achievements"
+                            Checked="Filter_Changed"
+                            Unchecked="Filter_Changed"/>
+                  <CheckBox x:Name="CheckUnstarted"
+                            Content="Hide unstarted games"
+                            Checked="Filter_Changed"
+                            Unchecked="Filter_Changed"/>
+                  <CheckBox x:Name="CheckReverse"
+                            Content="Reverse order"
+                            Checked="Filter_Changed"
+                            Unchecked="Filter_Changed"/>
+
+
+                  <!-- radios -->
+                  <TextBlock Text="Order By" FontWeight="SemiBold"/>
+                  <StackPanel Spacing="6">
+                    <RadioButton x:Name="RadioName"
+                                 Content="Name (A‑Z)"
+                                 GroupName="OrderBy"
+                                 Checked="Filter_Changed"/>
+                    <RadioButton x:Name="RadioCompletion"
+                                 Content="Completion %"
+                                 GroupName="OrderBy"
+                                 Checked="Filter_Changed"/>
+                    <RadioButton x:Name="RadioTotal"
+                                 Content="Total Achievement Count"
+                                 GroupName="OrderBy"
+                                 Checked="Filter_Changed"/>
+                    <RadioButton x:Name="RadioUnlocked"
+                                 Content="Unlocked Achievement Count"
+                                 GroupName="OrderBy"
+                                 Checked="Filter_Changed"/>
+                  </StackPanel>
+
+                  <Button Content="Apply"
+                          HorizontalAlignment="Right"
+                          Click="Filter_Changed"/>
+                </StackPanel>
+                        </Flyout>
+                      </Button.Flyout>
+                    </Button>
+                </StackPanel>
+
+                <ItemsRepeater ItemsSource="{x:Bind AppVM.FilteredGames, Mode=OneWay}"
                                HorizontalAlignment="Stretch">
                     <ItemsRepeater.Layout>
                         <UniformGridLayout

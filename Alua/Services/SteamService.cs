@@ -67,14 +67,14 @@ private async Task<List<Game>> ConvertToAlua(List<Sachya.Game> gamesInfo)
             // Retrieve player's achievement progress
             var achievementsResponse = await _apiClient.GetPlayerAchievementsAsync(steamId, gameInfo.appid, "english");
             game.Achievements = new ObservableCollection<Achievement>();
-
+            
             foreach (var ach in achievementsResponse.playerstats.achievements)
             {
                 if (achievementDefinitions.TryGetValue(ach.apiname, out var definition))
                 {
                     // Use colored icon if unlocked, otherwise use grayed out icon.
                     string iconUrl = ach.achieved == 1 ? definition.icon : definition.icongray;
-
+                    
                     game.Achievements.Add(new Achievement
                     {
                         Title = !string.IsNullOrWhiteSpace(definition.displayName) ? definition.displayName : ach.name,

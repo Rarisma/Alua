@@ -16,6 +16,12 @@ public class AppVM  : ObservableRecipient
     /// </summary>
     private const string BuildString = "INVISIBLE";
 
+    private ObservableCollection<Game> _filteredGames = new();
+    public ObservableCollection<Game> FilteredGames
+    {
+        get => _filteredGames;
+        set => SetProperty(ref _filteredGames, value);
+    }
 
     private Game _selectedGame;
     public Game SelectedGame

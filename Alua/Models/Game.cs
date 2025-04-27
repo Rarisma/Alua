@@ -52,7 +52,6 @@ public class Game
     [JsonPropertyName("Source")]
     public Platforms Platform { get; set; }
     
-    
     /// <summary>
     /// Returns true if the user has unlocked any achievements
     /// </summary>
