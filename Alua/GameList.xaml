@@ -8,136 +8,155 @@
       xmlns:android="http://uno.ui/android"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       mc:Ignorable="d skia android"
+      xmlns:utu="using:Uno.Toolkit.UI"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <RefreshContainer RefreshRequested="{x:Bind Refresh}">
-        <!-- Added Padding around the list content -->
-        <ScrollViewer Padding="12,0,12,12" >
-            <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible" Click="{x:Bind Refresh}"
-                            skia:Visibility="Visible" android:Visibility="Visible" Margin="10"/>
-                    <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
-                      <Button.Flyout>
-              <Flyout>
-                <Flyout.FlyoutPresenterStyle>
-                  <Style TargetType="FlyoutPresenter">
-                    <Setter Property="Padding" Value="16"/>
-                    <Setter Property="CornerRadius" Value="8"/>
-                    <Setter Property="MaxWidth" Value="300"/>
-                  </Style>
-                </Flyout.FlyoutPresenterStyle>
-
-                <StackPanel Spacing="12" Width="280">
-                  <!-- checkboxes -->
-                  <CheckBox x:Name="CheckHideComplete"
-                            Content="Hide 100% Complete"
-                            Checked="Filter_Changed"
-                            Unchecked="Filter_Changed"/>
-                  <CheckBox x:Name="CheckNoAchievements"
-                            Content="Hide games with no Achievements"
-                            Checked="Filter_Changed"
-                            Unchecked="Filter_Changed"/>
-                  <CheckBox x:Name="CheckUnstarted"
-                            Content="Hide unstarted games"
-                            Checked="Filter_Changed"
-                            Unchecked="Filter_Changed"/>
-                  <CheckBox x:Name="CheckReverse"
-                            Content="Reverse order"
-                            Checked="Filter_Changed"
-                            Unchecked="Filter_Changed"/>
-
-
-                  <!-- radios -->
-                  <TextBlock Text="Order By" FontWeight="SemiBold"/>
-                  <StackPanel Spacing="6">
-                    <RadioButton x:Name="RadioName"
-                                 Content="Name (A‑Z)"
-                                 GroupName="OrderBy"
-                                 Checked="Filter_Changed"/>
-                    <RadioButton x:Name="RadioCompletion"
-                                 Content="Completion %"
-                                 GroupName="OrderBy"
-                                 Checked="Filter_Changed"/>
-                    <RadioButton x:Name="RadioTotal"
-                                 Content="Total Achievement Count"
-                                 GroupName="OrderBy"
-                                 Checked="Filter_Changed"/>
-                    <RadioButton x:Name="RadioUnlocked"
-                                 Content="Unlocked Achievement Count"
-                                 GroupName="OrderBy"
-                                 Checked="Filter_Changed"/>
-                  </StackPanel>
-
-                  <Button Content="Apply"
-                          HorizontalAlignment="Right"
-                          Click="Filter_Changed"/>
-                </StackPanel>
-                        </Flyout>
-                      </Button.Flyout>
-                    </Button>
-                </StackPanel>
-
-                <ItemsRepeater ItemsSource="{x:Bind AppVM.FilteredGames, Mode=OneWay}"
-                               HorizontalAlignment="Stretch">
-                    <ItemsRepeater.Layout>
-                        <UniformGridLayout
-                            MinRowSpacing="10"
-                            MinColumnSpacing="10"
-                            ItemsStretch="Fill" />
-                    </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="models:Game">
-                            <!--
-                            Button acts as the clickable card container.
-                            Using ThemeResources for background/border for theme adaptability.
-                            Padding provides internal spacing.
-                            HorizontalContentAlignment=Stretch ensures the Grid inside fills the Button.
-                            -->
-                            <Button Click="OpenGame" HorizontalAlignment="Stretch"
-                                    HorizontalContentAlignment="Stretch" Padding="12" BorderThickness="1"
-                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                    CornerRadius="{StaticResource ControlCornerRadius}"
-                                    MinHeight="120">
-                                <Grid HorizontalAlignment="Stretch">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <!-- Left: Game Icon + Provider Icon -->
-                                    <StackPanel Grid.Column="0" VerticalAlignment="Top"
-                                                HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
-                                        <Border Width="64" Height="64"
-                                                CornerRadius="{StaticResource ControlCornerRadius}"
-                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                                            <Image Source="{x:Bind Icon}" Stretch="Uniform"/>
-                                        </Border>
-                                        <Image Source="{x:Bind ProviderImage}"
-                                               Height="20"
-                                               Stretch="Uniform"
-                                               HorizontalAlignment="Center"/>
-                                    </StackPanel>
-                                    <!-- Right: Content -->
-                                    <StackPanel Grid.Column="1" Spacing="4">
-                                        <TextBlock Text="{x:Bind Name}"
-                                                   Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                   TextWrapping="Wrap"/>
-                                        <TextBlock Text="{x:Bind StatusText}"
-                                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                        <ProgressBar Minimum="0"
-                                                     Maximum="{x:Bind Achievements.Count}"
-                                                     Value="{x:Bind UnlockedCount}"
-                                                     HorizontalAlignment="Stretch"
-                                                     Margin="0,4,0,0"/>
-                                    </StackPanel>
-                                </Grid>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
+    <utu:LoadingView x:Name="GamesLoadingView">
+        <utu:LoadingView.Source>
+            <utu:CompositeLoadableSource>
+                <utu:LoadableSource Source="{x:Bind RefreshCommand}" />
+                <utu:LoadableSource Source="{x:Bind ScanCommand}" />
+            </utu:CompositeLoadableSource>
+        </utu:LoadingView.Source>
+        <!-- Show loading spinner when refreshing or scanning new libraries -->
+        <utu:LoadingView.LoadingContent>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
+                <ProgressRing IsActive="True" Width="48" Height="48"/>
+                <TextBlock Text="Updating games..." HorizontalAlignment="Center"/>
+                <TextBlock Text="{x:Bind AppVM.LoadingGamesSummary, Mode=OneWay}" HorizontalAlignment="Center"/>
             </StackPanel>
-        </ScrollViewer>
-    </RefreshContainer>
+        </utu:LoadingView.LoadingContent>
+        <RefreshContainer RefreshRequested="{x:Bind Refresh}">
+            <!-- Added Padding around the list content -->
+            <ScrollViewer Padding="12,0,12,12" >
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible" Click="{x:Bind Refresh}"
+                                skia:Visibility="Visible" android:Visibility="Visible" Margin="10"/>
+                        <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
+                          <Button.Flyout>
+                  <Flyout>
+                    <Flyout.FlyoutPresenterStyle>
+                      <Style TargetType="FlyoutPresenter">
+                        <Setter Property="Padding" Value="16"/>
+                        <Setter Property="CornerRadius" Value="8"/>
+                        <Setter Property="MaxWidth" Value="300"/>
+                      </Style>
+                    </Flyout.FlyoutPresenterStyle>
+
+                    <StackPanel Spacing="12" Width="280">
+                      <!-- checkboxes -->
+                      <CheckBox x:Name="CheckHideComplete"
+                                Content="Hide 100% Complete"
+                                Checked="Filter_Changed"
+                                Unchecked="Filter_Changed"/>
+                      <CheckBox x:Name="CheckNoAchievements"
+                                Content="Hide games with no Achievements"
+                                Checked="Filter_Changed"
+                                Unchecked="Filter_Changed"/>
+                      <CheckBox x:Name="CheckUnstarted"
+                                Content="Hide unstarted games"
+                                Checked="Filter_Changed"
+                                Unchecked="Filter_Changed"/>
+                      <CheckBox x:Name="CheckReverse"
+                                Content="Reverse order"
+                                Checked="Filter_Changed"
+                                Unchecked="Filter_Changed"/>
+
+
+                      <!-- radios -->
+                      <TextBlock Text="Order By" FontWeight="SemiBold"/>
+                      <StackPanel Spacing="6">
+                        <RadioButton x:Name="RadioName"
+                                     Content="Name (A‑Z)"
+                                     GroupName="OrderBy"
+                                     Checked="Filter_Changed"/>
+                        <RadioButton x:Name="RadioCompletion"
+                                     Content="Completion %"
+                                     GroupName="OrderBy"
+                                     Checked="Filter_Changed"/>
+                        <RadioButton x:Name="RadioTotal"
+                                     Content="Total Achievement Count"
+                                     GroupName="OrderBy"
+                                     Checked="Filter_Changed"/>
+                        <RadioButton x:Name="RadioUnlocked"
+                                     Content="Unlocked Achievement Count"
+                                     GroupName="OrderBy"
+                                     Checked="Filter_Changed"/>
+                      </StackPanel>
+
+                      <Button Content="Apply"
+                              HorizontalAlignment="Right"
+                              Click="Filter_Changed"/>
+                    </StackPanel>
+                            </Flyout>
+                          </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+
+                    <TextBlock Text="{x:Bind AppVM.GamesFoundMessage, Mode=OneWay}" Margin="0,8,0,8" FontWeight="SemiBold"/>
+
+                    <ItemsRepeater ItemsSource="{x:Bind AppVM.FilteredGames, Mode=OneWay}"
+                                   HorizontalAlignment="Stretch">
+                        <ItemsRepeater.Layout>
+                            <UniformGridLayout
+                                MinRowSpacing="10"
+                                MinColumnSpacing="10"
+                                ItemsStretch="Fill" />
+                        </ItemsRepeater.Layout>
+                        <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="models:Game">
+                                <!--
+                                Button acts as the clickable card container.
+                                Using ThemeResources for background/border for theme adaptability.
+                                Padding provides internal spacing.
+                                HorizontalContentAlignment=Stretch ensures the Grid inside fills the Button.
+                                -->
+                                <Button Click="OpenGame" HorizontalAlignment="Stretch"
+                                        HorizontalContentAlignment="Stretch" Padding="12" BorderThickness="1"
+                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                        CornerRadius="{StaticResource ControlCornerRadius}"
+                                        MinHeight="120">
+                                    <Grid HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Left: Game Icon + Provider Icon -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Top"
+                                                    HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
+                                            <Border Width="64" Height="64"
+                                                    CornerRadius="{StaticResource ControlCornerRadius}"
+                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                                <Image Source="{x:Bind Icon}" Stretch="Uniform"/>
+                                            </Border>
+                                            <Image Source="{x:Bind ProviderImage}"
+                                                   Height="20"
+                                                   Stretch="Uniform"
+                                                   HorizontalAlignment="Center"/>
+                                        </StackPanel>
+                                        <!-- Right: Content -->
+                                        <StackPanel Grid.Column="1" Spacing="4">
+                                            <TextBlock Text="{x:Bind Name}"
+                                                       Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Text="{x:Bind StatusText}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <ProgressBar Minimum="0"
+                                                         Maximum="{x:Bind Achievements.Count}"
+                                                         Value="{x:Bind UnlockedCount}"
+                                                         HorizontalAlignment="Stretch"
+                                                         Margin="0,4,0,0"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                    </ItemsRepeater>
+                </StackPanel>
+            </ScrollViewer>
+        </RefreshContainer>
+    </utu:LoadingView>
 </Page>

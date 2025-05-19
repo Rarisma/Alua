@@ -3,25 +3,26 @@ using Alua.Data;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
-using SteamWebAPI2.Models;
-
 //FHN walked so Alua could run.
 namespace Alua;
-
+/// <summary>
+/// Main app UI, shows all users games
+/// </summary>
 public sealed partial class GameList : Page
 {
     private AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-    
+
     private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
     private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount }
     private OrderBy _orderBy = OrderBy.Name;
-    // what the UI actually binds to
 
     public GameList()
     {
         InitializeComponent();
-        Scan();
+        if (SettingsVM.Games == null)
+            SettingsVM.Games = new List<Game>();
+        ScanCommand.Execute(null);
     }
 
     /// <summary>
@@ -31,8 +32,9 @@ public sealed partial class GameList : Page
     private async Task Scan()
     {
         if (SettingsVM.Games == null) { SettingsVM.Games = []; }
+
         //Try to load from settings.
-       if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID) && SettingsVM.Games.All(g => g.Platform != Platforms.Steam))
+        if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID) && SettingsVM.Games.All(g => g.Platform != Platforms.Steam))
         {
             Log.Information("No games found, scanning.");
             SettingsVM.Games = await new SteamService(SettingsVM.SteamID).GetOwnedGamesAsync();
@@ -52,6 +54,9 @@ public sealed partial class GameList : Page
         AppVM.FilteredGames.AddRange(SettingsVM.Games);
         Log.Information("loaded {0} games, {1} achievements",
             SettingsVM.Games.Count, SettingsVM.Games.Sum(x => x.Achievements.Count));
+
+        // Show a message or update a property for the UI
+        AppVM.GamesFoundMessage = $"Found {SettingsVM.Games.Count} games.";
     }
 
     /// <summary>
@@ -59,77 +64,83 @@ public sealed partial class GameList : Page
     /// </summary>
     public async Task Refresh()
     {
+        if (SettingsVM.Games == null)
+            SettingsVM.Games = new List<Game>();
         List<Game> games = new();
         if (SettingsVM.SteamID != null)
         {
             games.AddRange(await new SteamService(SettingsVM.SteamID).GetRecentlyPlayedGames());
         }
-    
+
         if (SettingsVM.RetroAchivementsUsername != null)
         {
             games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
         }
-    
+
         // Update or add new games.
         foreach (var newGame in games)
         {
-            var existing = SettingsVM.Games.FirstOrDefault(g => g.Name == newGame.Name);
-            if (existing != null)
+            var existing = SettingsVM.Games?.FirstOrDefault(g => g.Name == newGame.Name);
+            if (existing != null && SettingsVM.Games != null)
             {
                 int index = SettingsVM.Games.IndexOf(existing);
                 SettingsVM.Games[index] = newGame;
             }
             else
             {
-                SettingsVM.Games.Add(newGame);
+                SettingsVM.Games?.Add(newGame);
             }
         }
-    
+
         // Optionally remove games not present in the new list.
-        for (int i = SettingsVM.Games.Count - 1; i >= 0; i--)
+        if (SettingsVM.Games != null)
         {
-            var game = SettingsVM.Games[i];
-            if (!games.Any(g => g.Name == game.Name))
+            for (int i = SettingsVM.Games.Count - 1; i >= 0; i--)
             {
-                SettingsVM.Games.RemoveAt(i);
+                var game = SettingsVM.Games[i];
+                if (!games.Any(g => g.Name == game.Name))
+                {
+                    SettingsVM.Games.RemoveAt(i);
+                }
             }
         }
-        
+
         AppVM.FilteredGames.Clear();
-        AppVM.FilteredGames.AddRange(SettingsVM.Games);
+        if (SettingsVM.Games != null)
+            AppVM.FilteredGames.AddRange(SettingsVM.Games);
     }
     private void Filter_Changed(object sender, RoutedEventArgs e)
     {
         // read all four checkboxes
-        _hideComplete      = CheckHideComplete.IsChecked == true;
+        _hideComplete = CheckHideComplete.IsChecked == true;
         _hideNoAchievements = CheckNoAchievements.IsChecked == true;
-        _hideUnstarted     = CheckUnstarted.IsChecked == true;
-        _reverse           = CheckReverse.IsChecked == true;
+        _hideUnstarted = CheckUnstarted.IsChecked == true;
+        _reverse = CheckReverse.IsChecked == true;
 
         // read which radio is checked
-        if (RadioName.IsChecked == true)            _orderBy = OrderBy.Name;
+        if (RadioName.IsChecked == true) _orderBy = OrderBy.Name;
         else if (RadioCompletion.IsChecked == true) _orderBy = OrderBy.CompletionPct;
-        else if (RadioTotal.IsChecked == true)      _orderBy = OrderBy.TotalCount;
-        else if (RadioUnlocked.IsChecked == true)   _orderBy = OrderBy.UnlockedCount;
+        else if (RadioTotal.IsChecked == true) _orderBy = OrderBy.TotalCount;
+        else if (RadioUnlocked.IsChecked == true) _orderBy = OrderBy.UnlockedCount;
 
         RefreshFiltered();
     }
-    
+
     private void RefreshFiltered()
     {
-        var list = SettingsVM.Games
-            .Where(g => !_hideComplete      || g.UnlockedCount < g.Achievements.Count)
+        var list = (SettingsVM.Games ?? new List<Game>())
+            .Where(g => !_hideComplete || g.UnlockedCount < g.Achievements.Count)
             .Where(g => !_hideNoAchievements || g.HasAchievements)
-            .Where(g => !_hideUnstarted     || g.UnlockedCount > 0);
+            .Where(g => !_hideUnstarted || g.UnlockedCount > 0);
 
         list = _orderBy switch
         {
-            OrderBy.Name          => list.OrderBy(g => g.Name),
+            OrderBy.Name => list.OrderBy(g => g.Name),
             OrderBy.CompletionPct => list.OrderBy(g => (double)g.UnlockedCount / g.Achievements.Count),
-            OrderBy.TotalCount    => list.OrderBy(g => g.Achievements.Count),
+            OrderBy.TotalCount => list.OrderBy(g => g.Achievements.Count),
             OrderBy.UnlockedCount => list.OrderBy(g => g.UnlockedCount),
-            _                     => list
+            _ => list
         };
 
         if (_reverse) list = list.Reverse();
@@ -144,8 +155,14 @@ public sealed partial class GameList : Page
     private void OpenGame(object sender, RoutedEventArgs e)
     {
         Game game = (Game)((Button)sender).DataContext;
-
         AppVM.SelectedGame = game;
-        App.Frame.Navigate(typeof(GamePage));
+        App.Frame?.Navigate(typeof(GamePage));
     }
+
+    #region Async Commands
+    private AsyncCommand? _refreshCommand;
+    public AsyncCommand RefreshCommand => _refreshCommand ??= new AsyncCommand(Refresh);
+    private AsyncCommand? _scanCommand;
+    public AsyncCommand ScanCommand => _scanCommand ??= new AsyncCommand(Scan);
+    #endregion
 }

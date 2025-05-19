@@ -1,4 +1,5 @@
 using Alua.Data;
+using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Serilog;
 using Game = Alua.Models.Game;
@@ -21,6 +22,7 @@ public class RetroAchievementsService
 
     public async Task<List<Game>> GetCompletedGamesAsync()
     {
+        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = $"Preparing to scan your RetroAchievements Library...";
         if (string.IsNullOrWhiteSpace(_username))
         {
             return new();
@@ -35,7 +37,7 @@ public class RetroAchievementsService
             var game = new Game
             {
                 Name = completed.Title ?? "Unknown Game",
-                Icon =  "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
+                Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
                 Author = string.Empty,
                 Platform = Platforms.RetroAchievements // Ensure your Platforms enum contains this value.
             };
@@ -52,7 +54,7 @@ public class RetroAchievementsService
                     string iconUrl = string.IsNullOrWhiteSpace(kvp.Value.BadgeName)
                         ? "default_icon.png"
                         : $"https://i.retroachievements.org/Badge/{kvp.Value.BadgeName}.png";
-                    
+
                     game.Achievements.Add(new()
                     {
                         Title = kvp.Value.Title ?? "Achievement Name Unavailable",
@@ -70,6 +72,8 @@ public class RetroAchievementsService
             }
 
             result.Add(game);
+            Ioc.Default.GetRequiredService<AppVM>().LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
+
         }
 
         return result;

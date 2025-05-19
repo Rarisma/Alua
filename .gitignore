@@ -408,3 +408,5 @@ solution-config.props
 /.vscode
 Alua.sln.DotSettings
 Alua/.env
+.env
+.DS_Store

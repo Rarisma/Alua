@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Alua.Data;
+using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Serilog;
 using Game = Alua.Models.Game;
@@ -18,6 +19,7 @@ public class SteamService(string steamId)
     /// <returns>List of games.</returns>
     public async Task<List<Game>> GetOwnedGamesAsync()
     {
+        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = $"Preparing to scan your steam library...";
         var ownedGamesResponse = await _apiClient.GetOwnedGamesAsync(steamId, true, true);
         List<Sachya.Game> gamesInfo = ownedGamesResponse.response.games;
         
@@ -30,6 +32,7 @@ public class SteamService(string steamId)
     /// <returns>List of games user has played recently</returns>
     public async Task<List<Game>> GetRecentlyPlayedGames()
     {
+        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = $"Preparing to update your steam library...";
         RecentlyPlayedGamesResult games = await _apiClient.GetRecentlyPlayedGamesAsync(steamId,20);
         return await ConvertToAlua(games.response.games);
     }
@@ -43,72 +46,73 @@ public class SteamService(string steamId)
     /// a full abstraction wrapper.
     /// </remarks>
     /// <returns></returns>
-private async Task<List<Game>> ConvertToAlua(List<Sachya.Game> gamesInfo)
-{
-    var result = new List<Game>();
-
-    foreach (var gameInfo in gamesInfo)
+    private async Task<List<Game>> ConvertToAlua(List<Sachya.Game> gamesInfo)
     {
-        var game = new Game
+        var result = new List<Game>();
+        var appVM = Ioc.Default.GetRequiredService<AppVM>();
+        foreach (var gameInfo in gamesInfo)
         {
-            Name = gameInfo.name,
-            Icon = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{gameInfo.img_icon_url}.jpg",
-            Author = string.Empty,
-            Platform = Platforms.Steam,
-        };
-
-        try
-        {
-            // Retrieve the game schema that contains achievement definitions (including icon URLs)
-            var schema = await _apiClient.GetSchemaForGameAsync(gameInfo.appid);
-            var achievementDefinitions = schema?.game?.availableGameStats?.achievements?
-                .ToDictionary(a => a.name) ?? new Dictionary<string, AchievementDefinition>();
-
-            // Retrieve player's achievement progress
-            var achievementsResponse = await _apiClient.GetPlayerAchievementsAsync(steamId, gameInfo.appid, "english");
-            game.Achievements = new ObservableCollection<Achievement>();
-            
-            foreach (var ach in achievementsResponse.playerstats.achievements)
+            var game = new Game
             {
-                if (achievementDefinitions.TryGetValue(ach.apiname, out var definition))
+                Name = gameInfo.name,
+                Icon = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{gameInfo.img_icon_url}.jpg",
+                Author = string.Empty,
+                Platform = Platforms.Steam,
+            };
+
+            try
+            {
+                // Retrieve the game schema that contains achievement definitions (including icon URLs)
+                var schema = await _apiClient.GetSchemaForGameAsync(gameInfo.appid);
+                var achievementDefinitions = schema?.game?.availableGameStats?.achievements?
+                    .ToDictionary(a => a.name) ?? new Dictionary<string, AchievementDefinition>();
+
+                // Retrieve player's achievement progress
+                var achievementsResponse = await _apiClient.GetPlayerAchievementsAsync(steamId, gameInfo.appid, "english");
+                game.Achievements = new ObservableCollection<Achievement>();
+
+                foreach (var ach in achievementsResponse.playerstats.achievements)
                 {
-                    // Use colored icon if unlocked, otherwise use grayed out icon.
-                    string iconUrl = ach.achieved == 1 ? definition.icon : definition.icongray;
-                    
-                    game.Achievements.Add(new Achievement
+                    if (achievementDefinitions.TryGetValue(ach.apiname, out var definition))
                     {
-                        Title = !string.IsNullOrWhiteSpace(definition.displayName) ? definition.displayName : ach.name,
-                        Description = definition.description,
-                        Icon = iconUrl,
-                        IsUnlocked = ach.achieved == 1,
-                        Id = ach.apiname,
-                    });
-                }
-                else
-                {
-                    // Fallback: build the icon URL using the achievement API name directly
-                    string iconUrl = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{ach.apiname}.jpg";
-                    game.Achievements.Add(new Achievement()
+                        // Use colored icon if unlocked, otherwise use grayed out icon.
+                        string iconUrl = ach.achieved == 1 ? definition.icon : definition.icongray;
+
+                        game.Achievements.Add(new Achievement
+                        {
+                            Title = !string.IsNullOrWhiteSpace(definition.displayName) ? definition.displayName : ach.name,
+                            Description = definition.description,
+                            Icon = iconUrl,
+                            IsUnlocked = ach.achieved == 1,
+                            Id = ach.apiname,
+                        });
+                    }
+                    else
                     {
-                        Title = ach.name,
-                        Description = ach.description,
-                        Icon = iconUrl,
-                        IsUnlocked = ach.achieved == 1,
-                        Id = ach.apiname,
-                    });
+                        // Fallback: build the icon URL using the achievement API name directly
+                        string iconUrl = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{ach.apiname}.jpg";
+                        game.Achievements.Add(new Achievement()
+                        {
+                            Title = ach.name,
+                            Description = ach.description,
+                            Icon = iconUrl,
+                            IsUnlocked = ach.achieved == 1,
+                            Id = ach.apiname,
+                        });
+                    }
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to get achievements for {0}", gameInfo.name);
-            game.Achievements = new ObservableCollection<Achievement>();
-        }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to get achievements for {0}", gameInfo.name);
+                game.Achievements = new();
+            }
 
-        result.Add(game);
+            result.Add(game);
+            appVM.LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {gamesInfo.Count})";
+        }
+        return result;
     }
-    return result;
-}
 
     
 }
