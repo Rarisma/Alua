@@ -10,7 +10,7 @@ namespace Alua;
 /// </summary>
 public sealed partial class GameList : Page
 {
-    private AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
+    private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
     private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
@@ -20,9 +20,18 @@ public sealed partial class GameList : Page
     public GameList()
     {
         InitializeComponent();
-        if (SettingsVM.Games == null)
-            SettingsVM.Games = new List<Game>();
-        ScanCommand.Execute(null);
+        Log.Information("Initialised games list");
+        if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+        {
+            Log.Information("No games found, scanning.");
+            SettingsVM.Games = [];
+            ScanCommand.Execute(null);
+        }
+        else
+        {
+            Log.Information(SettingsVM.Games.Count + " games found, scanning.");
+            RefreshCommand.Execute(null);
+        }
     }
 
     /// <summary>
@@ -31,18 +40,16 @@ public sealed partial class GameList : Page
     /// </summary>
     private async Task Scan()
     {
-        if (SettingsVM.Games == null) { SettingsVM.Games = []; }
+        SettingsVM.Games = [];
 
-        //Try to load from settings.
-        if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID) && SettingsVM.Games.All(g => g.Platform != Platforms.Steam))
+        if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID))
         {
             Log.Information("No games found, scanning.");
             SettingsVM.Games = await new SteamService(SettingsVM.SteamID).GetOwnedGamesAsync();
             Log.Information("Steam scan complete");
         }
 
-        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchivementsUsername)
-            && SettingsVM.Games.All(g => g.Platform != Platforms.RetroAchievements))
+        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchivementsUsername))
         {
             SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
@@ -50,22 +57,23 @@ public sealed partial class GameList : Page
 
         //Save scan results
         await SettingsVM.Save();
-        AppVM.FilteredGames.Clear();
-        AppVM.FilteredGames.AddRange(SettingsVM.Games);
+        _appVm.FilteredGames.Clear();
+        _appVm.FilteredGames.AddRange(SettingsVM.Games);
         Log.Information("loaded {0} games, {1} achievements",
             SettingsVM.Games.Count, SettingsVM.Games.Sum(x => x.Achievements.Count));
 
         // Show a message or update a property for the UI
-        AppVM.GamesFoundMessage = $"Found {SettingsVM.Games.Count} games.";
+        _appVm.GamesFoundMessage = $"Found {SettingsVM.Games.Count} games.";
     }
 
     /// <summary>
     /// Updates users games
     /// </summary>
-    public async Task Refresh()
+    private async Task Refresh()
     {
-        if (SettingsVM.Games == null)
-            SettingsVM.Games = new List<Game>();
+        _appVm.LoadingGamesSummary = "Prepraring to refresh games...";
+        SettingsVM.Games ??= [];
+        
         List<Game> games = new();
         if (SettingsVM.SteamID != null)
         {
@@ -93,22 +101,12 @@ public sealed partial class GameList : Page
             }
         }
 
-        // Optionally remove games not present in the new list.
+        _appVm.FilteredGames.Clear();
         if (SettingsVM.Games != null)
-        {
-            for (int i = SettingsVM.Games.Count - 1; i >= 0; i--)
-            {
-                var game = SettingsVM.Games[i];
-                if (!games.Any(g => g.Name == game.Name))
-                {
-                    SettingsVM.Games.RemoveAt(i);
-                }
-            }
-        }
-
-        AppVM.FilteredGames.Clear();
-        if (SettingsVM.Games != null)
-            AppVM.FilteredGames.AddRange(SettingsVM.Games);
+            _appVm.FilteredGames.AddRange(SettingsVM.Games);
+        
+        
+        _appVm.LoadingGamesSummary = "Refreshed!";
     }
     private void Filter_Changed(object sender, RoutedEventArgs e)
     {
@@ -146,7 +144,7 @@ public sealed partial class GameList : Page
         if (_reverse) list = list.Reverse();
 
         // replace the collection instance so ItemsRepeater sees the change
-        AppVM.FilteredGames = new ObservableCollection<Game>(list);
+        _appVm.FilteredGames = new ObservableCollection<Game>(list);
         Bindings.Update();   // refresh x:Bind targets
     }
     /// <summary>
@@ -155,7 +153,7 @@ public sealed partial class GameList : Page
     private void OpenGame(object sender, RoutedEventArgs e)
     {
         Game game = (Game)((Button)sender).DataContext;
-        AppVM.SelectedGame = game;
+        _appVm.SelectedGame = game;
         App.Frame?.Navigate(typeof(GamePage));
     }
 

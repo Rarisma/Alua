@@ -11,7 +11,7 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <utu:LoadingView x:Name="GamesLoadingView">
+    <utu:LoadingView>
         <utu:LoadingView.Source>
             <utu:CompositeLoadableSource>
                 <utu:LoadableSource Source="{x:Bind RefreshCommand}" />
@@ -23,7 +23,7 @@
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
                 <ProgressRing IsActive="True" Width="48" Height="48"/>
                 <TextBlock Text="Updating games..." HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind AppVM.LoadingGamesSummary, Mode=OneWay}" HorizontalAlignment="Center"/>
+                <TextBlock Text="{x:Bind _appVm.LoadingGamesSummary, Mode=OneWay}" HorizontalAlignment="Center"/>
             </StackPanel>
         </utu:LoadingView.LoadingContent>
         <RefreshContainer RefreshRequested="{x:Bind Refresh}">
@@ -31,18 +31,20 @@
             <ScrollViewer Padding="12,0,12,12" >
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
-                        <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible" Click="{x:Bind Refresh}"
+                        <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible" Command="{x:Bind RefreshCommand}"
+                                skia:Visibility="Visible" android:Visibility="Visible" Margin="10"/>
+                        <Button HorizontalAlignment="Center" Content="Full Rescan" win:Visibility="Visible" Command="{x:Bind ScanCommand}"
                                 skia:Visibility="Visible" android:Visibility="Visible" Margin="10"/>
                         <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
                           <Button.Flyout>
-                  <Flyout>
-                    <Flyout.FlyoutPresenterStyle>
-                      <Style TargetType="FlyoutPresenter">
-                        <Setter Property="Padding" Value="16"/>
-                        <Setter Property="CornerRadius" Value="8"/>
-                        <Setter Property="MaxWidth" Value="300"/>
-                      </Style>
-                    </Flyout.FlyoutPresenterStyle>
+                              <Flyout>
+                                <Flyout.FlyoutPresenterStyle>
+                                  <Style TargetType="FlyoutPresenter">
+                                    <Setter Property="Padding" Value="16"/>
+                                    <Setter Property="CornerRadius" Value="8"/>
+                                    <Setter Property="MaxWidth" Value="300"/>
+                                  </Style>
+                                </Flyout.FlyoutPresenterStyle>
 
                     <StackPanel Spacing="12" Width="280">
                       <!-- checkboxes -->
@@ -94,9 +96,9 @@
                         </Button>
                     </StackPanel>
 
-                    <TextBlock Text="{x:Bind AppVM.GamesFoundMessage, Mode=OneWay}" Margin="0,8,0,8" FontWeight="SemiBold"/>
+                    <TextBlock Text="{x:Bind _appVm.GamesFoundMessage, Mode=OneWay}" Margin="0,8,0,8" FontWeight="SemiBold"/>
 
-                    <ItemsRepeater ItemsSource="{x:Bind AppVM.FilteredGames, Mode=OneWay}"
+                    <ItemsRepeater ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    HorizontalAlignment="Stretch">
                         <ItemsRepeater.Layout>
                             <UniformGridLayout

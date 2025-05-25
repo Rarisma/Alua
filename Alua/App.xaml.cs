@@ -7,9 +7,7 @@ using Uno.Resizetizer;
 namespace Alua;
 public partial class App
 {
-    private static Frame? _rootFrame;
     public static Frame? Frame;
-
     public static XamlRoot XamlRoot => MainWindow.Content.XamlRoot;
     
     /// <summary>
@@ -72,6 +70,7 @@ public partial class App
                     services.AddSingleton<AppVM>();
                     var settings = SettingsVM.Load();
                     services.AddSingleton<SettingsVM>(settings);
+                    services.AddSingleton<FirstRunVM>();
                 })
             );
         MainWindow = builder.Window;
@@ -96,17 +95,27 @@ public partial class App
             // Create a Frame to act as the navigation context and navigate to the first page
             rootFrame = new Frame();
 
-            _rootFrame = rootFrame;
+            Frame = rootFrame;
             // Place the frame in the current Window
-            MainWindow.Content = _rootFrame;
+            MainWindow.Content = Frame;
         }
 
-        if (_rootFrame.Content == null)
+        if (Frame.Content == null)
         {
             // When the navigation stack isn't restored navigate to the first page,
             // configuring the new page by passing required information as a navigation
             // parameter
-            _rootFrame.Navigate(typeof(MainPage), args.Arguments);
+
+            //check if app has ran before
+            if (Ioc.Default.GetRequiredService<SettingsVM>().Initialised)
+            {
+                Frame.Navigate(typeof(MainPage), args.Arguments);
+            }
+            else
+            {
+                Frame.Navigate(typeof(FirstRunPage), args.Arguments);
+            }
+            
         }
         
         // Ensure the current window is active

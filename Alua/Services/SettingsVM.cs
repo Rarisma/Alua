@@ -31,17 +31,28 @@ public class SettingsVM  : ObservableRecipient
         set => SetProperty(ref _steamID, value);
     }
     
-    private string _RetroAchievementsUsername;
+    private string _retroAchievementsUsername;
     /// <summary>
     /// Steam ID of user we are getting data for.
     /// </summary>
     [JsonInclude, JsonPropertyName("RAUsername")]
     public string RetroAchivementsUsername
     {
-        get => _RetroAchievementsUsername;
-        set => SetProperty(ref _RetroAchievementsUsername, value);
+        get => _retroAchievementsUsername;
+        set => SetProperty(ref _retroAchievementsUsername, value);
     }
-
+    
+    private bool _initialised;
+    /// <summary>
+    /// Controls if we show the first run dialog or gamelist
+    /// </summary>
+    [JsonInclude, JsonPropertyName("Initialised")]
+    public bool Initialised
+    {
+        get => _initialised;
+        set => SetProperty(ref _initialised, value);
+    }
+    
     /// <summary>
     /// Saves settings to disk
     /// </summary>
@@ -73,18 +84,18 @@ public class SettingsVM  : ObservableRecipient
             if (File.Exists(path))
             {
                 string content = File.ReadAllText(path);
-                return JsonSerializer.Deserialize<SettingsVM>(content);
+                return JsonSerializer.Deserialize<SettingsVM>(content)!;
             }
             
             //File doesn't exist.
             Log.Information("Settings file not found.");
-            return new();
+            return new SettingsVM();
         }
         //Loading error.
         catch (Exception ex)
         {
             Log.Error(ex, "Could not load settings");
-            return new();
+            return new SettingsVM();
         }
     }
 }
