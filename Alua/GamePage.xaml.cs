@@ -28,6 +28,7 @@ public sealed partial class GamePage : Page
         RefreshFiltered();
     }
 
+    private void Close(object sender, RoutedEventArgs e) => App.Frame.GoBack();
     private void RefreshFiltered()
     {
         var list = (AppVM.SelectedGame.Achievements ?? new ObservableCollection<Achievement>())

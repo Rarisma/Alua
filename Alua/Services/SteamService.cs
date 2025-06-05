@@ -16,18 +16,20 @@ namespace Alua.Services;
 public class SteamService
 {
     private readonly SteamWebApiClient _apiClient = new(AppConfig.SteamAPIKey!);
-    private readonly string _steamId;
+    private string _steamId;
 
     /// <summary>
     /// Initializes a new instance of the SteamService.
     /// Automatically resolves vanity URLs to Steam IDs if needed.
     /// </summary>
     /// <param name="steamIdOrVanityUrl">Steam ID or vanity URL username</param>
-    public SteamService(string steamIdOrVanityUrl)
+    private SteamService() { }
+    public static async Task<SteamService> CreateAsync(string steamIdOrVanityUrl)
     {
-        _steamId = ResolveVanityUrlIfNeeded(steamIdOrVanityUrl).GetAwaiter().GetResult();
+        var service = new SteamService();
+        service._steamId = await service.ResolveVanityUrlIfNeeded(steamIdOrVanityUrl);
+        return service;
     }
-
     /// <summary>
     /// Determines if input is a Steam ID or vanity URL and resolves accordingly.
     /// </summary>

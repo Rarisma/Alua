@@ -32,6 +32,10 @@ public sealed partial class GameList : Page
             Log.Information(SettingsVM.Games.Count + " games found, scanning.");
             RefreshCommand.Execute(null);
         }
+
+        _appVm.GamesFoundMessage = "";
+        Filter_Changed(null,null);
+        
     }
 
     /// <summary>
@@ -45,7 +49,7 @@ public sealed partial class GameList : Page
         if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID))
         {
             Log.Information("No games found, scanning.");
-            SettingsVM.Games = await new SteamService(SettingsVM.SteamID).GetOwnedGamesAsync();
+            SettingsVM.Games = await (await SteamService.CreateAsync(SettingsVM.SteamID)).GetOwnedGamesAsync();
             Log.Information("Steam scan complete");
         }
 
@@ -77,7 +81,7 @@ public sealed partial class GameList : Page
         List<Game> games = new();
         if (SettingsVM.SteamID != null)
         {
-            games.AddRange(await new SteamService(SettingsVM.SteamID).GetRecentlyPlayedGames());
+            games.AddRange(await (await SteamService.CreateAsync(SettingsVM.SteamID)).GetRecentlyPlayedGames());
         }
 
         if (SettingsVM.RetroAchivementsUsername != null)
