@@ -12,4 +12,5 @@ public sealed partial class GamePage : Page
         InitializeComponent();
     }
 
+    private void Close(object sender, RoutedEventArgs e) => App.Frame.GoBack();
 }

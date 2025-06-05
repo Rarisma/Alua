@@ -106,14 +106,15 @@ public partial class App
             // configuring the new page by passing required information as a navigation
             // parameter
 
-            //check if app has ran before
-            if (Ioc.Default.GetRequiredService<SettingsVM>().Initialised)
+            //check if app has run before
+            var settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+            if (settingsVM.Initialised)
             {
-                Frame.Navigate(typeof(MainPage), args.Arguments);
+                Frame.Navigate(typeof(MainPage));
             }
             else
             {
-                Frame.Navigate(typeof(FirstRunPage), args.Arguments);
+                Frame.Navigate(typeof(FirstRunPage));
             }
             
         }

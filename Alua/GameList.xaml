@@ -86,10 +86,6 @@
                                      GroupName="OrderBy"
                                      Checked="Filter_Changed"/>
                       </StackPanel>
-
-                      <Button Content="Apply"
-                              HorizontalAlignment="Right"
-                              Click="Filter_Changed"/>
                     </StackPanel>
                             </Flyout>
                           </Button.Flyout>

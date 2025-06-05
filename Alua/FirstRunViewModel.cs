@@ -33,7 +33,7 @@ public partial class FirstRunVM : ObservableObject
         RetroAchievementsUser = _settingsVM.RetroAchivementsUsername;
     }
 
-    public void Continue()
+    public async Task Continue()
     {
         if (string.IsNullOrWhiteSpace(SteamID) && string.IsNullOrWhiteSpace(RetroAchievementsUser))
         {
@@ -47,8 +47,8 @@ public partial class FirstRunVM : ObservableObject
 
         _settingsVM.SteamID = SteamID;
         _settingsVM.RetroAchivementsUsername = RetroAchievementsUser;
-        _settingsVM.Initialised = false; // Mark first run as complete
-
+        _settingsVM.Initialised = true; // Mark first run as complete
+        await _settingsVM.Save();
         App.Frame.Navigate(typeof(GameList));
     }
 
