@@ -114,6 +114,8 @@ public class SteamService
                 Icon = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{gameInfo.img_icon_url}.jpg",
                 Author = string.Empty,
                 Platform = Platforms.Steam,
+                PlaytimeMinutes = gameInfo.playtime_forever, // Total playtime in minutes
+                PlaytimeLastTwoWeeks = gameInfo.playtime_2weeks // Recent playtime (last two weeks) in minutes
             };
 
             try
@@ -141,7 +143,9 @@ public class SteamService
                             Icon = iconUrl,
                             IsUnlocked = ach.achieved == 1,
                             Id = ach.apiname,
+                            IsHidden = definition.hidden == 1 // Set IsHidden based on the hidden flag from Steam
                         });
+                        
                     }
                     else
                     {
@@ -154,6 +158,7 @@ public class SteamService
                             Icon = iconUrl,
                             IsUnlocked = ach.achieved == 1,
                             Id = ach.apiname,
+                            IsHidden = false  // Default to false when we don't have schema information
                         });
                     }
                 }

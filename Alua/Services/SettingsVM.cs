@@ -9,6 +9,18 @@ namespace Alua.Services;
 /// </summary>
 public class SettingsVM  : ObservableRecipient
 {
+    /// <summary>
+    /// Shown in settings
+    /// </summary>
+    [JsonIgnore]
+    public string BuildNumber = "0.2.0";
+
+    /// <summary>
+    /// Shown under build number, enables debug mode.
+    /// </summary>
+    [JsonIgnore]
+    public string BuildString = "Perpetually at risk";
+    
     private List<Game>? _games;
     /// <summary>
     /// All games we have data for.

@@ -85,4 +85,9 @@
       </Page>
     </ItemGroup>
 
+    <ItemGroup>
+      <None Remove="Assets\Icons\steam.png" />
+      <UnoImage Include="Assets\Icons\steam.png" />
+    </ItemGroup>
+
 </Project>

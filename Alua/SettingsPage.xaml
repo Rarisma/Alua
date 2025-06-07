@@ -3,7 +3,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <StackPanel HorizontalAlignment="Stretch" Margin="20">
+    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20">
         <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250" Text="{x:Bind SettingsVM.SteamID, Mode=TwoWay}"/>
 
         <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
@@ -17,6 +17,10 @@
             Achievement Icon - game-icons.net
             All Logos and Icons are property of their respective owners.
         </TextBlock>
+        <StackPanel VerticalAlignment="Bottom">
+            <TextBlock Text="{x:Bind SettingsVM.BuildNumber}"/>
+            <TextBlock Text="{x:Bind SettingsVM.BuildString}"/>
+        </StackPanel>
     </StackPanel>
 
 </Page>

@@ -16,24 +16,37 @@ public sealed partial class GameList : Page
     private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
     private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount }
     private OrderBy _orderBy = OrderBy.Name;
+    
+    // Static flag to track if initial load has occurred
+    private static bool _initialLoadCompleted = false;
 
     public GameList()
     {
         InitializeComponent();
         Log.Information("Initialised games list");
-        if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+        
+        if (!_initialLoadCompleted)
         {
-            Log.Information("No games found, scanning.");
-            SettingsVM.Games = [];
-            ScanCommand.Execute(null);
+            if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+            {
+                Log.Information("No games found, scanning.");
+                SettingsVM.Games = [];
+                ScanCommand.Execute(null);
+            }
+            else
+            {
+                Log.Information(SettingsVM.Games.Count + " games found, scanning.");
+                RefreshCommand.Execute(null);
+            }
+            _initialLoadCompleted = true;
         }
         else
         {
-            Log.Information(SettingsVM.Games.Count + " games found, scanning.");
-            RefreshCommand.Execute(null);
+            // If we've already loaded once, just populate the filtered games
+            _appVm.FilteredGames.Clear();
+            if (SettingsVM.Games != null)
+                _appVm.FilteredGames.AddRange(SettingsVM.Games);
         }
-
-        _appVm.GamesFoundMessage = "";
         Filter_Changed(null,null);
         
     }
@@ -68,6 +81,7 @@ public sealed partial class GameList : Page
 
         // Show a message or update a property for the UI
         _appVm.GamesFoundMessage = $"Found {SettingsVM.Games.Count} games.";
+        _appVm.LoadingGamesSummary = "";
     }
 
     /// <summary>
@@ -110,7 +124,7 @@ public sealed partial class GameList : Page
             _appVm.FilteredGames.AddRange(SettingsVM.Games);
         
         
-        _appVm.LoadingGamesSummary = "Refreshed!";
+        _appVm.LoadingGamesSummary = "";
     }
     private void Filter_Changed(object sender, RoutedEventArgs e)
     {

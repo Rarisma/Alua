@@ -61,7 +61,8 @@ public class RetroAchievementsService
                         Description = kvp.Value.Description ?? "Achievement Description Unavailable",
                         IsUnlocked = kvp.Value.DateEarned.HasValue,
                         Id = kvp.Key,
-                        Icon = iconUrl
+                        Icon = iconUrl,
+                        IsHidden = kvp.Value.Type == "1"  // Type 1 indicates a secret/hidden achievement in RetroAchievements
                     });
                 }
             }

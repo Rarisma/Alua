@@ -12,6 +12,7 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <utu:LoadingView>
+        <!-- Triggers for loading -->
         <utu:LoadingView.Source>
             <utu:CompositeLoadableSource>
                 <utu:LoadableSource Source="{x:Bind RefreshCommand}" />
@@ -91,8 +92,6 @@
                           </Button.Flyout>
                         </Button>
                     </StackPanel>
-
-                    <TextBlock Text="{x:Bind _appVm.GamesFoundMessage, Mode=OneWay}" Margin="0,8,0,8" FontWeight="SemiBold"/>
 
                     <ItemsRepeater ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    HorizontalAlignment="Stretch">

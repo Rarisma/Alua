@@ -6,16 +6,6 @@ namespace Alua.Services;
 /// </summary>
 public class AppVM : ObservableRecipient
 {
-    /// <summary>
-    /// Shown in settings
-    /// </summary>
-    private const string BuildNumber = "0.1.0";
-
-    /// <summary>
-    /// Shown under build number, enables debug mode.
-    /// </summary>
-    private const string BuildString = "Excellent, Excited";
-
     private ObservableCollection<Game> _filteredGames = new();
     public ObservableCollection<Game> FilteredGames
     {
