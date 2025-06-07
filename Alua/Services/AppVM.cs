@@ -2,7 +2,7 @@ using System.Collections.ObjectModel;
 //Some things can never be fixed, they must be destroyed.
 namespace Alua.Services;
 /// <summary>
-/// Main VM.
+/// Main VM, Yeah it kinda breaks MVVM, but I don't care.
 /// </summary>
 public class AppVM : ObservableRecipient
 {

@@ -1,7 +1,8 @@
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
+
 //
-namespace Alua;
+namespace Alua.UI;
 
 public sealed partial class SettingsPage : Page
 {

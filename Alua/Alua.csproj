@@ -58,15 +58,23 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Update="GamePage.xaml.cs">
-        <DependentUpon>NewPage.xaml</DependentUpon>
-        <IsDefaultItem>true</IsDefaultItem>
-      </Compile>
-      <Compile Update="GameList.xaml.cs">
+      <Compile Update="UI\GameList.xaml.cs">
         <DependentUpon>GameList.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
-      <Compile Update="SettingsPage.xaml.cs">
+      <Compile Update="UI\GamePage.xaml.cs">
+        <DependentUpon>GamePage.xaml</DependentUpon>
+        <IsDefaultItem>true</IsDefaultItem>
+      </Compile>
+      <Compile Update="UI\FirstRunPage.xaml.cs">
+        <DependentUpon>FirstRunPage.xaml</DependentUpon>
+        <IsDefaultItem>true</IsDefaultItem>
+      </Compile>
+      <Compile Update="UI\MainPage.xaml.cs">
+        <DependentUpon>MainPage.xaml</DependentUpon>
+        <IsDefaultItem>true</IsDefaultItem>
+      </Compile>
+      <Compile Update="UI\SettingsPage.xaml.cs">
         <DependentUpon>SettingsPage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
@@ -74,15 +82,6 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\SACHYA\Sachya\Sachya.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Page Update="GameList.xaml">
-        <SubType>Designer</SubType>
-      </Page>
-      <Page Update="SettingsPage.xaml">
-        <SubType>Designer</SubType>
-      </Page>
     </ItemGroup>
 
     <ItemGroup>

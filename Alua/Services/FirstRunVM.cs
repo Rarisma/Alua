@@ -1,12 +1,7 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using System;
-using System.ComponentModel;
-using System.Threading.Tasks;
-using Alua.Services;
+using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
 
-namespace Alua;
+namespace Alua.Services;
 
 public partial class FirstRunVM : ObservableObject
 {

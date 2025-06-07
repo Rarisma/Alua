@@ -1,10 +1,11 @@
 using System.Collections.ObjectModel;
-using Alua.Data;
+using Alua.Controls;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
+
 //FHN walked so Alua could run.
-namespace Alua;
+namespace Alua.UI;
 /// <summary>
 /// Main app UI, shows all users games
 /// </summary>

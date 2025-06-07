@@ -22,7 +22,6 @@ public class SteamService
     /// Initializes a new instance of the SteamService.
     /// Automatically resolves vanity URLs to Steam IDs if needed.
     /// </summary>
-    /// <param name="steamIdOrVanityUrl">Steam ID or vanity URL username</param>
     private SteamService() { }
     public static async Task<SteamService> CreateAsync(string steamIdOrVanityUrl)
     {
@@ -115,7 +114,6 @@ public class SteamService
                 Author = string.Empty,
                 Platform = Platforms.Steam,
                 PlaytimeMinutes = gameInfo.playtime_forever, // Total playtime in minutes
-                PlaytimeLastTwoWeeks = gameInfo.playtime_2weeks // Recent playtime (last two weeks) in minutes
             };
 
             try

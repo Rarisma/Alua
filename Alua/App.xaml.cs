@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
 using Alua.Services;
+using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using dotenv.net;
 using Uno.Resizetizer;
-
+//I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSLES.
 namespace Alua;
 public partial class App
 {
@@ -70,7 +71,7 @@ public partial class App
                     services.AddSingleton<AppVM>();
                     var settings = SettingsVM.Load();
                     services.AddSingleton<SettingsVM>(settings);
-                    services.AddSingleton<FirstRunVM>();
+                    services.AddSingleton<Services.FirstRunVM>();
                 })
             );
         MainWindow = builder.Window;
@@ -82,20 +83,16 @@ public partial class App
         MainWindow.UseStudio();
 #endif
         MainWindow.SetWindowIcon();
-
         Host = builder.Build();
-
         Ioc.Default.ConfigureServices(Host.Services);
         
         // Do not repeat app initialization when the Window already has content,
         // just ensure that the window is active
-        var rootFrame = MainWindow.Content as Frame;
-        if (rootFrame == null)
+        Frame = MainWindow.Content as Frame;
+        if (Frame == null)
         {
             // Create a Frame to act as the navigation context and navigate to the first page
-            rootFrame = new Frame();
-
-            Frame = rootFrame;
+            Frame = new();
             // Place the frame in the current Window
             MainWindow.Content = Frame;
         }
@@ -108,15 +105,8 @@ public partial class App
 
             //check if app has run before
             var settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-            if (settingsVM.Initialised)
-            {
-                Frame.Navigate(typeof(MainPage));
-            }
-            else
-            {
-                Frame.Navigate(typeof(FirstRunPage));
-            }
-            
+            // If the app has not run before, navigate to the FirstRunPage, otherwise show main UI.
+            Frame.Navigate(settingsVM.Initialised ? typeof(MainPage) : typeof(FirstRunPage));
         }
         
         // Ensure the current window is active

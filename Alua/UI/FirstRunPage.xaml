@@ -1,0 +1,21 @@
+<Page
+    x:Class="Alua.UI.FirstRunPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <StackPanel Spacing="20" Padding="30" VerticalAlignment="Center" HorizontalAlignment="Center">
+        <TextBlock Text="Welcome to Alua!" FontSize="24" TextAlignment="Center" />
+        <TextBlock Text="Please provide at least one account to get started." TextAlignment="Center" />
+
+        <!-- Account input fields -->
+        <TextBox PlaceholderText="Steam ID or Username" Text="{x:Bind FRVM.SteamID, Mode=TwoWay}" />
+        <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind FRVM.RetroAchievementsUser, Mode=TwoWay}" />
+
+        <!-- Error text -->
+        <TextBlock Text="{Binding _frvm.ErrorMessage}" Foreground="Red"
+                   Visibility="{Binding _frvm.HasError}" TextAlignment="Center" />
+
+        <Button Content="Continue" Click="{x:Bind FRVM.Continue}" HorizontalAlignment="Center"/>
+    </StackPanel>
+</Page>

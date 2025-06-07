@@ -2,7 +2,7 @@ using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 
 //FHN walked so Alua could run.
-namespace Alua;
+namespace Alua.UI;
 
 public sealed partial class MainPage : Page
 {

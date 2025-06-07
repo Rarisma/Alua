@@ -1,14 +1,15 @@
 ﻿<Page
-    x:Class="Alua.GamePage"
+    x:Class="Alua.UI.GamePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:alua="clr-namespace:Alua"
     xmlns:data="clr-namespace:Alua.Data"
+    xmlns:controls="clr-namespace:Alua.Controls"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <alua:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-        <alua:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
+        <controls:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <controls:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
                 <Grid.ColumnDefinitions>
