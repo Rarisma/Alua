@@ -13,8 +13,8 @@
         <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind FRVM.RetroAchievementsUser, Mode=TwoWay}" />
 
         <!-- Error text -->
-        <TextBlock Text="{Binding _frvm.ErrorMessage}" Foreground="Red"
-                   Visibility="{Binding _frvm.HasError}" TextAlignment="Center" />
+        <TextBlock Text="{Binding FRVM.ErrorMessage}" Foreground="Red"
+                   Visibility="{Binding FRVM.HasError}" TextAlignment="Center" />
 
         <Button Content="Continue" Click="{x:Bind FRVM.Continue}" HorizontalAlignment="Center"/>
     </StackPanel>

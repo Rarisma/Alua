@@ -28,7 +28,6 @@
             </StackPanel>
         </utu:LoadingView.LoadingContent>
         <RefreshContainer RefreshRequested="{x:Bind Refresh}">
-            <!-- Added Padding around the list content -->
             <ScrollViewer Padding="12,0,12,12" >
                 <StackPanel>
                     <StackPanel Orientation="Horizontal">
@@ -39,6 +38,7 @@
                         <Button HorizontalAlignment="Center" Content="Full Rescan" win:Visibility="Visible"
                                 Command="{x:Bind ScanCommand}" skia:Visibility="Visible"
                                 android:Visibility="Visible" Margin="10"/>
+                        <!-- Filter flyout -->
                         <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
                           <Button.Flyout>
                               <Flyout>
@@ -122,6 +122,9 @@
                                                        Style="{StaticResource BodyStrongTextBlockStyle}"
                                                        TextWrapping="Wrap"/>
                                             <TextBlock Text="{x:Bind StatusText}"
+                                                       Style="{StaticResource CaptionTextBlockStyle}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                            <TextBlock Text="{x:Bind PlaytimeText}"
                                                        Style="{StaticResource CaptionTextBlockStyle}"
                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                                             <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"

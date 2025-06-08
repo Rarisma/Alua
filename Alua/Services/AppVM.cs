@@ -4,35 +4,18 @@ namespace Alua.Services;
 /// <summary>
 /// Main VM, Yeah it kinda breaks MVVM, but I don't care.
 /// </summary>
-public class AppVM : ObservableRecipient
+public partial class AppVM : ObservableRecipient
 {
+    [ObservableProperty]
     private ObservableCollection<Game> _filteredGames = new();
-    public ObservableCollection<Game> FilteredGames
-    {
-        get => _filteredGames;
-        set => SetProperty(ref _filteredGames, value);
-    }
 
+    [ObservableProperty]
     private Game _selectedGame = new();
-    public Game SelectedGame
-    {
-        get => _selectedGame;
-        set => SetProperty(ref _selectedGame, value);
-    }
 
+    [ObservableProperty]
     private string _gamesFoundMessage = string.Empty;
-    public string GamesFoundMessage
-    {
-        get => _gamesFoundMessage;
-        set => SetProperty(ref _gamesFoundMessage, value);
-    }
-    
 
+    [ObservableProperty]
     private string _loadingGamesSummary = string.Empty;
-    public string LoadingGamesSummary
-    {
-        get => _loadingGamesSummary;
-        set => SetProperty(ref _loadingGamesSummary, value);
 
-    }
 }

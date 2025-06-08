@@ -67,9 +67,9 @@ public sealed partial class GameList : Page
             Log.Information("Steam scan complete");
         }
 
-        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchivementsUsername))
+        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchievementsUsername))
         {
-            SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
+            SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchievementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
         }
 
@@ -99,9 +99,9 @@ public sealed partial class GameList : Page
             games.AddRange(await (await SteamService.CreateAsync(SettingsVM.SteamID)).GetRecentlyPlayedGames());
         }
 
-        if (SettingsVM.RetroAchivementsUsername != null)
+        if (SettingsVM.RetroAchievementsUsername != null)
         {
-            games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
+            games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchievementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
         }
 

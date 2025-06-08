@@ -25,9 +25,13 @@ public partial class FirstRunVM : ObservableObject
         _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
         // Initialize from SettingsVM if needed, though for a true first run, these would be null/empty.
         SteamID = _settingsVM.SteamID;
-        RetroAchievementsUser = _settingsVM.RetroAchivementsUsername;
+        RetroAchievementsUser = _settingsVM.RetroAchievementsUsername;
     }
 
+    
+    /// <summary>
+    /// Continue to the main UI.
+    /// </summary>
     public async Task Continue()
     {
         if (string.IsNullOrWhiteSpace(SteamID) && string.IsNullOrWhiteSpace(RetroAchievementsUser))
@@ -41,7 +45,7 @@ public partial class FirstRunVM : ObservableObject
         ErrorMessage = null;
 
         _settingsVM.SteamID = SteamID;
-        _settingsVM.RetroAchivementsUsername = RetroAchievementsUser;
+        _settingsVM.RetroAchievementsUsername = RetroAchievementsUser;
         _settingsVM.Initialised = true; // Mark first run as complete
         await _settingsVM.Save();
         App.Frame.Navigate(typeof(GameList));

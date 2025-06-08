@@ -17,12 +17,13 @@ public class SteamService
 {
     private readonly SteamWebApiClient _apiClient = new(AppConfig.SteamAPIKey!);
     private string _steamId;
-
+    
+    private SteamService() { }
+    
     /// <summary>
     /// Initializes a new instance of the SteamService.
     /// Automatically resolves vanity URLs to Steam IDs if needed.
     /// </summary>
-    private SteamService() { }
     public static async Task<SteamService> CreateAsync(string steamIdOrVanityUrl)
     {
         var service = new SteamService();
@@ -36,6 +37,7 @@ public class SteamService
     /// <returns>The resolved Steam ID</returns>
     private async Task<string> ResolveVanityUrlIfNeeded(string steamIdOrVanityUrl)
     {
+        //TODO: Move to Sachya
         // Check if the input is already a valid Steam ID (numeric with 17 digits)
         if (Regex.IsMatch(steamIdOrVanityUrl, @"^\d{17}$"))
         {
@@ -45,7 +47,7 @@ public class SteamService
         try
         {
             // If not a Steam ID, try to resolve as a vanity URL using direct HTTP request
-            using var httpClient = new HttpClient();
+            using HttpClient httpClient = new();
             string apiUrl = $"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={AppConfig.SteamAPIKey}&vanityurl={steamIdOrVanityUrl}";
             
             var response = await httpClient.GetFromJsonAsync<VanityUrlResponse>(apiUrl);
@@ -103,6 +105,7 @@ public class SteamService
     /// <returns></returns>
     private async Task<List<Game>> ConvertToAlua(List<Sachya.Game> gamesInfo)
     {
+        //TODO: Move parts to Sachya
         var result = new List<Game>();
         var appVM = Ioc.Default.GetRequiredService<AppVM>();
         foreach (var gameInfo in gamesInfo)
@@ -156,7 +159,7 @@ public class SteamService
                             Icon = iconUrl,
                             IsUnlocked = ach.achieved == 1,
                             Id = ach.apiname,
-                            IsHidden = false  // Default to false when we don't have schema information
+                            IsHidden = false  
                         });
                     }
                 }

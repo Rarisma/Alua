@@ -9,32 +9,33 @@ namespace Alua.Services;
 /// <summary>
 /// Handles getting data from RetroAchievements.
 /// </summary>
-public class RetroAchievementsService
+public class RetroAchievementsService(string username)
 {
-    private readonly string _username;
-    private readonly RetroAchievements _apiClient;
+    /// <summary>
+    /// RetroAchievements API client instance.
+    /// </summary>
+    private readonly RetroAchievements _apiClient = new(username, AppConfig.RAAPIKey ?? 
+            throw new ArgumentException("No RA API Key"), "Alua");
 
-    public RetroAchievementsService(string username)
-    {
-        _username = username;
-        _apiClient = new RetroAchievements(username, AppConfig.RAAPIKey , "Alua");
-    }
-
+    /// <summary>
+    /// Scan games that have been completed by the user on RetroAchievements.
+    /// </summary>
+    /// <returns>list of Alua game objects</returns>
     public async Task<List<Game>> GetCompletedGamesAsync()
     {
-        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = $"Preparing to scan your RetroAchievements Library...";
-        if (string.IsNullOrWhiteSpace(_username))
+        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = "Preparing to scan your RetroAchievements Library...";
+        if (string.IsNullOrWhiteSpace(username))
         {
             return new();
         }
 
         // Retrieve completed games using the legacy endpoint.
-        var completedGames = await _apiClient.GetUserCompletionProgressAsync(_username);
+        var completedGames = await _apiClient.GetUserCompletionProgressAsync(username);
         var result = new List<Game>();
 
         foreach (var completed in completedGames.Results)
         {
-            var game = new Game
+            Game game = new()
             {
                 Name = completed.Title ?? "Unknown Game",
                 Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
@@ -45,7 +46,8 @@ public class RetroAchievementsService
             try
             {
                 // Get detailed user progress (including achievements) for this game.
-                var progress = await _apiClient.GetGameInfoAndUserProgressAsync(_username, completed.GameID, includeAwardMetadata: true);
+                var progress = await _apiClient.GetGameInfoAndUserProgressAsync(username, 
+                    completed.GameID, includeAwardMetadata: true);
                 game.Achievements = new();
 
                 foreach (var kvp in progress.Achievements)
@@ -62,7 +64,7 @@ public class RetroAchievementsService
                         IsUnlocked = kvp.Value.DateEarned.HasValue,
                         Id = kvp.Key,
                         Icon = iconUrl,
-                        IsHidden = kvp.Value.Type == "1"  // Type 1 indicates a secret/hidden achievement in RetroAchievements
+                        //IsHidden = kvp.Value.Type == "1"  // ngl i don't think RA has hidden achievements,
                     });
                 }
             }
@@ -72,8 +74,10 @@ public class RetroAchievementsService
                 game.Achievements = new();
             }
 
+            // Add game to collection, update progress message
             result.Add(game);
-            Ioc.Default.GetRequiredService<AppVM>().LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
+            Ioc.Default.GetRequiredService<AppVM>().LoadingGamesSummary = 
+                $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
 
         }
 
