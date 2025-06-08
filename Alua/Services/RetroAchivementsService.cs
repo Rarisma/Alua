@@ -40,7 +40,8 @@ public class RetroAchievementsService(string username)
                 Name = completed.Title ?? "Unknown Game",
                 Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
                 Author = string.Empty,
-                Platform = Platforms.RetroAchievements // Ensure your Platforms enum contains this value.
+                Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
+                PlaytimeMinutes = -1 // RetroAchievements does not provide playtime data.
             };
 
             try

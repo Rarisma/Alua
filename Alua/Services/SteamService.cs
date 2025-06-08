@@ -152,7 +152,7 @@ public class SteamService
                     {
                         // Fallback: build the icon URL using the achievement API name directly
                         string iconUrl = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{ach.apiname}.jpg";
-                        game.Achievements.Add(new Achievement()
+                        game.Achievements.Add(new Achievement
                         {
                             Title = ach.name,
                             Description = ach.description,

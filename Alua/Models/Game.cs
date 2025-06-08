@@ -123,6 +123,9 @@ public class Game
     {
         get
         {
+            // -1 means not tracked
+            if (PlaytimeMinutes < 0) { return "Playtime unavailable"; }
+            
             // No playtime
             if (PlaytimeMinutes <= 0)  { return "Never played"; }
                 
