@@ -1,0 +1,65 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            artifact: windows-x64
+          - os: windows-latest
+            rid: win-arm64
+            artifact: windows-arm64
+          - os: ubuntu-latest
+            rid: linux-x64
+            artifact: linux-x64
+          - os: ubuntu-latest
+            rid: linux-arm64
+            artifact: linux-arm64
+          - os: macos-latest
+            rid: osx-arm64
+            artifact: macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - name: Restore
+        run: dotnet restore Alua.sln
+      - name: Publish
+        run: >-
+          dotnet publish Alua/Alua.csproj -c Release -f net9.0-desktop -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish
+      - name: Create archive
+        run: |
+          cd publish
+          zip -r ../${{ matrix.artifact }}.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+  release:
+    name: Release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - name: Repackage
+        run: |
+          ls dist
+      - uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dist/**/*.zip"
+          tag: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generateReleaseNotes: true
