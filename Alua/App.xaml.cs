@@ -8,8 +8,7 @@ using Uno.Resizetizer;
 namespace Alua;
 public partial class App
 {
-    public static Frame? Frame;
-    public static XamlRoot XamlRoot => MainWindow.Content.XamlRoot;
+    public static Frame Frame = new();
     
     /// <summary>
     /// Initializes the singleton application object. This is the first line of authored code
@@ -70,8 +69,8 @@ public partial class App
                 {
                     services.AddSingleton<AppVM>();
                     var settings = SettingsVM.Load();
-                    services.AddSingleton<SettingsVM>(settings);
-                    services.AddSingleton<Services.FirstRunVM>();
+                    services.AddSingleton(settings);
+                    services.AddSingleton<FirstRunVM>();
                 })
             );
         MainWindow = builder.Window;
@@ -92,8 +91,8 @@ public partial class App
         if (Frame == null)
         {
             // Create a Frame to act as the navigation context and navigate to the first page
-            Frame = new();
             // Place the frame in the current Window
+            Frame = new Frame();
             MainWindow.Content = Frame;
         }
 

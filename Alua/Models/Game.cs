@@ -1,7 +1,4 @@
-using System;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Linq;
 using System.Text.Json.Serialization;
 using Alua.Data;
 //GARY HIT EM WITH THE
@@ -85,7 +82,7 @@ public class Game
             if (UnlockedCount > 0) // In progress
             {
                 return $"{UnlockedCount} / {Achievements.Count} " +
-                       $"({(Math.Floor((double)UnlockedCount / Achievements.Count * 100))}%)";
+                       $"({Math.Floor((double)UnlockedCount / Achievements.Count * 100)}%)";
             }
 
             // Has achievements, but none unlocked
@@ -101,17 +98,12 @@ public class Game
     {
         get
         {
-            switch (Platform)
+            return Platform switch
             {
-                case Platforms.Steam:
-                    return "ms-appx:///Assets/Icons/Steam.png";
-                case Platforms.RetroAchievements:
-                    return "ms-appx:///Assets/Icons/RetroAchievements.png";
-                
-                //Unknown provider
-                default:
-                    return "ms-appx:///Assets/Icons/UnknownProvider.png";
-            }
+                Platforms.Steam => "ms-appx:///Assets/Icons/Steam.png",
+                Platforms.RetroAchievements => "ms-appx:///Assets/Icons/RetroAchievements.png",
+                _ => "ms-appx:///Assets/Icons/UnknownProvider.png"
+            };
         }
     }
     
@@ -123,12 +115,16 @@ public class Game
     {
         get
         {
-            // -1 means not tracked
-            if (PlaytimeMinutes < 0) { return "Playtime unavailable"; }
-            
-            // No playtime
-            if (PlaytimeMinutes <= 0)  { return "Never played"; }
-                
+            switch (PlaytimeMinutes)
+            {
+                // -1 means not tracked
+                case < 0:
+                    return "Playtime unavailable";
+                // No playtime
+                case <= 0:
+                    return "Never played";
+            }
+
             int hours = PlaytimeMinutes / 60;
             int minutes = PlaytimeMinutes % 60;
 

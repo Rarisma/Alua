@@ -4,10 +4,10 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20">
-        <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250" Text="{x:Bind SettingsVM.SteamID, Mode=TwoWay}"/>
+        <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250" Text="{x:Bind _settingsVM.SteamID, Mode=TwoWay}"/>
 
         <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
-                 Margin="0,20" Text="{x:Bind SettingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
+                 Margin="0,20" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
 
         <!-- Unimplemented features -->
         <TextBox Header="PSN Username" PlaceholderText="Enter your RA username here" MinWidth="250" Visibility="Collapsed"/>
@@ -18,8 +18,8 @@
             All Logos and Icons are property of their respective owners.
         </TextBlock>
         <StackPanel VerticalAlignment="Bottom">
-            <TextBlock Text="{x:Bind SettingsVM.BuildNumber}"/>
-            <TextBlock Text="{x:Bind SettingsVM.BuildString}"/>
+            <TextBlock Text="{x:Bind _settingsVM.BuildNumber}"/>
+            <TextBlock Text="{x:Bind _settingsVM.BuildString}"/>
         </StackPanel>
     </StackPanel>
 

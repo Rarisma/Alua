@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 using Alua.Data;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
@@ -16,7 +15,7 @@ namespace Alua.Services;
 public class SteamService
 {
     private readonly SteamWebApiClient _apiClient = new(AppConfig.SteamAPIKey!);
-    private string _steamId;
+    private string _steamId = string.Empty;
     
     private SteamService() { }
     
@@ -26,7 +25,7 @@ public class SteamService
     /// </summary>
     public static async Task<SteamService> CreateAsync(string steamIdOrVanityUrl)
     {
-        var service = new SteamService();
+        SteamService service = new();
         service._steamId = await service.ResolveVanityUrlIfNeeded(steamIdOrVanityUrl);
         return service;
     }
@@ -37,32 +36,19 @@ public class SteamService
     /// <returns>The resolved Steam ID</returns>
     private async Task<string> ResolveVanityUrlIfNeeded(string steamIdOrVanityUrl)
     {
-        //TODO: Move to Sachya
-        // Check if the input is already a valid Steam ID (numeric with 17 digits)
-        if (Regex.IsMatch(steamIdOrVanityUrl, @"^\d{17}$"))
-        {
+        // If already a 17-digit Steam ID, return as-is
+        if (Regex.IsMatch(steamIdOrVanityUrl, "^\\d{17}$"))
             return steamIdOrVanityUrl;
-        }
-
         try
         {
-            // If not a Steam ID, try to resolve as a vanity URL using direct HTTP request
-            using HttpClient httpClient = new();
-            string apiUrl = $"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={AppConfig.SteamAPIKey}&vanityurl={steamIdOrVanityUrl}";
-            
-            var response = await httpClient.GetFromJsonAsync<VanityUrlResponse>(apiUrl);
-            
-            if (response?.response?.success == 1 && !string.IsNullOrEmpty(response?.response?.steamid))
+            var response = await _apiClient.ResolveVanityUrlAsync(steamIdOrVanityUrl);
+            if (response.response?.success == 1 && !string.IsNullOrEmpty(response.response.steamid))
             {
-                Log.Information("Successfully resolved vanity URL {0} to Steam ID {1}", 
-                    steamIdOrVanityUrl, response.response.steamid);
+                Log.Information("Successfully resolved vanity URL {0} to Steam ID {1}", steamIdOrVanityUrl, response.response.steamid);
                 return response.response.steamid;
             }
-            else
-            {
-                Log.Warning("Failed to resolve vanity URL {0}. Using as-is.", steamIdOrVanityUrl);
-                return steamIdOrVanityUrl;
-            }
+            Log.Warning("Failed to resolve vanity URL {0}. Using as-is.", steamIdOrVanityUrl);
+            return steamIdOrVanityUrl;
         }
         catch (Exception ex)
         {
@@ -77,9 +63,9 @@ public class SteamService
     /// <returns>List of games.</returns>
     public async Task<List<Game>> GetOwnedGamesAsync()
     {
-        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = $"Preparing to scan your steam library...";
-        var ownedGamesResponse = await _apiClient.GetOwnedGamesAsync(_steamId, true, true);
-        List<Sachya.Game> gamesInfo = ownedGamesResponse.response.games;
+        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = "Preparing to scan your steam library...";
+        OwnedGamesResult ownedGamesResponse = await _apiClient.GetOwnedGamesAsync(_steamId, true, true);
+        var gamesInfo = ownedGamesResponse.response.games;
         
         return await ConvertToAlua(gamesInfo);
     }
@@ -107,7 +93,7 @@ public class SteamService
     {
         //TODO: Move parts to Sachya
         var result = new List<Game>();
-        var appVM = Ioc.Default.GetRequiredService<AppVM>();
+        AppVM appVM = Ioc.Default.GetRequiredService<AppVM>();
         foreach (var gameInfo in gamesInfo)
         {
             var game = new Game
@@ -167,7 +153,7 @@ public class SteamService
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to get achievements for {0}", gameInfo.name);
-                game.Achievements = new();
+                game.Achievements = [];
             }
 
             result.Add(game);

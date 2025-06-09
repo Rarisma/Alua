@@ -1,18 +1,10 @@
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 
-//
 namespace Alua.UI;
 
 public sealed partial class SettingsPage : Page
 {
-    private AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
-    private SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-    public SettingsPage()
-    {
-        InitializeComponent();
-        
-        
-    }
-
+    private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    public SettingsPage() => InitializeComponent();
 }

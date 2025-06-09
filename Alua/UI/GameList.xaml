@@ -73,14 +73,20 @@
                                                  Checked="Filter_Changed"/>
                                     <RadioButton x:Name="RadioUnlocked" Content="Unlocked Achievement Count" GroupName="OrderBy"
                                                  Checked="Filter_Changed"/>
+                                    <RadioButton x:Name="RadioPlaytime" Content="Playtime" GroupName="OrderBy"
+                                                 Checked="Filter_Changed"/>
                                   </StackPanel>
                                 </StackPanel>
                             </Flyout>
                           </Button.Flyout>
                         </Button>
+
+                        <!-- Toggle for layout mode -->
+                        <ToggleSwitch OffContent="Multi Column" OnContent="Single Column" Toggled="ToggleLayout_Click"/>
                     </StackPanel>
 
-                    <ItemsRepeater ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}" HorizontalAlignment="Stretch">
+                    <ItemsRepeater x:Name="gameRepeater" ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
+                                   HorizontalAlignment="Stretch">
                         <ItemsRepeater.Layout>
                             <UniformGridLayout MinRowSpacing="10" MinColumnSpacing="10" ItemsStretch="Fill" />
                         </ItemsRepeater.Layout>
