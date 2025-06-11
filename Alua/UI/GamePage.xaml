@@ -5,6 +5,7 @@
     xmlns:alua="clr-namespace:Alua"
     xmlns:data="clr-namespace:Alua.Data"
     xmlns:controls="clr-namespace:Alua.Controls"
+    xmlns:controls1="clr-namespace:Alua.UI.Controls"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
@@ -17,11 +18,11 @@
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
                 <Border Width="50" Height="50" CornerRadius="5" Background="Transparent" Margin="0,0,10,0">
-                    <Image Source="{x:Bind Icon}" Stretch="UniformToFill">
+                    <controls1:CachedImage Source="{x:Bind Icon}" Stretch="UniformToFill">
                         <Image.Clip>
                             <RectangleGeometry Rect="0,0,50,50"/>
                         </Image.Clip>
-                    </Image>
+                    </controls1:CachedImage>
                 </Border>
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="{x:Bind Title}" FontSize="20" TextWrapping="Wrap"/>
@@ -53,7 +54,7 @@
             <Border Width="64" Height="64" Margin="10"
                     CornerRadius="{StaticResource ControlCornerRadius}"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                <Image Source="{x:Bind AppVM.SelectedGame.Icon}" Stretch="Uniform"/>
+                <controls1:CachedImage Source="{x:Bind AppVM.SelectedGame.Icon}" Stretch="Uniform"/>
             </Border>
 
             <Grid Grid.Column="1" VerticalAlignment="Center">

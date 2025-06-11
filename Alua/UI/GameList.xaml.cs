@@ -3,8 +3,6 @@ using Alua.Controls;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
-using Windows.UI.Xaml;
-using Windows.UI.Xaml.Controls;
 //FHN walked so Alua could run.
 namespace Alua.UI;
 /// <summary>

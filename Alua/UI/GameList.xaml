@@ -9,6 +9,7 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       mc:Ignorable="d skia android"
       xmlns:utu="using:Uno.Toolkit.UI"
+      xmlns:controls="clr-namespace:Alua.UI.Controls"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <utu:LoadingView>
@@ -117,7 +118,7 @@
                                                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
                                                 <Image Source="{x:Bind Icon}" Stretch="Uniform"/>
                                             </Border>
-                                            <Image Source="{x:Bind ProviderImage}"
+                                            <controls:CachedImage Source="{x:Bind ProviderImage}"
                                                    Height="20"
                                                    Stretch="Uniform"
                                                    HorizontalAlignment="Center"/>
