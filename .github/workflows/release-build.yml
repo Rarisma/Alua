@@ -1,70 +1,89 @@
-name: Build and Release
+name: Build & Release
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  # manual trigger with a required version/tag input
+  workflow_dispatch:
+    inputs:
+      version:
+        required: true
+        description: 'Tag / version (e.g. v1.2.3)'
+
+permissions:
+  contents: write  # needed by release‑action
+  packages: read
 
 jobs:
+# ---------- BUILD ----------
   build:
-    name: Build
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            rid: win-x64
-            artifact: windows-x64
-          - os: windows-latest
-            rid: win-arm64
-            artifact: windows-arm64
-          - os: ubuntu-latest
-            rid: linux-x64
-            artifact: linux-x64
-          - os: ubuntu-latest
-            rid: linux-arm64
-            artifact: linux-arm64
-          - os: macos-latest
-            rid: osx-arm64
-            artifact: macos-arm64
-    steps:
-      - uses: actions/checkout@v4
-      - name: Clone sachya repository
-        uses: actions/checkout@v4
-        with:
-          repository: rarisma/sachya
-          path: sachya
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: global.json
-      - name: Restore
-        run: dotnet restore Alua.sln
-      - name: Publish
-        run: >-
-          dotnet publish Alua/Alua.csproj -c Release -f net9.0-desktop -r ${{ matrix.rid }} --self-contained true -p:PublishSingleFile=true -o publish
-      - name: Create archive
-        run: |
-          cd publish
-          zip -r ../${{ matrix.artifact }}.zip .
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: ${{ matrix.artifact }}.zip
+          # desktop
+          - os: windows-latest   ; rid: win-x64     ; fw: net9.0-windows10.0.19041.0 ; art: win-x64
+          - os: windows-latest   ; rid: win-arm64   ; fw: net9.0-windows10.0.19041.0 ; art: win-arm64
+          - os: ubuntu-latest    ; rid: linux-x64   ; fw: net9.0                     ; art: linux-x64
+          - os: ubuntu-latest    ; rid: linux-arm64 ; fw: net9.0                     ; art: linux-arm64
+          - os: macos-latest     ; rid: osx-arm64   ; fw: net9.0-macos               ; art: macos-arm64
+          # mobile
+          - os: windows-latest   ; rid: android-arm64 ; fw: net9.0-android           ; art: android-arm64
 
+    steps:
+    # main repo
+    - uses: actions/checkout@v4
+
+    # clone Sachya *exactly* where the .sln expects it
+    - uses: actions/checkout@v4
+      with:
+        repository: rarisma/sachya
+        path: SACHYA   # matches 'SACHYA/…' casing in solution
+
+    # install SDK (cached)
+    - uses: actions/setup-dotnet@v4
+      with:
+        global-json-file: global.json       # keeps you on .NET 9 preview channel
+        cache: true                         # enables built‑in NuGet cache
+
+    # Android workload only when needed
+    - if: contains(matrix.art, 'android')
+      run: dotnet workload install android
+
+    # restore once per job (already cached)
+    - run: dotnet restore Alua.sln
+
+    # publish
+    - run: |
+        dotnet publish Alua/Alua.csproj \
+          -c Release                         \
+          -f ${{ matrix.fw }}               \
+          -r ${{ matrix.rid }}              \
+          --self-contained true             \
+          -p:PublishSingleFile=true          \
+          -o publish
+
+    # compress
+    - name: Archive ${{ matrix.art }}
+      run: |
+        cd publish
+        7z a ../${{ matrix.art }}.zip ./*
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.art }}
+        path: ${{ matrix.art }}.zip
+
+# ---------- RELEASE ----------
   release:
-    name: Release
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
-        with:
-          path: dist
-      - name: Repackage
-        run: |
-          ls dist
-      - uses: ncipollo/release-action@v1
-        with:
-          artifacts: "dist/**/*.zip"
-          tag: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          generateReleaseNotes: true
+    - uses: actions/download-artifact@v4
+      with: { path: dist }
+
+    - uses: ncipollo/release-action@v1
+      with:
+        tag:  ${{ github.event.inputs.version }}
+        name: ${{ github.event.inputs.version }}
+        artifacts: dist/**/*.zip
+        generateReleaseNotes: true
