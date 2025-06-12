@@ -4,8 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:alua="clr-namespace:Alua"
     xmlns:data="clr-namespace:Alua.Data"
+    xmlns:android="http://uno.ui/android"
     xmlns:controls="clr-namespace:Alua.Controls"
     xmlns:controls1="clr-namespace:Alua.UI.Controls"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="android"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
@@ -31,8 +34,9 @@
             </Grid>
         </DataTemplate>
     </Page.Resources>
+    <RefreshContainer RefreshRequested="RefreshGamePull">
 
-    <Grid Margin="10">
+        <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
@@ -70,6 +74,11 @@
 
                     <!-- Game Title -->
                     <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap" />
+
+                    <!-- Refresh button -->
+                    <Button Visibility="Visible" android:Visibility="Collapsed" Click="RefreshGameClick">
+                        <SymbolIcon Symbol="Refresh"/>
+                    </Button>
                 </StackPanel>
 
                 <StackPanel Grid.Row="1" Orientation="Horizontal">
@@ -101,4 +110,5 @@
                            HorizontalAlignment="Stretch"/>
         </ScrollViewer>
     </Grid>
+    </RefreshContainer>
 </Page>

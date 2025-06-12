@@ -1,16 +1,9 @@
 using Uno.UI.Hosting;
+using Alua;
 
-namespace Alua;
+var host = UnoPlatformHostBuilder.Create()
+    .App(() => new App())
+    .UseWebAssembly()
+    .Build();
 
-public class Program
-{
-    public static async Task Main(string[] args)
-    {
-        var host = UnoPlatformHostBuilder.Create()
-            .App(() => new App())
-            .UseWebAssembly()
-            .Build();
-
-        await host.RunAsync();
-    }
-}
+await host.RunAsync();

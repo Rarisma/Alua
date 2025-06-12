@@ -38,4 +38,14 @@ public sealed partial class GamePage : Page
         _filteredAchievements = new ObservableCollection<Achievement>(list);
         Bindings.Update();
     }
+
+    private void RefreshGameClick(object sender, RoutedEventArgs e)
+    {
+        throw new NotImplementedException();
+    }
+
+    private void RefreshGamePull(RefreshContainer sender, RefreshRequestedEventArgs args)
+    {
+        throw new NotImplementedException();
+    }
 }
