@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Net.Http.Json;
-using System.Text.Json.Serialization;
 using Alua.Data;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
@@ -16,17 +15,17 @@ namespace Alua.Services;
 public class SteamService
 {
     private readonly SteamWebApiClient _apiClient = new(AppConfig.SteamAPIKey!);
-    private string _steamId;
-
+    private string _steamId = string.Empty;
+    
+    private SteamService() { }
+    
     /// <summary>
     /// Initializes a new instance of the SteamService.
     /// Automatically resolves vanity URLs to Steam IDs if needed.
     /// </summary>
-    /// <param name="steamIdOrVanityUrl">Steam ID or vanity URL username</param>
-    private SteamService() { }
     public static async Task<SteamService> CreateAsync(string steamIdOrVanityUrl)
     {
-        var service = new SteamService();
+        SteamService service = new();
         service._steamId = await service.ResolveVanityUrlIfNeeded(steamIdOrVanityUrl);
         return service;
     }
@@ -37,31 +36,19 @@ public class SteamService
     /// <returns>The resolved Steam ID</returns>
     private async Task<string> ResolveVanityUrlIfNeeded(string steamIdOrVanityUrl)
     {
-        // Check if the input is already a valid Steam ID (numeric with 17 digits)
-        if (Regex.IsMatch(steamIdOrVanityUrl, @"^\d{17}$"))
-        {
+        // If already a 17-digit Steam ID, return as-is
+        if (Regex.IsMatch(steamIdOrVanityUrl, "^\\d{17}$"))
             return steamIdOrVanityUrl;
-        }
-
         try
         {
-            // If not a Steam ID, try to resolve as a vanity URL using direct HTTP request
-            using var httpClient = new HttpClient();
-            string apiUrl = $"https://api.steampowered.com/ISteamUser/ResolveVanityURL/v1/?key={AppConfig.SteamAPIKey}&vanityurl={steamIdOrVanityUrl}";
-            
-            var response = await httpClient.GetFromJsonAsync<VanityUrlResponse>(apiUrl);
-            
-            if (response?.response?.success == 1 && !string.IsNullOrEmpty(response?.response?.steamid))
+            var response = await _apiClient.ResolveVanityUrlAsync(steamIdOrVanityUrl);
+            if (response.response?.success == 1 && !string.IsNullOrEmpty(response.response.steamid))
             {
-                Log.Information("Successfully resolved vanity URL {0} to Steam ID {1}", 
-                    steamIdOrVanityUrl, response.response.steamid);
+                Log.Information("Successfully resolved vanity URL {0} to Steam ID {1}", steamIdOrVanityUrl, response.response.steamid);
                 return response.response.steamid;
             }
-            else
-            {
-                Log.Warning("Failed to resolve vanity URL {0}. Using as-is.", steamIdOrVanityUrl);
-                return steamIdOrVanityUrl;
-            }
+            Log.Warning("Failed to resolve vanity URL {0}. Using as-is.", steamIdOrVanityUrl);
+            return steamIdOrVanityUrl;
         }
         catch (Exception ex)
         {
@@ -76,9 +63,9 @@ public class SteamService
     /// <returns>List of games.</returns>
     public async Task<List<Game>> GetOwnedGamesAsync()
     {
-        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = $"Preparing to scan your steam library...";
-        var ownedGamesResponse = await _apiClient.GetOwnedGamesAsync(_steamId, true, true);
-        List<Sachya.Game> gamesInfo = ownedGamesResponse.response.games;
+        Ioc.Default.GetRequiredService<AppVM>().GamesFoundMessage = "Preparing to scan your steam library...";
+        OwnedGamesResult ownedGamesResponse = await _apiClient.GetOwnedGamesAsync(_steamId, true, true);
+        var gamesInfo = ownedGamesResponse.response.games;
         
         return await ConvertToAlua(gamesInfo);
     }
@@ -104,8 +91,9 @@ public class SteamService
     /// <returns></returns>
     private async Task<List<Game>> ConvertToAlua(List<Sachya.Game> gamesInfo)
     {
+        //TODO: Move parts to Sachya
         var result = new List<Game>();
-        var appVM = Ioc.Default.GetRequiredService<AppVM>();
+        AppVM appVM = Ioc.Default.GetRequiredService<AppVM>();
         foreach (var gameInfo in gamesInfo)
         {
             var game = new Game
@@ -114,6 +102,7 @@ public class SteamService
                 Icon = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{gameInfo.img_icon_url}.jpg",
                 Author = string.Empty,
                 Platform = Platforms.Steam,
+                PlaytimeMinutes = gameInfo.playtime_forever, // Total playtime in minutes
             };
 
             try
@@ -141,19 +130,22 @@ public class SteamService
                             Icon = iconUrl,
                             IsUnlocked = ach.achieved == 1,
                             Id = ach.apiname,
+                            IsHidden = definition.hidden == 1 // Set IsHidden based on the hidden flag from Steam
                         });
+                        
                     }
                     else
                     {
                         // Fallback: build the icon URL using the achievement API name directly
                         string iconUrl = $"https://media.steampowered.com/steamcommunity/public/images/apps/{gameInfo.appid}/{ach.apiname}.jpg";
-                        game.Achievements.Add(new Achievement()
+                        game.Achievements.Add(new Achievement
                         {
                             Title = ach.name,
                             Description = ach.description,
                             Icon = iconUrl,
                             IsUnlocked = ach.achieved == 1,
                             Id = ach.apiname,
+                            IsHidden = false  
                         });
                     }
                 }
@@ -161,7 +153,7 @@ public class SteamService
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to get achievements for {0}", gameInfo.name);
-                game.Achievements = new();
+                game.Achievements = [];
             }
 
             result.Add(game);

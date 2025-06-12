@@ -2,7 +2,7 @@ using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 
 //FHN walked so Alua could run.
-namespace Alua;
+namespace Alua.UI;
 
 public sealed partial class MainPage : Page
 {
@@ -10,7 +10,7 @@ public sealed partial class MainPage : Page
     {
         InitializeComponent();
         App.Frame = AppContentFrame;
-        App.Frame.Navigated += async (s, e) => { await Ioc.Default.GetService<SettingsVM>().Save(); };
+        App.Frame.Navigated += async (_, _) => { await Ioc.Default.GetRequiredService<SettingsVM>().Save(); };
         App.Frame.Navigate(typeof(GameList));
     }
 

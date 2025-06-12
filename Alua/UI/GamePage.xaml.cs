@@ -1,10 +1,10 @@
 using System.Collections.ObjectModel;
-using System.Linq;
 using Alua.Data;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
+
 //And guess what? It's not the pizza guy! 
-namespace Alua;
+namespace Alua.UI;
 
 public sealed partial class GamePage : Page
 {
@@ -31,10 +31,10 @@ public sealed partial class GamePage : Page
     private void Close(object sender, RoutedEventArgs e) => App.Frame.GoBack();
     private void RefreshFiltered()
     {
-        var list = (AppVM.SelectedGame.Achievements ?? new ObservableCollection<Achievement>())
-            .Where(a => !_hideUnlocked || !a.IsUnlocked)
-            .Where(a => !_hideHidden || !a.IsHidden);
-
+        var list = (AppVM.SelectedGame?.Achievements ?? Enumerable.Empty<Achievement>())
+            .Where(a => (!_hideUnlocked || !a.IsUnlocked)      // keep locked items unless _hideUnlocked is true
+                        && (!_hideHidden  || !a.IsHidden || a.IsUnlocked)) // show hidden items only if they’re unlocked
+            .ToList(); 
         _filteredAchievements = new ObservableCollection<Achievement>(list);
         Bindings.Update();
     }

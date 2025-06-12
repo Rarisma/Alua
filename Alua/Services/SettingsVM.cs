@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Serilog;
@@ -7,73 +6,71 @@ namespace Alua.Services;
 /// <summary>
 /// Main VM.
 /// </summary>
-public class SettingsVM  : ObservableRecipient
+public partial class SettingsVM  : ObservableObject
 {
-    private List<Game>? _games;
+    /// <summary>
+    /// Shown in settings
+    /// </summary>
+    [JsonIgnore]
+    public string BuildNumber = "0.2.0";
+
+    /// <summary>
+    /// Shown under build number, enables debug mode.
+    /// </summary>
+    [JsonIgnore]
+    public string BuildString = "Perpetually at risk";
+    
     /// <summary>
     /// All games we have data for.
     /// </summary>
-    [JsonInclude, JsonPropertyName("Games")]
-    public List<Game>? Games
-    {
-        get => _games;
-        set => SetProperty( ref _games, value);
-    }
+    [ObservableProperty, JsonInclude, JsonPropertyName("ScannedGames")]
+    private List<Game>? _games;
+    
+    /// <summary>
+    /// Steam ID of user we are getting data for.
+    /// </summary>
+    [ObservableProperty, JsonInclude, JsonPropertyName("SteamUsername")]
+    private string? _steamID;
+    
+    /// <summary>
+    /// Steam ID of user we are getting data for.
+    /// </summary>
+    [ObservableProperty, JsonInclude, JsonPropertyName("RAUsername")]
+    private string? _retroAchievementsUsername;
 
-    private string _steamID;
     /// <summary>
-    /// Steam ID of user we are getting data for.
+    /// Controls if we show the first run dialog or game list
     /// </summary>
-    [JsonInclude, JsonPropertyName("SteamID")]
-    public string SteamID
-    {
-        get => _steamID;
-        set => SetProperty(ref _steamID, value);
-    }
-    
-    private string _retroAchievementsUsername;
-    /// <summary>
-    /// Steam ID of user we are getting data for.
-    /// </summary>
-    [JsonInclude, JsonPropertyName("RAUsername")]
-    public string RetroAchivementsUsername
-    {
-        get => _retroAchievementsUsername;
-        set => SetProperty(ref _retroAchievementsUsername, value);
-    }
-    
+    [ObservableProperty, JsonInclude, JsonPropertyName("Init")]    
     private bool _initialised;
-    /// <summary>
-    /// Controls if we show the first run dialog or gamelist
-    /// </summary>
-    [JsonInclude, JsonPropertyName("Initialised")]
-    public bool Initialised
-    {
-        get => _initialised;
-        set => SetProperty(ref _initialised, value);
-    }
+
     
     /// <summary>
     /// Saves settings to disk
     /// </summary>
     public async Task Save()
     {
-        //Get folder
-        StorageFile settings = await ApplicationData.Current.LocalFolder.CreateFileAsync("Settings.json",
-            CreationCollisionOption.ReplaceExisting);
-        
-        //Write to disk.
-        Log.Information($"Saving settings to {settings.Path}");
-        string json = JsonSerializer.Serialize(this);
-        await File.WriteAllTextAsync(settings.Path, json);
-        Log.Information("Saved settings.");
+        try
+        {
+            //Get folder
+            StorageFile settings = await ApplicationData.Current.LocalFolder.CreateFileAsync("Settings.json",
+                CreationCollisionOption.ReplaceExisting);
 
+            //Write to disk.
+            Log.Information($"Saving settings to {settings.Path}");
+            string json = JsonSerializer.Serialize(this);
+            await File.WriteAllTextAsync(settings.Path, json);
+            Log.Information("Saved settings.");
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, "Failed to save settings");
+        }
     }
 
     /// <summary>
     /// Reads settings from disk
     /// </summary>
-    /// <returns></returns>
     public static SettingsVM Load()
     {
         try
@@ -84,6 +81,11 @@ public class SettingsVM  : ObservableRecipient
             if (File.Exists(path))
             {
                 string content = File.ReadAllText(path);
+                if (string.IsNullOrEmpty(content))
+                {
+                    Log.Warning("Settings file is empty, returning default settings.");
+                    return new SettingsVM();
+                }
                 return JsonSerializer.Deserialize<SettingsVM>(content)!;
             }
             

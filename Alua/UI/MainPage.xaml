@@ -1,30 +1,29 @@
-<Page x:Class="Alua.MainPage"
+<Page x:Class="Alua.UI.MainPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-    <Grid>
+    <Grid HorizontalAlignment="Stretch">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- App content bar -->
-        <CommandBar HorizontalAlignment="Center" Grid.Row="0" OverflowButtonVisibility="Collapsed">
-            <!-- TODO ADD ICONS-->
+        <CommandBar HorizontalAlignment="Left" Grid.Row="0" OverflowButtonVisibility="Collapsed">
             <CommandBar.PrimaryCommands>
-                <AppBarButton Content="Back" Click="Back">
+                <AppBarButton Content="Back" Click="Back" HorizontalAlignment="Left">
                     <AppBarButton.Icon>
                         <SymbolIcon Symbol="Back"/>
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Content="My Games" Click="OpenGamesList">
+                <AppBarButton Content="My Games" Click="OpenGamesList" HorizontalAlignment="Center">
                     <AppBarButton.Icon>
                         <ImageIcon Source="/Assets/Icons/Achivement.png"/>
                     </AppBarButton.Icon>
                 </AppBarButton>
 
-                <AppBarButton Content="Settings" Click="OpenSettings">
+                <AppBarButton Content="Settings" Click="OpenSettings" HorizontalAlignment="Right">
                     <AppBarButton.Icon>
                         <ImageIcon Source="/Assets/Icons/Settings.png"/>
                     </AppBarButton.Icon>

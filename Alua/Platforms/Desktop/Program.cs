@@ -1,12 +1,13 @@
 using Uno.UI.Hosting;
 
+// ReSharper disable once CheckNamespace
 namespace Alua;
 public class Program
 {
     [STAThread]
     public static void Main(string[] args)
     {
-        var host = UnoPlatformHostBuilder.Create()
+        UnoPlatformHost host = UnoPlatformHostBuilder.Create()
             .App(() => new App())
             .UseX11()
             .UseMacOS()

@@ -1,41 +1,66 @@
 using System.Collections.ObjectModel;
-using Alua.Data;
+using Alua.Controls;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 //FHN walked so Alua could run.
-namespace Alua;
+namespace Alua.UI;
 /// <summary>
 /// Main app UI, shows all users games
 /// </summary>
-public sealed partial class GameList : Page
+public partial class GameList
 {
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
     private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
-    private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount }
+    private bool _singleColumnLayout = false; // Default to multi-column layout
+    private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime }
     private OrderBy _orderBy = OrderBy.Name;
+
+    // Static flag to track if initial load has occurred
+    private static bool _initialLoadCompleted = false;
+
+    // Commands for layouts
+    public AsyncCommand SingleColumnCommand => new AsyncCommand(async () => {
+        _singleColumnLayout = true;
+        UpdateItemsLayout();
+    });
+
+    public AsyncCommand MultiColumnCommand => new AsyncCommand(async () => {
+        _singleColumnLayout = false;
+        UpdateItemsLayout();
+    });
 
     public GameList()
     {
         InitializeComponent();
         Log.Information("Initialised games list");
-        if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+
+        if (!_initialLoadCompleted)
         {
-            Log.Information("No games found, scanning.");
-            SettingsVM.Games = [];
-            ScanCommand.Execute(null);
+            if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+            {
+                Log.Information("No games found, scanning.");
+                SettingsVM.Games = [];
+                ScanCommand.Execute(null);
+            }
+            else
+            {
+                Log.Information(SettingsVM.Games.Count + " games found, scanning.");
+                RefreshCommand.Execute(null);
+            }
+            _initialLoadCompleted = true;
         }
         else
         {
-            Log.Information(SettingsVM.Games.Count + " games found, scanning.");
-            RefreshCommand.Execute(null);
+            // If we've already loaded once, just populate the filtered games
+            _appVm.FilteredGames.Clear();
+            if (SettingsVM.Games != null)
+                _appVm.FilteredGames.AddRange(SettingsVM.Games);
         }
-
-        _appVm.GamesFoundMessage = "";
         Filter_Changed(null,null);
-        
+
     }
 
     /// <summary>
@@ -53,9 +78,9 @@ public sealed partial class GameList : Page
             Log.Information("Steam scan complete");
         }
 
-        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchivementsUsername))
+        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchievementsUsername))
         {
-            SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
+            SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchievementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
         }
 
@@ -68,6 +93,7 @@ public sealed partial class GameList : Page
 
         // Show a message or update a property for the UI
         _appVm.GamesFoundMessage = $"Found {SettingsVM.Games.Count} games.";
+        _appVm.LoadingGamesSummary = "";
     }
 
     /// <summary>
@@ -77,16 +103,16 @@ public sealed partial class GameList : Page
     {
         _appVm.LoadingGamesSummary = "Prepraring to refresh games...";
         SettingsVM.Games ??= [];
-        
+
         List<Game> games = new();
         if (SettingsVM.SteamID != null)
         {
             games.AddRange(await (await SteamService.CreateAsync(SettingsVM.SteamID)).GetRecentlyPlayedGames());
         }
 
-        if (SettingsVM.RetroAchivementsUsername != null)
+        if (SettingsVM.RetroAchievementsUsername != null)
         {
-            games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchivementsUsername)
+            games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchievementsUsername)
                 .GetCompletedGamesAsync()).ToObservableCollection());
         }
 
@@ -108,11 +134,11 @@ public sealed partial class GameList : Page
         _appVm.FilteredGames.Clear();
         if (SettingsVM.Games != null)
             _appVm.FilteredGames.AddRange(SettingsVM.Games);
-        
-        
-        _appVm.LoadingGamesSummary = "Refreshed!";
+
+
+        _appVm.LoadingGamesSummary = "";
     }
-    private void Filter_Changed(object sender, RoutedEventArgs e)
+    private void Filter_Changed(object? sender, RoutedEventArgs? e)
     {
         // read all four checkboxes
         _hideComplete = CheckHideComplete.IsChecked == true;
@@ -125,6 +151,7 @@ public sealed partial class GameList : Page
         else if (RadioCompletion.IsChecked == true) _orderBy = OrderBy.CompletionPct;
         else if (RadioTotal.IsChecked == true) _orderBy = OrderBy.TotalCount;
         else if (RadioUnlocked.IsChecked == true) _orderBy = OrderBy.UnlockedCount;
+        else if (RadioPlaytime.IsChecked == true) _orderBy = OrderBy.Playtime;
 
         RefreshFiltered();
     }
@@ -142,6 +169,7 @@ public sealed partial class GameList : Page
             OrderBy.CompletionPct => list.OrderBy(g => (double)g.UnlockedCount / g.Achievements.Count),
             OrderBy.TotalCount => list.OrderBy(g => g.Achievements.Count),
             OrderBy.UnlockedCount => list.OrderBy(g => g.UnlockedCount),
+            OrderBy.Playtime => list.OrderBy(g => g.PlaytimeMinutes),
             _ => list
         };
 
@@ -150,6 +178,9 @@ public sealed partial class GameList : Page
         // replace the collection instance so ItemsRepeater sees the change
         _appVm.FilteredGames = new ObservableCollection<Game>(list);
         Bindings.Update();   // refresh x:Bind targets
+
+        // Ensure layout settings are maintained after filtering
+        UpdateItemsLayout();
     }
     /// <summary>
     /// Open Game Page
@@ -159,6 +190,38 @@ public sealed partial class GameList : Page
         Game game = (Game)((Button)sender).DataContext;
         _appVm.SelectedGame = game;
         App.Frame?.Navigate(typeof(GamePage));
+    }
+
+    // Method to update layout based on toggle state
+    private void UpdateItemsLayout()
+    {
+        if (_singleColumnLayout)
+        {
+            // Single column layout
+            gameRepeater.Layout = new StackLayout()
+            {
+                Spacing = 10,
+                Orientation = Orientation.Vertical
+            };
+        }
+        else
+        {
+            // Multi-column layout with maximum of 4 columns
+            gameRepeater.Layout = new UniformGridLayout()
+            {
+                MinRowSpacing = 10,
+                MinColumnSpacing = 10,
+                ItemsStretch = UniformGridLayoutItemsStretch.Fill,
+                MaximumRowsOrColumns = 4  // Cap at 4 columns maximum
+            };
+        }
+    }
+
+    // Method to handle toggle button click
+    private void ToggleLayout_Click(object sender, RoutedEventArgs e)
+    {
+        _singleColumnLayout = !_singleColumnLayout;
+        UpdateItemsLayout();
     }
 
     #region Async Commands
