@@ -29,6 +29,11 @@ jobs:
             artifact: macos-arm64
     steps:
       - uses: actions/checkout@v4
+      - name: Clone sachya repository
+        uses: actions/checkout@v4
+        with:
+          repository: rarisma/sachya
+          path: sachya
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
