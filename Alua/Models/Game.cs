@@ -44,6 +44,8 @@ public class Game
     [JsonInclude, JsonPropertyName("Source")]
     public Platforms Platform { get; set; }
     
+    [JsonInclude, JsonPropertyName("Identifier")]
+    public string Identifier { get; set; }
     #region UI Helpers
     /// <summary>
     /// How many achievements the user has unlocked

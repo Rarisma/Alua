@@ -76,8 +76,12 @@ public partial class App
         MainWindow = builder.Window;
         DotEnv.Load();
         var envVars = DotEnv.Read();
-        AppConfig.SteamAPIKey = envVars["SteamAPI"];
-        AppConfig.RAAPIKey = envVars["RetroAPI"];
+        if (!envVars.TryGetValue("SteamAPI", out var steamApiKey))
+            throw new InvalidOperationException("Environment variable 'SteamAPI' not found.");
+        AppConfig.SteamAPIKey = steamApiKey;
+        if (!envVars.TryGetValue("RetroAPI", out var raApiKey))
+            throw new InvalidOperationException("Environment variable 'RetroAPI' not found.");
+        AppConfig.RAAPIKey = raApiKey;
 #if DEBUG
         MainWindow.UseStudio();
 #endif

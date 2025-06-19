@@ -84,6 +84,9 @@
 
                         <!-- Toggle for layout mode -->
                         <ToggleSwitch OffContent="Multi Column" OnContent="Single Column" Toggled="ToggleLayout_Click"/>
+
+                        <!-- User Statistics -->
+                        <controls:ProfileCard/>
                     </StackPanel>
 
                     <ItemsRepeater x:Name="gameRepeater" ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"

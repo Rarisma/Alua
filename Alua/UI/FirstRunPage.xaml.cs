@@ -3,8 +3,8 @@ using CommunityToolkit.Mvvm.DependencyInjection;
 
 namespace Alua.UI;
 
-public partial class FirstRunPage
+public partial class FirstRunPage : Page
 {
-    public FirstRunVM FRVM = Ioc.Default.GetRequiredService<FirstRunVM>();
+    public FirstRunVM Frvm = Ioc.Default.GetRequiredService<FirstRunVM>();
     public FirstRunPage() => InitializeComponent();
 }

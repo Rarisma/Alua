@@ -9,13 +9,13 @@
         <TextBlock Text="Please provide at least one account to get started." TextAlignment="Center" />
 
         <!-- Account input fields -->
-        <TextBox PlaceholderText="Steam ID or Username" Text="{x:Bind FRVM.SteamID, Mode=TwoWay}" />
-        <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind FRVM.RetroAchievementsUser, Mode=TwoWay}" />
+        <TextBox PlaceholderText="Steam ID or Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
+        <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind Frvm.RetroAchievementsUser, Mode=TwoWay}" />
 
         <!-- Error text -->
-        <TextBlock Text="{Binding FRVM.ErrorMessage}" Foreground="Red"
-                   Visibility="{Binding FRVM.HasError}" TextAlignment="Center" />
+        <TextBlock Text="{x:Bind Frvm.ErrorMessage}" Foreground="Red"
+                   Visibility="{x:Bind Frvm.HasError}" TextAlignment="Center" />
 
-        <Button Content="Continue" Click="{x:Bind FRVM.Continue}" HorizontalAlignment="Center"/>
+        <Button Content="Continue" Click="{x:Bind Frvm.Continue}" HorizontalAlignment="Center"/>
     </StackPanel>
 </Page>

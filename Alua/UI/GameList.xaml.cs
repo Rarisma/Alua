@@ -22,12 +22,12 @@ public partial class GameList
     private static bool _initialLoadCompleted = false;
 
     // Commands for layouts
-    public AsyncCommand SingleColumnCommand => new AsyncCommand(async () => {
+    public AsyncCommand SingleColumnCommand => new(async () => {
         _singleColumnLayout = true;
         UpdateItemsLayout();
     });
 
-    public AsyncCommand MultiColumnCommand => new AsyncCommand(async () => {
+    public AsyncCommand MultiColumnCommand => new(async () => {
         _singleColumnLayout = false;
         UpdateItemsLayout();
     });
@@ -36,7 +36,11 @@ public partial class GameList
     {
         InitializeComponent();
         Log.Information("Initialised games list");
-
+        if (_appVm.Providers.Count == 0)
+        {
+            Log.Information("No providers found, loading default providers.");
+            _appVm.ConfigureProviders();
+        }
         if (!_initialLoadCompleted)
         {
             if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
@@ -56,8 +60,7 @@ public partial class GameList
         {
             // If we've already loaded once, just populate the filtered games
             _appVm.FilteredGames.Clear();
-            if (SettingsVM.Games != null)
-                _appVm.FilteredGames.AddRange(SettingsVM.Games);
+            if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
         }
         Filter_Changed(null,null);
 
@@ -71,28 +74,20 @@ public partial class GameList
     {
         SettingsVM.Games = [];
 
-        if (!string.IsNullOrWhiteSpace(SettingsVM.SteamID))
+        foreach (var provider in _appVm.Providers)
         {
-            Log.Information("No games found, scanning.");
-            SettingsVM.Games = await (await SteamService.CreateAsync(SettingsVM.SteamID)).GetOwnedGamesAsync();
-            Log.Information("Steam scan complete");
+            Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
+            var games = await provider.GetLibrary();
+            SettingsVM.Games.AddRange(games);
+            Log.Information("Found {Count} games from provider", games.Count());
         }
-
-        if (!string.IsNullOrWhiteSpace(SettingsVM.RetroAchievementsUsername))
-        {
-            SettingsVM.Games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchievementsUsername)
-                .GetCompletedGamesAsync()).ToObservableCollection());
-        }
-
         //Save scan results
         await SettingsVM.Save();
-        _appVm.FilteredGames.Clear();
-        _appVm.FilteredGames.AddRange(SettingsVM.Games);
+        _appVm.FilteredGames = SettingsVM.Games.ToObservableCollection();
         Log.Information("loaded {0} games, {1} achievements",
             SettingsVM.Games.Count, SettingsVM.Games.Sum(x => x.Achievements.Count));
 
         // Show a message or update a property for the UI
-        _appVm.GamesFoundMessage = $"Found {SettingsVM.Games.Count} games.";
         _appVm.LoadingGamesSummary = "";
     }
 
@@ -101,19 +96,16 @@ public partial class GameList
     /// </summary>
     private async Task Refresh()
     {
-        _appVm.LoadingGamesSummary = "Prepraring to refresh games...";
+        _appVm.LoadingGamesSummary = "Preparing to refresh games...";
         SettingsVM.Games ??= [];
 
         List<Game> games = new();
-        if (SettingsVM.SteamID != null)
-        {
-            games.AddRange(await (await SteamService.CreateAsync(SettingsVM.SteamID)).GetRecentlyPlayedGames());
-        }
 
-        if (SettingsVM.RetroAchievementsUsername != null)
+        foreach (var provider in _appVm.Providers)
         {
-            games.AddRange((await new RetroAchievementsService(SettingsVM.RetroAchievementsUsername)
-                .GetCompletedGamesAsync()).ToObservableCollection());
+            Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
+            games.AddRange(await provider.GetLibrary());
+            Log.Information("Found {Count} games from provider", games.Count());
         }
 
         // Update or add new games.
@@ -132,8 +124,7 @@ public partial class GameList
         }
 
         _appVm.FilteredGames.Clear();
-        if (SettingsVM.Games != null)
-            _appVm.FilteredGames.AddRange(SettingsVM.Games);
+        if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
 
 
         _appVm.LoadingGamesSummary = "";
@@ -198,7 +189,7 @@ public partial class GameList
         if (_singleColumnLayout)
         {
             // Single column layout
-            gameRepeater.Layout = new StackLayout()
+            gameRepeater.Layout = new StackLayout
             {
                 Spacing = 10,
                 Orientation = Orientation.Vertical
@@ -207,12 +198,12 @@ public partial class GameList
         else
         {
             // Multi-column layout with maximum of 4 columns
-            gameRepeater.Layout = new UniformGridLayout()
+            gameRepeater.Layout = new UniformGridLayout
             {
                 MinRowSpacing = 10,
                 MinColumnSpacing = 10,
                 ItemsStretch = UniformGridLayoutItemsStretch.Fill,
-                MaximumRowsOrColumns = 4  // Cap at 4 columns maximum
+                MaximumRowsOrColumns = 4  
             };
         }
     }
