@@ -9,6 +9,7 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
       mc:Ignorable="d skia android"
       xmlns:utu="using:Uno.Toolkit.UI"
+      Loaded="OnLoaded"
       xmlns:controls="clr-namespace:Alua.UI.Controls"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
@@ -42,48 +43,93 @@
                         <!-- Filter flyout -->
                         <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
                           <Button.Flyout>
-                              <Flyout>
-                                <Flyout.FlyoutPresenterStyle>
-                                  <Style TargetType="FlyoutPresenter">
-                                    <Setter Property="Padding" Value="16"/>
-                                    <Setter Property="CornerRadius" Value="8"/>
-                                    <Setter Property="MaxWidth" Value="300"/>
-                                  </Style>
-                                </Flyout.FlyoutPresenterStyle>
+                            <Flyout>
+                                    <Flyout.FlyoutPresenterStyle>
+                                        <Style TargetType="FlyoutPresenter">
+                                            <Setter Property="Padding" Value="16"/>
+                                            <Setter Property="CornerRadius" Value="8"/>
+                                            <Setter Property="MaxWidth" Value="320"/>
+                                            <Setter Property="Background" Value="{ThemeResource SystemChromeMediumLowColor}"/>
+                                        </Style>
+                                    </Flyout.FlyoutPresenterStyle>
 
-                                <StackPanel Spacing="12" Width="280">
-                                  <!-- checkboxes -->
-                                  <CheckBox x:Name="CheckHideComplete" Content="Hide 100% Complete"
-                                            Checked="Filter_Changed" Unchecked="Filter_Changed"/>
-                                  <CheckBox x:Name="CheckNoAchievements" Content="Hide games with no Achievements"
-                                            Checked="Filter_Changed" Unchecked="Filter_Changed"/>
-                                  <CheckBox x:Name="CheckUnstarted" Content="Hide unstarted games" Checked="Filter_Changed"
-                                            Unchecked="Filter_Changed"/>
-                                  <CheckBox x:Name="CheckReverse" Content="Reverse order" Checked="Filter_Changed"
-                                            Unchecked="Filter_Changed"/>
+                                    <StackPanel Spacing="16">
 
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Filter"
+                                                       Style="{ThemeResource BaseTextBlockStyle}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,4"/>
+                                            <CheckBox x:Name="CheckHideComplete"
+                                                      Content="Hide 100% Complete"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed"/>
+                                            <CheckBox x:Name="CheckNoAchievements"
+                                                      Content="Hide games with no Achievements"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed"/>
+                                            <CheckBox x:Name="CheckUnstarted"
+                                                      Content="Hide unstarted games"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed"/>
+                                        </StackPanel>
 
-                                  <!-- radios -->
-                                  <TextBlock Text="Order By" FontWeight="SemiBold"/>
-                                  <StackPanel Spacing="6">
-                                    <RadioButton x:Name="RadioName" Content="Name (A‑Z)" GroupName="OrderBy"
-                                                 Checked="Filter_Changed"/>
-                                    <RadioButton x:Name="RadioCompletion" Content="Completion %" GroupName="OrderBy"
-                                                 Checked="Filter_Changed"/>
-                                    <RadioButton x:Name="RadioTotal" Content="Total Achievement Count" GroupName="OrderBy"
-                                                 Checked="Filter_Changed"/>
-                                    <RadioButton x:Name="RadioUnlocked" Content="Unlocked Achievement Count" GroupName="OrderBy"
-                                                 Checked="Filter_Changed"/>
-                                    <RadioButton x:Name="RadioPlaytime" Content="Playtime" GroupName="OrderBy"
-                                                 Checked="Filter_Changed"/>
-                                  </StackPanel>
-                                </StackPanel>
-                            </Flyout>
+                                        <Rectangle Height="1"
+                                                   Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                                                   Margin="0,4"/>
+
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="Sort by"
+                                                       Style="{ThemeResource BaseTextBlockStyle}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,4"/>
+                                            <RadioButton x:Name="RadioName"
+                                                         Content="Name (A-Z)"
+                                                         GroupName="OrderBy"
+                                                         Checked="Filter_Changed"
+                                                         IsChecked="True"/>
+                                            <RadioButton x:Name="RadioCompletion"
+                                                         Content="Completion %"
+                                                         GroupName="OrderBy"
+                                                         Checked="Filter_Changed"/>
+                                            <RadioButton x:Name="RadioTotal"
+                                                         Content="Total Achievement Count"
+                                                         GroupName="OrderBy"
+                                                         Checked="Filter_Changed"/>
+                                            <RadioButton x:Name="RadioUnlocked"
+                                                         Content="Unlocked Achievement Count"
+                                                         GroupName="OrderBy"
+                                                         Checked="Filter_Changed"/>
+                                            <RadioButton x:Name="RadioPlaytime"
+                                                         Content="Playtime"
+                                                         GroupName="OrderBy"
+                                                         Checked="Filter_Changed"/>
+                                            <CheckBox x:Name="CheckReverse"
+                                                      Content="Reverse order"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed"
+                                                      Margin="0,8,0,0"/>
+                                        </StackPanel>
+
+                                        <Rectangle Height="1"
+                                                   Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                                                   Margin="0,4"/>
+
+                                        <StackPanel Spacing="8">
+                                            <TextBlock Text="View"
+                                                       Style="{ThemeResource BaseTextBlockStyle}"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,0,0,4"/>
+                                            <ToggleSwitch x:Name="LayoutToggle"
+                                                          OffContent="Multi-Column View"
+                                                          OnContent="Single Column View"
+                                                          Toggled="ToggleLayout_Click"/>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Flyout>
                           </Button.Flyout>
                         </Button>
 
-                        <!-- Toggle for layout mode -->
-                        <ToggleSwitch OffContent="Multi Column" OnContent="Single Column" Toggled="ToggleLayout_Click"/>
 
                         <!-- User Statistics -->
                         <controls:ProfileCard/>
@@ -119,7 +165,7 @@
                                             <Border Width="64" Height="64"
                                                     CornerRadius="{StaticResource ControlCornerRadius}"
                                                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                                                <Image Source="{x:Bind Icon}" Stretch="Uniform"/>
+                                                <controls:CachedImage Source="{x:Bind Icon}" Stretch="Uniform"/>
                                             </Border>
                                             <controls:CachedImage Source="{x:Bind ProviderImage}"
                                                    Height="20"

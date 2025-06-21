@@ -20,7 +20,7 @@ namespace Alua.UI.Controls;
 public sealed partial class ProfileCard : UserControl
 {
     private int Unlocked => settingsVM.Games.Sum(g => g.UnlockedCount);
-    private int Perfect => settingsVM.Games.Count(g => g.Achievements.Count == g.UnlockedCount);
+    private int Perfect => settingsVM.Games.Count(g => g.Achievements.Count == g.UnlockedCount && g.HasAchievements);
     private int PercentComplete
     {
         get

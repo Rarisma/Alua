@@ -35,35 +35,42 @@ public partial class GameList
     public GameList()
     {
         InitializeComponent();
-        Log.Information("Initialised games list");
-        if (_appVm.Providers.Count == 0)
+
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        try
         {
-            Log.Information("No providers found, loading default providers.");
-            _appVm.ConfigureProviders();
-        }
-        if (!_initialLoadCompleted)
-        {
-            if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+            Log.Information("Initialised games list");
+
+            if (!_initialLoadCompleted)
             {
-                Log.Information("No games found, scanning.");
-                SettingsVM.Games = [];
-                ScanCommand.Execute(null);
+                if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+                {
+                    Log.Information("No games found, scanning.");
+                    SettingsVM.Games = [];
+                    ScanCommand.Execute(null);
+                }
+                else
+                {
+                    Log.Information(SettingsVM.Games.Count + " games found, scanning.");
+                    RefreshCommand.Execute(null);
+                }
+                _initialLoadCompleted = true;
             }
             else
             {
-                Log.Information(SettingsVM.Games.Count + " games found, scanning.");
-                RefreshCommand.Execute(null);
+                // If we've already loaded once, just populate the filtered games
+                _appVm.FilteredGames.Clear();
+                if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
             }
-            _initialLoadCompleted = true;
-        }
-        else
+            Filter_Changed(null,null);        }
+        catch (Exception ex)
         {
-            // If we've already loaded once, just populate the filtered games
-            _appVm.FilteredGames.Clear();
-            if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
+            Log.Error(ex, "Initial load failed");
+            // optionally show an error placeholder instead of leaving the Uno loader up
         }
-        Filter_Changed(null,null);
-
     }
 
     /// <summary>
@@ -72,6 +79,12 @@ public partial class GameList
     /// </summary>
     private async Task Scan()
     {
+        if (_appVm.Providers.Count == 0)
+        {
+            await _appVm.ConfigureProviders();
+            Log.Information("No providers found, loading default providers.");
+        }
+        
         SettingsVM.Games = [];
 
         foreach (var provider in _appVm.Providers)
@@ -96,6 +109,12 @@ public partial class GameList
     /// </summary>
     private async Task Refresh()
     {
+        if (_appVm.Providers.Count == 0)
+        {
+            await _appVm.ConfigureProviders();
+            Log.Information("No providers found, loading default providers.");
+        }
+        
         _appVm.LoadingGamesSummary = "Preparing to refresh games...";
         SettingsVM.Games ??= [];
 
@@ -105,7 +124,7 @@ public partial class GameList
         {
             Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
             games.AddRange(await provider.GetLibrary());
-            Log.Information("Found {Count} games from provider", games.Count());
+            Log.Information("Found {Count} games from provider", games.Count);
         }
 
         // Update or add new games.
@@ -125,8 +144,7 @@ public partial class GameList
 
         _appVm.FilteredGames.Clear();
         if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
-
-
+        
         _appVm.LoadingGamesSummary = "";
     }
     private void Filter_Changed(object? sender, RoutedEventArgs? e)

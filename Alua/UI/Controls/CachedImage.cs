@@ -71,6 +71,6 @@ public sealed class CachedImage : Image
     {
         using var sha = SHA256.Create();
         var bytes = sha.ComputeHash(Encoding.UTF8.GetBytes(u.AbsoluteUri));
-        return Convert.ToHexString(bytes);                     // fast, unique, filesystem‑safe
+        return Convert.ToHexString(bytes);
     }
 }

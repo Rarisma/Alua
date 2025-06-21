@@ -2,11 +2,12 @@ using System.Text.RegularExpressions;
 using Alua.Data;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
+using Serilog;
 using Game = Alua.Models.Game;
 
 namespace Alua.Services;
 
-public sealed class SteamService : IAchievementProvider<SteamService>
+public sealed partial class SteamService : IAchievementProvider<SteamService>
 {
     private SteamWebApiClient _apiClient = null!;
     private AppVM _appVm = null!;
@@ -22,20 +23,35 @@ public sealed class SteamService : IAchievementProvider<SteamService>
     /// <returns>SteamService</returns>
     public static async Task<SteamService> Create(string steamIdOrVanityUrl)
     {
-        SteamService steam = new()
+        try
         {
-            _apiClient = new SteamWebApiClient(AppConfig.SteamAPIKey!),
-            _appVm = Ioc.Default.GetRequiredService<AppVM>(),
-            _settingsVm = Ioc.Default.GetRequiredService<SettingsVM>()
-        };
+            SteamService steam = new()
+            {
+                _apiClient = new SteamWebApiClient(AppConfig.SteamAPIKey!),
+                _appVm = Ioc.Default.GetRequiredService<AppVM>(),
+                _settingsVm = Ioc.Default.GetRequiredService<SettingsVM>()
+            };
 
 
-        // Nothing to do if the caller already supplied a 17‑digit ID
-        string raw = steamIdOrVanityUrl.Trim();
-        steam._steamId = (Regex.IsMatch(raw, @"^\d{17}$") ? raw : 
-            (await steam._apiClient.ResolveVanityUrlAsync(raw)).response?.steamid) ?? string.Empty;
-        
-        return steam;
+            // Resolve Steam ID if needed.
+            string raw = steamIdOrVanityUrl.Trim();
+            if (SteamIDRegex().IsMatch(raw))
+            {
+                steam._steamId = raw;
+            }
+            else
+            {
+                var response = await steam._apiClient.ResolveVanityUrlAsync(raw);
+                steam._steamId = response!.response!.steamid;
+            }
+
+            return steam;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create SteamService");
+            throw;
+        }
     }
 
     #region Methods
@@ -54,17 +70,26 @@ public sealed class SteamService : IAchievementProvider<SteamService>
     /// </summary>
     /// <returns>Game Array</returns>
     public async Task<Game[]> RefreshLibrary()
-    { 
-        RecentlyPlayedGamesResult recent = await _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 5);
+    {
+        try
+        {
+            RecentlyPlayedGamesResult recent = await _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 5);
 
-        // skip games without achievements so we don’t waste quota scanning them
-        var skip = _settingsVm.Games!
-                              .Where(g => g is { HasAchievements: false, Platform: Platforms.Steam })
-                              .Select(g => g.Identifier)
-                              .ToHashSet(StringComparer.Ordinal);
+            // skip games without achievements so we don’t waste quota scanning them
+            var skip = _settingsVm.Games!
+                .Where(g => g is { HasAchievements: false, Platform: Platforms.Steam })
+                .Select(g => g.Identifier)
+                .ToHashSet(StringComparer.Ordinal);
 
-        recent.response.games.Remove(g => skip.Contains(g.appid.ToString()));
-        return await ConvertToAluaAsync(recent.response.games);
+            recent.response.games.Remove(g => skip.Contains(g.appid.ToString()));
+            return await ConvertToAluaAsync(recent.response.games);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "failed to refresh steam library");
+            return [];
+        }
+
     }
 
     /// <summary>
@@ -102,41 +127,58 @@ public sealed class SteamService : IAchievementProvider<SteamService>
     #region Helpers
     private async Task<Achievement[]> GetAchievementDataAsync(string identifier)
     {
-        int appId = int.Parse(identifier);
-        var schema = await _apiClient.GetSchemaForGameAsync(appId);
-        var defs   = schema.game.availableGameStats.achievements
-            .ToDictionary(a => a.name);
-
-        var progress = await _apiClient.GetPlayerAchievementsAsync(_steamId, appId, language: "english");
-        var list = new List<Achievement>(progress.playerstats.achievements.Count);
-        foreach (var ach in progress.playerstats.achievements)
+        try
         {
-            if (defs.TryGetValue(ach.apiname, out var def))
+            int appId = int.Parse(identifier);
+            var schema = await _apiClient.GetSchemaForGameAsync(appId);
+
+            //Null Check/ Check we actually have achievements to get data for
+            if (schema.game?.availableGameStats?.achievements == null)
             {
-                list.Add(new Achievement
-                {
-                    Title       = string.IsNullOrWhiteSpace(def.displayName) ? ach.name : def.displayName,
-                    Description = def.description,
-                    Icon        = ach.achieved == 1 ? def.icon : def.icongray,
-                    IsUnlocked  = ach.achieved == 1,
-                    Id          = ach.apiname,
-                    IsHidden    = def.hidden == 1
-                });
+                return [];
             }
-            else
+
+            var defs = schema.game.availableGameStats.achievements
+                .ToDictionary(a => a.name);
+
+            var progress = await _apiClient.GetPlayerAchievementsAsync(_steamId, appId, language: "english");
+            var list = new List<Achievement>(progress.playerstats.achievements.Count);
+            foreach (var ach in progress.playerstats.achievements)
             {
-                list.Add(new Achievement
+                if (defs.TryGetValue(ach.apiname, out var def))
                 {
-                    Title       = ach.name,
-                    Description = ach.description,
-                    Icon        = $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{ach.apiname}.jpg",
-                    IsUnlocked  = ach.achieved == 1,
-                    Id          = ach.apiname,
-                    IsHidden    = false
-                });
+                    list.Add(new Achievement
+                    {
+                        Title = string.IsNullOrWhiteSpace(def.displayName) ? ach.name : def.displayName,
+                        Description = def.description,
+                        Icon = ach.achieved == 1 ? def.icon : def.icongray,
+                        IsUnlocked = ach.achieved == 1,
+                        Id = ach.apiname,
+                        IsHidden = def.hidden == 1
+                    });
+                }
+                else
+                {
+                    list.Add(new Achievement
+                    {
+                        Title = ach.name,
+                        Description = ach.description,
+                        Icon =
+                            $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{ach.apiname}.jpg",
+                        IsUnlocked = ach.achieved == 1,
+                        Id = ach.apiname,
+                        IsHidden = false
+                    });
+                }
             }
+
+            return list.ToArray();
         }
-        return list.ToArray();
+        catch (Exception ex)
+        {
+            Log.Error(ex, $"Failed to get achievement data for game {identifier}");
+            return [];
+        }
     }
 
     /// <summary>
@@ -165,6 +207,9 @@ public sealed class SteamService : IAchievementProvider<SteamService>
 
         return result.ToArray();
     }
+
+    [GeneratedRegex(@"^\d{17}$")]
+    private static partial Regex SteamIDRegex();
 
     #endregion
 }
