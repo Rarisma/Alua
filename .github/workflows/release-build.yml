@@ -82,9 +82,9 @@ jobs:
         if: contains(matrix.fw, 'android')
         run: dotnet workload install android
 
-      # Restores NuGet packages for the solution
+      # Restores NuGet packages for the solution, disabling locked mode to prevent errors if lock file is missing
       - name: Restore dependencies
-        run: dotnet restore Alua.sln
+        run: dotnet restore Alua.sln /p:RestoreLockedMode=false
 
       # Publishes the application
       - name: Publish application
@@ -95,7 +95,8 @@ jobs:
             -r ${{ matrix.rid }} \
             --self-contained true \
             -p:PublishSingleFile=true \
-            -o publish
+            -o publish \
+            --no-restore
 
       # Compresses the published output into a zip archive
       - name: Archive artifact
