@@ -23,6 +23,9 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
+    # Set environment variable to disable locked mode for all dotnet commands in this job
+    env:
+      DOTNET_RESTORE_LOCKED_MODE: false
     strategy:
       # When set to false, a failure in one matrix job does not cancel others
       fail-fast: false
@@ -82,9 +85,9 @@ jobs:
         if: contains(matrix.fw, 'android')
         run: dotnet workload install android
 
-      # Restores NuGet packages for the solution, disabling locked mode to prevent errors if lock file is missing
+      # Restores NuGet packages for the solution. Locked mode is disabled via the job-level environment variable.
       - name: Restore dependencies
-        run: dotnet restore Alua.sln /p:RestoreLockedMode=false
+        run: dotnet restore Alua.sln
 
       # Publishes the application
       - name: Publish application
