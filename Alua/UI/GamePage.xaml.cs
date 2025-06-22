@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
-using Alua.Data;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using AppVM = Alua.Services.ViewModels.AppVM;
 
 //And guess what? It's not the pizza guy! 
 namespace Alua.UI;

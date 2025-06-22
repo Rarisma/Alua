@@ -1,7 +1,7 @@
 using AutoMapper;
 using Microsoft.UI.Xaml.Data;
 
-namespace Alua.Controls;
+namespace Alua.UI.Controls;
 
 public class BoolToOpacityConverter : IValueConverter, IValueConverter<bool, double>
 {

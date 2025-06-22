@@ -1,9 +1,10 @@
 using System.Collections.ObjectModel;
+using Alua.Services.Providers;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 
 //Some things can never be fixed, they must be destroyed.
-namespace Alua.Services;
+namespace Alua.Services.ViewModels;
 /// <summary>
 /// Main VM, Yeah it kinda breaks MVVM, but I don't care.
 /// </summary>
@@ -30,7 +31,7 @@ public partial class AppVM : ObservableRecipient
             if (!string.IsNullOrWhiteSpace(svm.SteamID))
             {
                 Log.Information("Configuring steam achievements");
-                var steam = await SteamService.Create(svm.SteamID);
+                var steam = await Services.Providers.SteamService.Create(svm.SteamID);
                 Providers.Add(steam);
                 Log.Information("Successfully configured steam achievements");
             }

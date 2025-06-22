@@ -3,17 +3,16 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:alua="clr-namespace:Alua"
-    xmlns:data="clr-namespace:Alua.Data"
     xmlns:android="http://uno.ui/android"
-    xmlns:controls="clr-namespace:Alua.Controls"
     xmlns:controls1="clr-namespace:Alua.UI.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:data="clr-namespace:Alua.Models"
     mc:Ignorable="android"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <controls:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-        <controls:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
+        <controls1:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+        <controls1:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
                 <Grid.ColumnDefinitions>

@@ -1,7 +1,7 @@
 using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
 
-namespace Alua.Services;
+namespace Alua.Services.ViewModels;
 
 public partial class FirstRunVM : ObservableObject
 {

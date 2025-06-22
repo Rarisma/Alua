@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
-using Alua.Controls;
 using Alua.Services;
+using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
+using AppVM = Alua.Services.ViewModels.AppVM;
+using SettingsVM = Alua.Services.ViewModels.SettingsVM;
+
 //FHN walked so Alua could run.
 namespace Alua.UI;
 /// <summary>
@@ -32,18 +35,18 @@ public partial class GameList
         UpdateItemsLayout();
     });
 
-    public GameList()
-    {
-        InitializeComponent();
-
-    }
+    public GameList() { InitializeComponent(); }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
         try
         {
             Log.Information("Initialised games list");
-
+            if (_appVm.Providers.Count == 0)
+            {
+                await _appVm.ConfigureProviders();
+                Log.Information("No providers found, loading default providers.");
+            }
             if (!_initialLoadCompleted)
             {
                 if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
@@ -79,12 +82,6 @@ public partial class GameList
     /// </summary>
     private async Task Scan()
     {
-        if (_appVm.Providers.Count == 0)
-        {
-            await _appVm.ConfigureProviders();
-            Log.Information("No providers found, loading default providers.");
-        }
-        
         SettingsVM.Games = [];
 
         foreach (var provider in _appVm.Providers)
@@ -109,12 +106,6 @@ public partial class GameList
     /// </summary>
     private async Task Refresh()
     {
-        if (_appVm.Providers.Count == 0)
-        {
-            await _appVm.ConfigureProviders();
-            Log.Information("No providers found, loading default providers.");
-        }
-        
         _appVm.LoadingGamesSummary = "Preparing to refresh games...";
         SettingsVM.Games ??= [];
 
@@ -123,7 +114,7 @@ public partial class GameList
         foreach (var provider in _appVm.Providers)
         {
             Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
-            games.AddRange(await provider.GetLibrary());
+            games.AddRange(await provider.RefreshLibrary());
             Log.Information("Found {Count} games from provider", games.Count);
         }
 

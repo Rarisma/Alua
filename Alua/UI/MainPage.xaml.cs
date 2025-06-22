@@ -1,5 +1,6 @@
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
 //FHN walked so Alua could run.
 namespace Alua.UI;

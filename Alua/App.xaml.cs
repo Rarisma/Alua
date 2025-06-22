@@ -4,6 +4,10 @@ using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using dotenv.net;
 using Uno.Resizetizer;
+using AppVM = Alua.Services.ViewModels.AppVM;
+using FirstRunVM = Alua.Services.ViewModels.FirstRunVM;
+using SettingsVM = Alua.Services.ViewModels.SettingsVM;
+
 //I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSLES.
 namespace Alua;
 public partial class App

@@ -1,8 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Serilog;
+
 //When you can't even say my name
-namespace Alua.Services;
+namespace Alua.Services.ViewModels;
 /// <summary>
 /// Main VM.
 /// </summary>
@@ -12,13 +13,13 @@ public partial class SettingsVM  : ObservableObject
     /// Shown in settings
     /// </summary>
     [JsonIgnore]
-    public string BuildNumber = "0.2.0";
+    public string BuildNumber = "0.3.0";
 
     /// <summary>
     /// Shown under build number, enables debug mode.
     /// </summary>
     [JsonIgnore]
-    public string BuildString = "Perpetually at risk";
+    public string BuildString = "I can't even park";
     
     /// <summary>
     /// All games we have data for.

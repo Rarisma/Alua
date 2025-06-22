@@ -1,10 +1,9 @@
-using Alua.Data;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Serilog;
 using Game = Alua.Models.Game;
 //I'M STILL IN A DREAM, SNAKE EATER
-namespace Alua.Services;
+namespace Alua.Services.Providers;
 
 /// <summary>
 /// Handles getting data from RetroAchievements.
@@ -27,6 +26,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     {
         return Task.FromResult(new RetroAchievementsService
             {
+                _username =  username,
                 _apiClient = new(
                     username,
                     AppConfig.RAAPIKey ?? "",
@@ -64,7 +64,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
 
             // Add game to collection, update progress message
             result.Add(game);
-            Ioc.Default.GetRequiredService<AppVM>().LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
+            Ioc.Default.GetRequiredService<ViewModels.AppVM>().LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
         }
 
         return result.ToArray();

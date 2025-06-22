@@ -1,5 +1,6 @@
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using FirstRunVM = Alua.Services.ViewModels.FirstRunVM;
 
 namespace Alua.UI;
 

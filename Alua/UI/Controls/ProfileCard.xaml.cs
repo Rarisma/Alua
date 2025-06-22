@@ -14,6 +14,8 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using AppVM = Alua.Services.ViewModels.AppVM;
+using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
 namespace Alua.UI.Controls;
 

@@ -1,5 +1,5 @@
 // ReSharper disable UnusedMember.Global
-namespace Alua.Data;
+namespace Alua.Models;
 
 public enum Platforms
 {

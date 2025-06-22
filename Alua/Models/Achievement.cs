@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
+
 //Curtains: opened  Lights: on  Moment: unmissed  Eyes: buttered
-namespace Alua.Data;
+namespace Alua.Models;
 /// <summary>
 /// Base Class for Achievements.
 /// </summary>

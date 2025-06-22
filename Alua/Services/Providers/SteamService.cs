@@ -1,17 +1,16 @@
 using System.Text.RegularExpressions;
-using Alua.Data;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Serilog;
 using Game = Alua.Models.Game;
 
-namespace Alua.Services;
+namespace Alua.Services.Providers;
 
 public sealed partial class SteamService : IAchievementProvider<SteamService>
 {
     private SteamWebApiClient _apiClient = null!;
-    private AppVM _appVm = null!;
-    private SettingsVM _settingsVm = null!;
+    private ViewModels.AppVM _appVm = null!;
+    private ViewModels.SettingsVM _settingsVm = null!;
     private string _steamId = string.Empty;
 
     private SteamService() {}
@@ -28,8 +27,8 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             SteamService steam = new()
             {
                 _apiClient = new SteamWebApiClient(AppConfig.SteamAPIKey!),
-                _appVm = Ioc.Default.GetRequiredService<AppVM>(),
-                _settingsVm = Ioc.Default.GetRequiredService<SettingsVM>()
+                _appVm = Ioc.Default.GetRequiredService<ViewModels.AppVM>(),
+                _settingsVm = Ioc.Default.GetRequiredService<ViewModels.SettingsVM>()
             };
 
 
@@ -76,8 +75,8 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             RecentlyPlayedGamesResult recent = await _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 5);
 
             // skip games without achievements so we don’t waste quota scanning them
-            var skip = _settingsVm.Games!
-                .Where(g => g is { HasAchievements: false, Platform: Platforms.Steam })
+            var skip = Enumerable
+                .Where<Game>(_settingsVm.Games!, g => g is { HasAchievements: false, Platform: Platforms.Steam })
                 .Select(g => g.Identifier)
                 .ToHashSet(StringComparer.Ordinal);
 

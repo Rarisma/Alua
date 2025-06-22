@@ -1,4 +1,4 @@
-namespace Alua.Controls;
+namespace Alua.UI.Controls;
 /// <summary>
 /// UNO platform reference implementation of an asynchronous command.
 /// </summary>
