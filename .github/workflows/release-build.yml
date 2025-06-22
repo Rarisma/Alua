@@ -41,23 +41,10 @@ jobs:
             rid: win-arm64
             fw: net9.0-windows10.0.19041.0
             art: win-arm64
-          - os: ubuntu-latest
-            rid: linux-x64
-            fw: net9.0
-            art: linux-x64
-          - os: ubuntu-latest
-            rid: linux-arm64
-            fw: net9.0
-            art: linux-arm64
           - os: macos-latest
             rid: osx-arm64
             fw: net9.0-macos
             art: macos-arm64
-          # Mobile build
-          - os: windows-latest
-            rid: android-arm64
-            fw: net9.0-android
-            art: android-arm64
 
     steps:
       # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -74,16 +61,6 @@ jobs:
       # Sets up the .NET environment
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
-        with:
-          # Uses the .NET version specified in global.json
-          global-json-file: global.json
-          # Enables caching for NuGet packages to speed up future builds
-          cache: true
-
-      # Installs the .NET Android workload only for Android builds
-      - name: Install Android Workload
-        if: contains(matrix.fw, 'android')
-        run: dotnet workload install android
 
       # Restores NuGet packages for the solution. Locked mode is disabled via the job-level environment variable.
       - name: Restore dependencies
