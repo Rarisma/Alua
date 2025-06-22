@@ -1,89 +1,114 @@
-name: Build & Release
+# Name of the workflow
+name: Build & Release
 
+# Controls when the workflow will run
 on:
-  # manual trigger with a required version/tag input
+  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
       version:
-        required: true
         description: 'Tag / version (e.g. v1.2.3)'
+        required: true
+        type: string
 
+# Sets permissions for the GITHUB_TOKEN for this workflow
 permissions:
-  contents: write  # needed by release‑action
-  packages: read
+  contents: write  # Required for creating releases
+  packages: read   # Required for reading packages
 
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-# ---------- BUILD ----------
+  #---------- BUILD ----------
+  # This job builds the application for various platforms
   build:
+    # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
+    # Set environment variable to disable locked mode for all dotnet commands in this job
+    env:
+      DOTNET_RESTORE_LOCKED_MODE: false
     strategy:
+      # When set to false, a failure in one matrix job does not cancel others
       fail-fast: false
+      # A matrix of configurations for this job
       matrix:
         include:
-          # desktop
-          - os: windows-latest   ; rid: win-x64     ; fw: net9.0-windows10.0.19041.0 ; art: win-x64
-          - os: windows-latest   ; rid: win-arm64   ; fw: net9.0-windows10.0.19041.0 ; art: win-arm64
-          - os: ubuntu-latest    ; rid: linux-x64   ; fw: net9.0                     ; art: linux-x64
-          - os: ubuntu-latest    ; rid: linux-arm64 ; fw: net9.0                     ; art: linux-arm64
-          - os: macos-latest     ; rid: osx-arm64   ; fw: net9.0-macos               ; art: macos-arm64
-          # mobile
-          - os: windows-latest   ; rid: android-arm64 ; fw: net9.0-android           ; art: android-arm64
+          # Desktop builds
+          - os: windows-latest
+            rid: win-x64
+            fw: net9.0-windows10.0.19041.0
+            art: win-x64
+          - os: windows-latest
+            rid: win-arm64
+            fw: net9.0-windows10.0.19041.0
+            art: win-arm64
+          - os: macos-latest
+            rid: osx-arm64
+            fw: net9.0-macos
+            art: macos-arm64
 
     steps:
-    # main repo
-    - uses: actions/checkout@v4
+      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout main repository
+        uses: actions/checkout@v4
 
-    # clone Sachya *exactly* where the .sln expects it
-    - uses: actions/checkout@v4
-      with:
-        repository: rarisma/sachya
-        path: SACHYA   # matches 'SACHYA/…' casing in solution
+      # Clones a dependency repository into a specific path
+      - name: Checkout Sachya dependency
+        uses: actions/checkout@v4
+        with:
+          repository: rarisma/sachya
+          path: SACHYA # Matches the path casing expected by the solution file
 
-    # install SDK (cached)
-    - uses: actions/setup-dotnet@v4
-      with:
-        global-json-file: global.json       # keeps you on .NET 9 preview channel
-        cache: true                         # enables built‑in NuGet cache
+      # Sets up the .NET environment
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
 
-    # Android workload only when needed
-    - if: contains(matrix.art, 'android')
-      run: dotnet workload install android
+      # Restores NuGet packages for the solution. Locked mode is disabled via the job-level environment variable.
+      - name: Restore dependencies
+        run: dotnet restore Alua.sln
 
-    # restore once per job (already cached)
-    - run: dotnet restore Alua.sln
+      # Publishes the application
+      - name: Publish application
+        run: |
+          dotnet publish Alua/Alua.csproj \
+            -c Release \
+            -f ${{ matrix.fw }} \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -o publish \
+            --no-restore
 
-    # publish
-    - run: |
-        dotnet publish Alua/Alua.csproj \
-          -c Release                         \
-          -f ${{ matrix.fw }}               \
-          -r ${{ matrix.rid }}              \
-          --self-contained true             \
-          -p:PublishSingleFile=true          \
-          -o publish
+      # Compresses the published output into a zip archive
+      - name: Archive artifact
+        run: |
+          cd publish
+          7z a ../${{ matrix.art }}.zip ./*
 
-    # compress
-    - name: Archive ${{ matrix.art }}
-      run: |
-        cd publish
-        7z a ../${{ matrix.art }}.zip ./*
+      # Uploads the compressed artifact to be used in other jobs
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.art }}
+          path: ${{ matrix.art }}.zip
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.art }}
-        path: ${{ matrix.art }}.zip
-
-# ---------- RELEASE ----------
+  #---------- RELEASE ----------
+  # This job creates a GitHub release after the build job completes
   release:
+    # Specifies that the 'build' job must complete successfully before this job runs
     needs: build
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v4
-      with: { path: dist }
+      # Downloads all artifacts from the 'build' job into the 'dist' directory
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
 
-    - uses: ncipollo/release-action@v1
-      with:
-        tag:  ${{ github.event.inputs.version }}
-        name: ${{ github.event.inputs.version }}
-        artifacts: dist/**/*.zip
-        generateReleaseNotes: true
+      # Creates a GitHub release
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: ${{ github.event.inputs.version }}
+          name: ${{ github.event.inputs.version }}
+          artifacts: "dist/**/*.zip"
+          generateReleaseNotes: true
