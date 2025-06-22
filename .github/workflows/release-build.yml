@@ -37,34 +37,36 @@ jobs:
             rid: win-x64
             fw: net9.0-windows10.0.19041.0
             art: win-x64
-          - os: windows-latest
-            rid: win-arm64
-            fw: net9.0-windows10.0.19041.0
-            art: win-arm64
           - os: macos-latest
             rid: osx-arm64
             fw: net9.0-macos
             art: macos-arm64
 
     steps:
-      # Checks out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - name: Checkout main repository
+      # Step 1: Checkout the main repo into a specific directory named 'AluaAchievements'
+      - name: Checkout AluaAchievements repo
         uses: actions/checkout@v4
+        with:
+          repository: Rarisma/AluaAchievements
+          path: AluaAchievements
 
-      # Clones a dependency repository into a specific path
-      - name: Checkout Sachya dependency
+      # Step 2: Checkout the second repo into a sibling directory named 'SACHYA'
+      - name: Checkout Sachya repo
         uses: actions/checkout@v4
         with:
           repository: rarisma/sachya
-          path: SACHYA # Matches the path casing expected by the solution file
+          path: SACHYA
 
-      # Sets up the .NET environment
-      - name: Setup .NET SDK
+      # Step 3: Setup .NET
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.*.*'
 
-      # Restores NuGet packages for the solution. Locked mode is disabled via the job-level environment variable.
+      # Step 4: Run dotnet restore from within the correct directory
       - name: Restore dependencies
         run: dotnet restore Alua.sln
+        working-directory: ./AluaAchievements
 
       # Publishes the application
       - name: Publish application
