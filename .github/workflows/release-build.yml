@@ -62,12 +62,15 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.*.*'
-
+          
+      - name: Install .NET workloads
+        run: dotnet workload restore
+      
       # Step 4: Run dotnet restore from within the correct directory
       - name: Restore dependencies
         run: dotnet restore Alua.sln
         working-directory: ./AluaAchievements
-
+          
       # Publishes the application
       - name: Publish application
         run: |
