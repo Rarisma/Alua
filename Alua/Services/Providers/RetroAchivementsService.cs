@@ -27,10 +27,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
         return Task.FromResult(new RetroAchievementsService
             {
                 _username =  username,
-                _apiClient = new(
-                    username,
-                    AppConfig.RAAPIKey ?? "",
-                    "Alua")
+                _apiClient = new( username, AppConfig.RAAPIKey ?? "", "Alua")
             }
         );
     }
@@ -59,7 +56,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 Author = string.Empty,
                 Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
                 PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
-                Achievements = (await GetAchievements(completed.GameID)).ToObservableCollection()
+                Achievements = (await GetAchievements(completed.GameID)).ToObservableCollection(),
+                Identifier = "ra-"+completed.GameID
             };
 
             // Add game to collection, update progress message
@@ -88,7 +86,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 Author = string.Empty,
                 Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
                 PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
-                Achievements = (await GetAchievements(game.GameID)).ToObservableCollection()
+                Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
+                Identifier = "ra-"+game.GameID
             });
         }
         
@@ -112,7 +111,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             Platform = Platforms.RetroAchievements,
             PlaytimeMinutes = -1,
             Achievements = (await GetAchievements(gameId)).ToObservableCollection(),
-            Identifier = identifier
+            Identifier = "ra-"+identifier
         };
     }
 

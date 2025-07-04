@@ -60,4 +60,13 @@ public class Achievement
     /// </summary>
     [JsonInclude, JsonPropertyName("MaxProgress")]
     public int? MaxProgress { get; set; }
+
+    // Add parameterless constructor for JSON deserialization
+    public Achievement()
+    {
+        Id = string.Empty;
+        Title = string.Empty;
+        Description = string.Empty;
+        Icon = string.Empty;
+    }
 }

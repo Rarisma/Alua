@@ -12,19 +12,19 @@ public class Game
     /// Name of game
     /// </summary>
     [JsonInclude, JsonPropertyName("GameName")]
-    public string Name;
+    public string Name { get; set; }
     
     /// <summary>
     /// Game developer
     /// </summary>
     [JsonInclude, JsonPropertyName("Developer")]
-    public string Author;
+    public string Author { get; set; }
     
     /// <summary>
     /// Icon for the game
     /// </summary>
     [JsonInclude, JsonPropertyName("Icon")]
-    public string Icon;
+    public string Icon { get; set; }
     
     /// <summary>
     /// Total playtime in minutes
@@ -36,7 +36,7 @@ public class Game
     /// All achievements for this game
     /// </summary>
     [JsonInclude, JsonPropertyName("Achievements")]
-    public ObservableCollection<Achievement> Achievements;
+    public ObservableCollection<Achievement> Achievements { get; set; }
     
     /// <summary>
     /// Platform where this achievement originated from
@@ -46,6 +46,17 @@ public class Game
     
     [JsonInclude, JsonPropertyName("Identifier")]
     public string Identifier { get; set; }
+
+    // Add parameterless constructor for JSON deserialization
+    public Game()
+    {
+        Name = string.Empty;
+        Author = string.Empty;
+        Icon = string.Empty;
+        Achievements = new ObservableCollection<Achievement>();
+        Identifier = string.Empty;
+    }
+
     #region UI Helpers
     /// <summary>
     /// How many achievements the user has unlocked
@@ -57,7 +68,7 @@ public class Game
     /// Returns true if the user has unlocked any achievements
     /// </summary>
     [JsonIgnore]
-    public bool HasAchievements => Achievements != null & Achievements.Count != 0;
+    public bool HasAchievements => Achievements.Count != 0;
     
     /// <summary>
     /// Returns

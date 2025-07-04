@@ -76,7 +76,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
             // skip games without achievements so we don’t waste quota scanning them
             var skip = Enumerable
-                .Where<Game>(_settingsVm.Games!, g => g is { HasAchievements: false, Platform: Platforms.Steam })
+                .Where<Game>(_settingsVm.Games.Values!, g => g is { HasAchievements: false, Platform: Platforms.Steam })
                 .Select(g => g.Identifier)
                 .ToHashSet(StringComparer.Ordinal);
 
@@ -111,7 +111,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
         return new Game
         {
-            Identifier       = identifier,
+            Identifier       = "steam-"+identifier,
             Name             = data.name,
             Icon             = iconUrl,
             Author           = string.Empty,

@@ -25,7 +25,7 @@ public partial class SettingsVM  : ObservableObject
     /// All games we have data for.
     /// </summary>
     [ObservableProperty, JsonInclude, JsonPropertyName("ScannedGames")]
-    private List<Game>? _games;
+    private Dictionary<string, Game> _games;
     
     /// <summary>
     /// Steam ID of user we are getting data for.
@@ -45,7 +45,12 @@ public partial class SettingsVM  : ObservableObject
     [ObservableProperty, JsonInclude, JsonPropertyName("Init")]    
     private bool _initialised;
 
-    
+    public SettingsVM()
+    {
+        _games = new();
+    }
+
+
     /// <summary>
     /// Saves settings to disk
     /// </summary>
@@ -78,7 +83,7 @@ public partial class SettingsVM  : ObservableObject
         {
             string path = Path.Combine(ApplicationData.Current.LocalFolder.Path, "Settings.json");
             //Read from disk.
-            Log.Information($"Loading settings from path");
+            Log.Information("Loading settings from path");
             if (File.Exists(path))
             {
                 string content = File.ReadAllText(path);
@@ -87,6 +92,7 @@ public partial class SettingsVM  : ObservableObject
                     Log.Warning("Settings file is empty, returning default settings.");
                     return new SettingsVM();
                 }
+                
                 return JsonSerializer.Deserialize<SettingsVM>(content)!;
             }
             
@@ -94,8 +100,7 @@ public partial class SettingsVM  : ObservableObject
             Log.Information("Settings file not found.");
             return new SettingsVM();
         }
-        //Loading error.
-        catch (Exception ex)
+        catch (Exception ex) //Loading error.
         {
             Log.Error(ex, "Could not load settings");
             return new SettingsVM();

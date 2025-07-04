@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Alua.Services;
+using Alua.Services.Providers;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using AppVM = Alua.Services.ViewModels.AppVM;
 
@@ -39,13 +40,18 @@ public sealed partial class GamePage : Page
         Bindings.Update();
     }
 
-    private void RefreshGameClick(object sender, RoutedEventArgs e)
-    {
-        throw new NotImplementedException();
-    }
+    private void RefreshGameClick(object sender, RoutedEventArgs e) => _refresh();
 
-    private void RefreshGamePull(RefreshContainer sender, RefreshRequestedEventArgs args)
+    private void RefreshGamePull(RefreshContainer sender, RefreshRequestedEventArgs args) => _refresh();
+    private async Task _refresh()
     {
-        throw new NotImplementedException();
+        switch (AppVM.SelectedGame.Platform)
+        {
+            case Platforms.Steam:
+               await AppVM.Providers.OfType<SteamService>().FirstOrDefault().RefreshTitle(AppVM.SelectedGame.Identifier);
+               break;
+            default:
+                throw new NotImplementedException("Unimplemented platform" + AppVM.SelectedGame.Platform);
+        }
     }
 }

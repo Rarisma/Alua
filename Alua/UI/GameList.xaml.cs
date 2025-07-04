@@ -11,13 +11,13 @@ namespace Alua.UI;
 /// <summary>
 /// Main app UI, shows all users games
 /// </summary>
-public partial class GameList
+public partial class GameList : Page
 {
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
-    private SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
     private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
-    private bool _singleColumnLayout = false; // Default to multi-column layout
+    private bool _singleColumnLayout;
     private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime }
     private OrderBy _orderBy = OrderBy.Name;
 
@@ -49,15 +49,15 @@ public partial class GameList
             }
             if (!_initialLoadCompleted)
             {
-                if (SettingsVM.Games == null || SettingsVM.Games.Count == 0)
+                if (_settingsVM.Games.Count == 0)
                 {
                     Log.Information("No games found, scanning.");
-                    SettingsVM.Games = [];
+                    _settingsVM.Games = [];
                     ScanCommand.Execute(null);
                 }
                 else
                 {
-                    Log.Information(SettingsVM.Games.Count + " games found, scanning.");
+                    Log.Information(_settingsVM.Games.Count + " games found, scanning.");
                     RefreshCommand.Execute(null);
                 }
                 _initialLoadCompleted = true;
@@ -66,13 +66,13 @@ public partial class GameList
             {
                 // If we've already loaded once, just populate the filtered games
                 _appVm.FilteredGames.Clear();
-                if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
+                if (_settingsVM.Games != null) { _appVm.FilteredGames.AddRange(_settingsVM.Games);}
             }
-            Filter_Changed(null,null);        }
+            Filter_Changed(null,null);
+        }
         catch (Exception ex)
         {
             Log.Error(ex, "Initial load failed");
-            // optionally show an error placeholder instead of leaving the Uno loader up
         }
     }
 
@@ -82,23 +82,48 @@ public partial class GameList
     /// </summary>
     private async Task Scan()
     {
-        SettingsVM.Games = [];
+        _settingsVM.Games = [];
 
         foreach (var provider in _appVm.Providers)
         {
             Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
             var games = await provider.GetLibrary();
-            SettingsVM.Games.AddRange(games);
-            Log.Information("Found {Count} games from provider", games.Count());
+            
+            // Handle potential duplicate identifiers by checking if key already exists
+            foreach (var game in games)
+            {
+                if (string.IsNullOrEmpty(game.Identifier))
+                {
+                    Log.Warning("Game {GameName} from {Provider} has empty identifier, skipping", 
+                        game.Name, provider.GetType().Name);
+                    continue;
+                }
+                
+                if (_settingsVM.Games.ContainsKey(game.Identifier))
+                {
+                    Log.Warning("Game with identifier {Identifier} already exists, skipping duplicate from {Provider}", 
+                        game.Identifier, provider.GetType().Name);
+                    continue;
+                }
+                
+                _settingsVM.Games.Add(game.Identifier, game);
+            }
+            
+            Log.Information("Found {Count} games from provider", games.Length);
         }
         //Save scan results
-        await SettingsVM.Save();
-        _appVm.FilteredGames = SettingsVM.Games.ToObservableCollection();
+        await _settingsVM.Save();
+        _appVm.FilteredGames = _settingsVM.Games.Values.ToObservableCollection();
         Log.Information("loaded {0} games, {1} achievements",
-            SettingsVM.Games.Count, SettingsVM.Games.Sum(x => x.Achievements.Count));
+            _settingsVM.Games.Count, _settingsVM.Games.Sum(x => 
+                x.Value.Achievements.Count));
 
         // Show a message or update a property for the UI
         _appVm.LoadingGamesSummary = "";
+        
+        _appVm.FilteredGames.Clear();
+        _appVm.FilteredGames.AddRange(_settingsVM.Games);
+        Filter_Changed(null,null);
     }
 
     /// <summary>
@@ -107,8 +132,6 @@ public partial class GameList
     private async Task Refresh()
     {
         _appVm.LoadingGamesSummary = "Preparing to refresh games...";
-        SettingsVM.Games ??= [];
-
         List<Game> games = new();
 
         foreach (var provider in _appVm.Providers)
@@ -117,24 +140,16 @@ public partial class GameList
             games.AddRange(await provider.RefreshLibrary());
             Log.Information("Found {Count} games from provider", games.Count);
         }
-
+        
         // Update or add new games.
-        foreach (var newGame in games)
+        foreach (var newGame in games) 
         {
-            var existing = SettingsVM.Games?.FirstOrDefault(g => g.Name == newGame.Name);
-            if (existing != null && SettingsVM.Games != null)
-            {
-                int index = SettingsVM.Games.IndexOf(existing);
-                SettingsVM.Games[index] = newGame;
-            }
-            else
-            {
-                SettingsVM.Games?.Add(newGame);
-            }
+            _settingsVM.Games[newGame.Identifier] = newGame;
         }
 
         _appVm.FilteredGames.Clear();
-        if (SettingsVM.Games != null) { _appVm.FilteredGames.AddRange(SettingsVM.Games);}
+        await _settingsVM.Save();
+        if (_settingsVM.Games != null) { _appVm.FilteredGames.AddRange(_settingsVM.Games);}
         
         _appVm.LoadingGamesSummary = "";
     }
@@ -158,25 +173,25 @@ public partial class GameList
 
     private void RefreshFiltered()
     {
-        var list = (SettingsVM.Games ?? new List<Game>())
-            .Where(g => !_hideComplete || g.UnlockedCount < g.Achievements.Count)
-            .Where(g => !_hideNoAchievements || g.HasAchievements)
-            .Where(g => !_hideUnstarted || g.UnlockedCount > 0);
+        var list = (_settingsVM.Games ?? new ())
+            .Where(g => !_hideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
+            .Where(g => !_hideNoAchievements || g.Value.HasAchievements)
+            .Where(g => !_hideUnstarted || g.Value.UnlockedCount > 0);
 
         list = _orderBy switch
         {
-            OrderBy.Name => list.OrderBy(g => g.Name),
-            OrderBy.CompletionPct => list.OrderBy(g => (double)g.UnlockedCount / g.Achievements.Count),
-            OrderBy.TotalCount => list.OrderBy(g => g.Achievements.Count),
-            OrderBy.UnlockedCount => list.OrderBy(g => g.UnlockedCount),
-            OrderBy.Playtime => list.OrderBy(g => g.PlaytimeMinutes),
+            OrderBy.Name => list.OrderBy(g => g.Value.Name),
+            OrderBy.CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
+            OrderBy.TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
+            OrderBy.UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
+            OrderBy.Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
             _ => list
         };
 
-        if (_reverse) list = list.Reverse();
-
+        if (_reverse) { list = list.Reverse(); }
+        
         // replace the collection instance so ItemsRepeater sees the change
-        _appVm.FilteredGames = new ObservableCollection<Game>(list);
+        _appVm.FilteredGames = new ObservableCollection<Game>(list.Select(g => g.Value));
         Bindings.Update();   // refresh x:Bind targets
 
         // Ensure layout settings are maintained after filtering

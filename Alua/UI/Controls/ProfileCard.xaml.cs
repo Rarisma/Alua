@@ -14,25 +14,24 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
-using AppVM = Alua.Services.ViewModels.AppVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
 namespace Alua.UI.Controls;
 
 public sealed partial class ProfileCard : UserControl
 {
-    private int Unlocked => settingsVM.Games.Sum(g => g.UnlockedCount);
-    private int Perfect => settingsVM.Games.Count(g => g.Achievements.Count == g.UnlockedCount && g.HasAchievements);
+    private int Unlocked => (settingsVM.Games).Sum(g => g.Value.UnlockedCount);
+    private int Perfect => settingsVM.Games.Count(g =>
+        g.Value.Achievements.Count == g.Value.UnlockedCount && g.Value.HasAchievements);
     private int PercentComplete
     {
         get
         {
-            var total = settingsVM.Games.Sum(g => g.Achievements.Count);
-            return total == 0 ? 0 : (Unlocked * 100) / total;
+            int total = settingsVM.Games.Sum(g => g.Value.Achievements.Count);
+            return total == 0 ? 0 : Unlocked * 100 / total;
         }
     }
 
-    AppVM appVM = Ioc.Default.GetRequiredService<AppVM>();
     SettingsVM settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     public ProfileCard()
     {
