@@ -19,6 +19,25 @@ public partial class AppVM : ObservableRecipient
     [ObservableProperty]
     private string _loadingGamesSummary = string.Empty;
 
+    // Filter properties to persist between page changes
+    [ObservableProperty]
+    private bool _hideComplete;
+
+    [ObservableProperty]
+    private bool _hideNoAchievements;
+
+    [ObservableProperty]
+    private bool _hideUnstarted;
+
+    [ObservableProperty]
+    private bool _reverse;
+
+    [ObservableProperty]
+    private OrderBy _orderBy = OrderBy.Name;
+
+    [ObservableProperty]
+    private bool _singleColumnLayout;
+
     public List<IAchievementProvider> Providers = new();
 
     public async Task ConfigureProviders()
@@ -31,7 +50,7 @@ public partial class AppVM : ObservableRecipient
             if (!string.IsNullOrWhiteSpace(svm.SteamID))
             {
                 Log.Information("Configuring steam achievements");
-                var steam = await Services.Providers.SteamService.Create(svm.SteamID);
+                var steam = await SteamService.Create(svm.SteamID);
                 Providers.Add(steam);
                 Log.Information("Successfully configured steam achievements");
             }
@@ -50,3 +69,5 @@ public partial class AppVM : ObservableRecipient
 
     }
 }
+
+public enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime }

@@ -1,10 +1,10 @@
-using System.Collections.ObjectModel;
-using Alua.Services;
+using Alua.Services.ViewModels;
 using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
+using static Alua.Services.ViewModels.OrderBy;
 
 //FHN walked so Alua could run.
 namespace Alua.UI;
@@ -16,22 +16,17 @@ public partial class GameList : Page
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
-    private bool _hideComplete, _hideNoAchievements, _hideUnstarted, _reverse;
-    private bool _singleColumnLayout;
-    private enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime }
-    private OrderBy _orderBy = OrderBy.Name;
-
     // Static flag to track if initial load has occurred
     private static bool _initialLoadCompleted = false;
 
     // Commands for layouts
     public AsyncCommand SingleColumnCommand => new(async () => {
-        _singleColumnLayout = true;
+        _appVm.SingleColumnLayout = true;
         UpdateItemsLayout();
     });
 
     public AsyncCommand MultiColumnCommand => new(async () => {
-        _singleColumnLayout = false;
+        _appVm.SingleColumnLayout = false;
         UpdateItemsLayout();
     });
 
@@ -47,6 +42,10 @@ public partial class GameList : Page
                 await _appVm.ConfigureProviders();
                 Log.Information("No providers found, loading default providers.");
             }
+            
+            // Restore UI controls from VM state
+            RestoreFilterUIFromVM();
+            
             if (!_initialLoadCompleted)
             {
                 if (_settingsVM.Games.Count == 0)
@@ -57,7 +56,7 @@ public partial class GameList : Page
                 }
                 else
                 {
-                    Log.Information(_settingsVM.Games.Count + " games found, scanning.");
+                    Log.Information(_settingsVM.Games.Count + " games found, refreshing.");
                     RefreshCommand.Execute(null);
                 }
                 _initialLoadCompleted = true;
@@ -66,13 +65,48 @@ public partial class GameList : Page
             {
                 // If we've already loaded once, just populate the filtered games
                 _appVm.FilteredGames.Clear();
-                if (_settingsVM.Games != null) { _appVm.FilteredGames.AddRange(_settingsVM.Games);}
+                if (_settingsVM.Games != null) 
+                { 
+                    foreach (var game in _settingsVM.Games.Values)
+                    {
+                        _appVm.FilteredGames.Add(game);
+                    }
+                }
+                Filter_Changed(null,null);
             }
-            Filter_Changed(null,null);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Initial load failed");
+        }
+    }
+
+    private void RestoreFilterUIFromVM()
+    {
+        // Restore checkbox states from VM
+        CheckHideComplete.IsChecked = _appVm.HideComplete;
+        CheckNoAchievements.IsChecked = _appVm.HideNoAchievements;
+        CheckUnstarted.IsChecked = _appVm.HideUnstarted;
+        CheckReverse.IsChecked = _appVm.Reverse;
+
+        // Restore radio button states from VM
+        switch (_appVm.OrderBy)
+        {
+            case OrderBy.Name:
+                RadioName.IsChecked = true;
+                break;
+            case CompletionPct:
+                RadioCompletion.IsChecked = true;
+                break;
+            case TotalCount:
+                RadioTotal.IsChecked = true;
+                break;
+            case UnlockedCount:
+                RadioUnlocked.IsChecked = true;
+                break;
+            case Playtime:
+                RadioPlaytime.IsChecked = true;
+                break;
         }
     }
 
@@ -132,6 +166,28 @@ public partial class GameList : Page
     private async Task Refresh()
     {
         _appVm.LoadingGamesSummary = "Preparing to refresh games...";
+        
+        // If this is the initial load and we have games in memory, load from memory instead of providers
+        if (!_initialLoadCompleted && _settingsVM.Games.Count > 0)
+        {
+            _appVm.LoadingGamesSummary = "Loading games from memory...";
+            _appVm.FilteredGames.Clear();
+            
+            // Add a small delay to show the loading state
+            await Task.Delay(100);
+            
+            // Load all games from memory
+            foreach (var game in _settingsVM.Games.Values)
+            {
+                _appVm.FilteredGames.Add(game);
+            }
+            
+            _appVm.LoadingGamesSummary = "";
+            Filter_Changed(null, null);
+            return;
+        }
+        
+        // Regular refresh logic - get recent games from providers
         List<Game> games = new();
 
         foreach (var provider in _appVm.Providers)
@@ -147,26 +203,33 @@ public partial class GameList : Page
             _settingsVM.Games[newGame.Identifier] = newGame;
         }
 
+        // Clear and repopulate FilteredGames with ALL games from memory
         _appVm.FilteredGames.Clear();
         await _settingsVM.Save();
-        if (_settingsVM.Games != null) { _appVm.FilteredGames.AddRange(_settingsVM.Games);}
+        
+        // Ensure we load ALL games from memory, not just the recent ones
+        foreach (var game in _settingsVM.Games.Values)
+        {
+            _appVm.FilteredGames.Add(game);
+        }
         
         _appVm.LoadingGamesSummary = "";
+        Filter_Changed(null,null);
     }
     private void Filter_Changed(object? sender, RoutedEventArgs? e)
     {
         // read all four checkboxes
-        _hideComplete = CheckHideComplete.IsChecked == true;
-        _hideNoAchievements = CheckNoAchievements.IsChecked == true;
-        _hideUnstarted = CheckUnstarted.IsChecked == true;
-        _reverse = CheckReverse.IsChecked == true;
+        _appVm.HideComplete = CheckHideComplete.IsChecked == true;
+        _appVm.HideNoAchievements = CheckNoAchievements.IsChecked == true;
+        _appVm.HideUnstarted = CheckUnstarted.IsChecked == true;
+        _appVm.Reverse = CheckReverse.IsChecked == true;
 
         // read which radio is checked
-        if (RadioName.IsChecked == true) _orderBy = OrderBy.Name;
-        else if (RadioCompletion.IsChecked == true) _orderBy = OrderBy.CompletionPct;
-        else if (RadioTotal.IsChecked == true) _orderBy = OrderBy.TotalCount;
-        else if (RadioUnlocked.IsChecked == true) _orderBy = OrderBy.UnlockedCount;
-        else if (RadioPlaytime.IsChecked == true) _orderBy = OrderBy.Playtime;
+        if (RadioName.IsChecked == true) _appVm.OrderBy = OrderBy.Name;
+        else if (RadioCompletion.IsChecked == true) _appVm.OrderBy = CompletionPct;
+        else if (RadioTotal.IsChecked == true) _appVm.OrderBy = TotalCount;
+        else if (RadioUnlocked.IsChecked == true) _appVm.OrderBy = UnlockedCount;
+        else if (RadioPlaytime.IsChecked == true) _appVm.OrderBy = Playtime;
 
         RefreshFiltered();
     }
@@ -174,25 +237,28 @@ public partial class GameList : Page
     private void RefreshFiltered()
     {
         var list = (_settingsVM.Games ?? new ())
-            .Where(g => !_hideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
-            .Where(g => !_hideNoAchievements || g.Value.HasAchievements)
-            .Where(g => !_hideUnstarted || g.Value.UnlockedCount > 0);
+            .Where(g => !_appVm.HideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
+            .Where(g => !_appVm.HideNoAchievements || g.Value.HasAchievements)
+            .Where(g => !_appVm.HideUnstarted || g.Value.UnlockedCount > 0);
 
-        list = _orderBy switch
+        list = _appVm.OrderBy switch
         {
             OrderBy.Name => list.OrderBy(g => g.Value.Name),
-            OrderBy.CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
-            OrderBy.TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
-            OrderBy.UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
-            OrderBy.Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
+            CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
+            TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
+            UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
+            Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
             _ => list
         };
 
-        if (_reverse) { list = list.Reverse(); }
+        if (_appVm.Reverse) { list = list.Reverse(); }
         
-        // replace the collection instance so ItemsRepeater sees the change
-        _appVm.FilteredGames = new ObservableCollection<Game>(list.Select(g => g.Value));
-        Bindings.Update();   // refresh x:Bind targets
+        // Clear and repopulate the existing collection instead of replacing it
+        _appVm.FilteredGames.Clear();
+        foreach (var game in list.Select(g => g.Value))
+        {
+            _appVm.FilteredGames.Add(game);
+        }
 
         // Ensure layout settings are maintained after filtering
         UpdateItemsLayout();
@@ -210,7 +276,7 @@ public partial class GameList : Page
     // Method to update layout based on toggle state
     private void UpdateItemsLayout()
     {
-        if (_singleColumnLayout)
+        if (_appVm.SingleColumnLayout)
         {
             // Single column layout
             gameRepeater.Layout = new StackLayout
@@ -235,7 +301,7 @@ public partial class GameList : Page
     // Method to handle toggle button click
     private void ToggleLayout_Click(object sender, RoutedEventArgs e)
     {
-        _singleColumnLayout = !_singleColumnLayout;
+        _appVm.SingleColumnLayout = !_appVm.SingleColumnLayout;
         UpdateItemsLayout();
     }
 
