@@ -14,7 +14,7 @@ public sealed partial class GamePage : Page
     private ObservableCollection<Achievement> _filteredAchievements = new();
     public ObservableCollection<Achievement> FilteredAchievements => _filteredAchievements;
 
-    private bool _hideUnlocked, _hideHidden;
+    private bool _showUnlocked = true, _showLocked = true, _hideHidden = true;
 
     public GamePage()
     {
@@ -24,7 +24,8 @@ public sealed partial class GamePage : Page
 
     private void Filter_Changed(object sender, RoutedEventArgs e)
     {
-        _hideUnlocked = CheckHideUnlocked.IsChecked == true;
+        _showUnlocked = CheckShowUnlocked.IsChecked == true;
+        _showLocked = CheckShowLocked.IsChecked == true;
         _hideHidden = CheckHideHidden.IsChecked == true;
         RefreshFiltered();
     }
@@ -33,9 +34,10 @@ public sealed partial class GamePage : Page
     private void RefreshFiltered()
     {
         var list = (AppVM.SelectedGame?.Achievements ?? Enumerable.Empty<Achievement>())
-            .Where(a => (!_hideUnlocked || !a.IsUnlocked)      // keep locked items unless _hideUnlocked is true
-                        && (!_hideHidden  || !a.IsHidden || a.IsUnlocked)) // show hidden items only if they’re unlocked
-            .ToList(); 
+            .Where(a => (_showUnlocked || !a.IsUnlocked)) // remove unlocked if showUnlocked is false
+            .Where(a => (_showLocked || a.IsUnlocked))    // remove locked if showLocked is false
+            .Where(a => !_hideHidden || !a.IsHidden || a.IsUnlocked) // hide hidden items unless unlocked
+            .ToList();
         _filteredAchievements = new ObservableCollection<Achievement>(list);
         Bindings.Update();
     }
