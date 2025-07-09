@@ -1,6 +1,6 @@
 using System.Collections.ObjectModel;
-using Alua.Services;
 using Alua.Services.Providers;
+using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using AppVM = Alua.Services.ViewModels.AppVM;
 
@@ -45,13 +45,25 @@ public sealed partial class GamePage : Page
     private void RefreshGamePull(RefreshContainer sender, RefreshRequestedEventArgs args) => _refresh();
     private async Task _refresh()
     {
+        //Resolve game provider
+        IAchievementProvider provider;
         switch (AppVM.SelectedGame.Platform)
         {
             case Platforms.Steam:
-               await AppVM.Providers.OfType<SteamService>().FirstOrDefault().RefreshTitle(AppVM.SelectedGame.Identifier);
-               break;
+                provider = AppVM.Providers.OfType<SteamService>().FirstOrDefault();
+                break;
+            case Platforms.RetroAchievements:
+                provider = AppVM.Providers.OfType<RetroAchievementsService>().FirstOrDefault();
+                break;
             default:
                 throw new NotImplementedException("Unimplemented platform" + AppVM.SelectedGame.Platform);
         }
+
+        //Update settings collection and this page's binding source.
+        Game game = await provider.RefreshTitle(AppVM.SelectedGame.Identifier);
+        Ioc.Default.GetRequiredService<SettingsVM>().Games[AppVM.SelectedGame.Identifier] = game;
+        AppVM.SelectedGame = game;
+
+        await Ioc.Default.GetRequiredService<SettingsVM>().Save();
     }
 }

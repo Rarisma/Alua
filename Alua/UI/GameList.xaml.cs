@@ -17,17 +17,19 @@ public partial class GameList : Page
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
     // Static flag to track if initial load has occurred
-    private static bool _initialLoadCompleted = false;
+    private static bool _initialLoadCompleted;
 
     // Commands for layouts
-    public AsyncCommand SingleColumnCommand => new(async () => {
+    public AsyncCommand SingleColumnCommand => new(() => {
         _appVm.SingleColumnLayout = true;
         UpdateItemsLayout();
+        return Task.CompletedTask;
     });
 
-    public AsyncCommand MultiColumnCommand => new(async () => {
+    public AsyncCommand MultiColumnCommand => new(() => {
         _appVm.SingleColumnLayout = false;
         UpdateItemsLayout();
+        return Task.CompletedTask;
     });
 
     public GameList() { InitializeComponent(); }
@@ -123,31 +125,15 @@ public partial class GameList : Page
             Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
             var games = await provider.GetLibrary();
             
-            // Handle potential duplicate identifiers by checking if key already exists
             foreach (var game in games)
             {
-                if (string.IsNullOrEmpty(game.Identifier))
-                {
-                    Log.Warning("Game {GameName} from {Provider} has empty identifier, skipping", 
-                        game.Name, provider.GetType().Name);
-                    continue;
-                }
-                
-                if (_settingsVM.Games.ContainsKey(game.Identifier))
-                {
-                    Log.Warning("Game with identifier {Identifier} already exists, skipping duplicate from {Provider}", 
-                        game.Identifier, provider.GetType().Name);
-                    continue;
-                }
-                
-                _settingsVM.Games.Add(game.Identifier, game);
+                _settingsVM.Games[game.Identifier]= game;
             }
             
             Log.Information("Found {Count} games from provider", games.Length);
         }
         //Save scan results
         await _settingsVM.Save();
-        _appVm.FilteredGames = _settingsVM.Games.Values.ToObservableCollection();
         Log.Information("loaded {0} games, {1} achievements",
             _settingsVM.Games.Count, _settingsVM.Games.Sum(x => 
                 x.Value.Achievements.Count));
@@ -155,9 +141,12 @@ public partial class GameList : Page
         // Show a message or update a property for the UI
         _appVm.LoadingGamesSummary = "";
         
+        // Clear and repopulate FilteredGames with ALL games from memory (same as Refresh method)
         _appVm.FilteredGames.Clear();
-        _appVm.FilteredGames.AddRange(_settingsVM.Games);
-        Filter_Changed(null,null);
+        foreach (var game in _settingsVM.Games.Values)
+        {
+            Filter_Changed(null, null);
+        }
     }
 
     /// <summary>

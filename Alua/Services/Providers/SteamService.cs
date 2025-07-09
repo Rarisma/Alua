@@ -41,7 +41,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             else
             {
                 var response = await steam._apiClient.ResolveVanityUrlAsync(raw);
-                steam._steamId = response!.response!.steamid;
+                steam._steamId = response.response!.steamid!;
             }
 
             return steam;
@@ -60,8 +60,37 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// <returns>Game array</returns>
     public async Task<Game[]> GetLibrary()
     {
-        var owned = await _apiClient.GetOwnedGamesAsync(_steamId, includeAppInfo: true, includePlayedFreeGames: true);
-        return await ConvertToAluaAsync(owned.response.games);
+        try
+        {
+            // Validate required data before making API call
+            if (string.IsNullOrEmpty(_steamId))
+            {
+                Log.Error("Steam ID is null or empty");
+                return [];
+            }
+
+            if (_apiClient == null)
+            {
+                Log.Error("Steam API client is null");
+                return [];
+            }
+
+            var owned = await _apiClient.GetOwnedGamesAsync(_steamId, includeAppInfo: true, includePlayedFreeGames: true);
+            
+            // Check if the response is valid
+            if (owned?.response?.games == null)
+            {
+                Log.Error("Steam API returned null response or games list for user {SteamId}", _steamId);
+                return [];
+            }
+
+            return await ConvertToAluaAsync(owned.response.games);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to get Steam library for user {SteamId}", _steamId);
+            return [];
+        }
     }
     
     /// <summary>
@@ -72,11 +101,23 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     {
         try
         {
+            // Validate required data before making API call
+            if (string.IsNullOrEmpty(_steamId))
+            {
+                Log.Error("Steam ID is null or empty in RefreshLibrary");
+                return [];
+            }
+
+            if (_apiClient == null)
+            {
+                Log.Error("Steam API client is null in RefreshLibrary");
+                return [];
+            }
+
             RecentlyPlayedGamesResult recent = await _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 5);
 
-            // skip games without achievements so we don’t waste quota scanning them
-            var skip = Enumerable
-                .Where<Game>(_settingsVm.Games.Values!, g => g is { HasAchievements: false, Platform: Platforms.Steam })
+            var skip = _settingsVm.Games.Values!
+                .Where(g => g is { HasAchievements: false, Platform: Platforms.Steam })
                 .Select(g => g.Identifier)
                 .ToHashSet(StringComparer.Ordinal);
 
@@ -98,27 +139,35 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// <returns>Game Object</returns>
     public async Task<Game> RefreshTitle(string identifier)
     {
-        int appId = int.Parse(identifier);
-
-        // game schema gives us its name + achievement defs 
-        await _apiClient.GetSchemaForGameAsync(appId);
-        var data = (await _apiClient.GetOwnedGamesAsync(steamid: _steamId, includeAppInfo: true,
-            includePlayedFreeGames: true, [appId])).response.games[0];
-        string iconHash = data.img_icon_url;
-        string iconUrl  = string.IsNullOrEmpty(iconHash)
-            ? string.Empty
-            : $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{iconHash}.jpg";
-
-        return new Game
+        try
         {
-            Identifier       = "steam-"+identifier,
-            Name             = data.name,
-            Icon             = iconUrl,
-            Author           = string.Empty,
-            Platform         = Platforms.Steam,
-            PlaytimeMinutes  = data.playtime_forever,  
-            Achievements     = (await GetAchievementDataAsync(identifier)).ToObservableCollection()
-        };
+            int appId = int.Parse(identifier.Split("steam-").Last());
+
+            // game schema gives us its name + achievement defs 
+            await _apiClient.GetSchemaForGameAsync(appId);
+            var data = (await _apiClient.GetOwnedGamesAsync(steamid: _steamId, includeAppInfo: true,
+                includePlayedFreeGames: true, [appId])).response.games[0];
+            string iconHash = data.img_icon_url;
+            string iconUrl  = string.IsNullOrEmpty(iconHash)
+                ? string.Empty
+                : $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{iconHash}.jpg";
+
+            return new Game
+            {
+                Identifier       = "steam-"+appId,
+                Name             = data.name,
+                Icon             = iconUrl,
+                Author           = string.Empty,
+                Platform         = Platforms.Steam,
+                PlaytimeMinutes  = data.playtime_forever,  
+                Achievements     = (await GetAchievementDataAsync(appId.ToString())).ToObservableCollection()
+            };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to refresh " + identifier);
+            throw;
+        }
     }
 
     #endregion
@@ -129,10 +178,10 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
         try
         {
             int appId = int.Parse(identifier);
-            var schema = await _apiClient.GetSchemaForGameAsync(appId);
+            GameSchemaResult schema = await _apiClient.GetSchemaForGameAsync(appId);
 
             //Null Check/ Check we actually have achievements to get data for
-            if (schema.game?.availableGameStats?.achievements == null)
+            if (schema.game.availableGameStats?.achievements == null)
             {
                 return [];
             }
@@ -175,7 +224,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
         }
         catch (Exception ex)
         {
-            Log.Error(ex, $"Failed to get achievement data for game {identifier}");
+            Log.Error(ex, "Failed to get achievement data for game {Identifier}", identifier);
             return [];
         }
     }
@@ -197,7 +246,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 Author          = string.Empty,
                 Platform        = Platforms.Steam,
                 PlaytimeMinutes = g.playtime_forever,
-                Identifier      = g.appid.ToString(),
+                Identifier      = "steam-"+g.appid,
                 Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection()
             });
 
