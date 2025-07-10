@@ -1,3 +1,4 @@
+using System;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Serilog;
@@ -57,7 +58,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
                 PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
                 Achievements = (await GetAchievements(completed.GameID)).ToObservableCollection(),
-                Identifier = "ra-"+completed.GameID
+                Identifier = "ra-"+completed.GameID,
+                LastUpdated = DateTime.UtcNow
             };
 
             // Add game to collection, update progress message
@@ -87,7 +89,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
                 PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
                 Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
-                Identifier = "ra-"+game.GameID
+                Identifier = "ra-"+game.GameID,
+                LastUpdated = DateTime.UtcNow
             });
         }
         
@@ -111,7 +114,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             Platform = Platforms.RetroAchievements,
             PlaytimeMinutes = -1,
             Achievements = (await GetAchievements(gameId)).ToObservableCollection(),
-            Identifier = "ra-"+identifier
+            Identifier = "ra-"+identifier,
+            LastUpdated = DateTime.UtcNow
         };
     }
 

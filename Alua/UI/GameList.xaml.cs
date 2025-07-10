@@ -219,6 +219,7 @@ public partial class GameList : Page
         else if (RadioTotal.IsChecked == true) _appVm.OrderBy = TotalCount;
         else if (RadioUnlocked.IsChecked == true) _appVm.OrderBy = UnlockedCount;
         else if (RadioPlaytime.IsChecked == true) _appVm.OrderBy = Playtime;
+        else if (RadioRecent.IsChecked == true) _appVm.OrderBy = LastUpdated;
 
         RefreshFiltered();
     }
@@ -237,6 +238,7 @@ public partial class GameList : Page
             TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
             UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
             Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
+            LastUpdated => list.OrderByDescending(g => g.Value.LastUpdated),
             _ => list
         };
 
