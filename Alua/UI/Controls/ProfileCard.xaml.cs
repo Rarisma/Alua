@@ -14,6 +14,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Navigation;
+using System.ComponentModel;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
 namespace Alua.UI.Controls;
@@ -36,5 +37,14 @@ public sealed partial class ProfileCard : UserControl
     public ProfileCard()
     {
         InitializeComponent();
+        settingsVM.PropertyChanged += SettingsVMOnPropertyChanged;
+    }
+
+    private void SettingsVMOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(SettingsVM.Games))
+        {
+            Bindings.Update();
+        }
     }
 }

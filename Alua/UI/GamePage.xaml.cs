@@ -63,7 +63,7 @@ public sealed partial class GamePage : Page
 
         //Update settings collection and this page's binding source.
         Game game = await provider.RefreshTitle(AppVM.SelectedGame.Identifier);
-        Ioc.Default.GetRequiredService<SettingsVM>().Games[AppVM.SelectedGame.Identifier] = game;
+        Ioc.Default.GetRequiredService<SettingsVM>().AddOrUpdateGame(game);
         AppVM.SelectedGame = game;
 
         await Ioc.Default.GetRequiredService<SettingsVM>().Save();
