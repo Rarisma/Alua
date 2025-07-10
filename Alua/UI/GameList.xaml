@@ -104,6 +104,10 @@
                                                          Content="Playtime"
                                                          GroupName="OrderBy"
                                                          Checked="Filter_Changed"/>
+                                            <RadioButton x:Name="RadioRecent"
+                                                         Content="Recently Played"
+                                                         GroupName="OrderBy"
+                                                         Checked="Filter_Changed"/>
                                             <CheckBox x:Name="CheckReverse"
                                                       Content="Reverse order"
                                                       Checked="Filter_Changed"

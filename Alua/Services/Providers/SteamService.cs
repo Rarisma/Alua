@@ -1,3 +1,4 @@
+using System;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
@@ -159,8 +160,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 Icon             = iconUrl,
                 Author           = string.Empty,
                 Platform         = Platforms.Steam,
-                PlaytimeMinutes  = data.playtime_forever,  
-                Achievements     = (await GetAchievementDataAsync(appId.ToString())).ToObservableCollection()
+                PlaytimeMinutes  = data.playtime_forever,
+                Achievements     = (await GetAchievementDataAsync(appId.ToString())).ToObservableCollection(),
+                LastUpdated      = DateTime.UtcNow
             };
         }
         catch (Exception ex)
@@ -247,7 +249,8 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 Platform        = Platforms.Steam,
                 PlaytimeMinutes = g.playtime_forever,
                 Identifier      = "steam-"+g.appid,
-                Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection()
+                Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection(),
+                LastUpdated     = DateTime.UtcNow
             });
 
             _appVm.LoadingGamesSummary = $"Scanned {g.name} ({src.IndexOf(g)}/{src.Count})";

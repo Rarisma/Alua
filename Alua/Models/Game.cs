@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
@@ -25,6 +26,12 @@ public class Game
     /// </summary>
     [JsonInclude, JsonPropertyName("Icon")]
     public string Icon { get; set; }
+
+    /// <summary>
+    /// Last time the game information was updated
+    /// </summary>
+    [JsonInclude, JsonPropertyName("LastUpdated")]
+    public DateTime LastUpdated { get; set; }
     
     /// <summary>
     /// Total playtime in minutes
@@ -55,6 +62,7 @@ public class Game
         Icon = string.Empty;
         Achievements = new ObservableCollection<Achievement>();
         Identifier = string.Empty;
+        LastUpdated = DateTime.UtcNow;
     }
 
     #region UI Helpers
