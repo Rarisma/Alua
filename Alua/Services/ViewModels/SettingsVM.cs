@@ -50,6 +50,16 @@ public partial class SettingsVM  : ObservableObject
         _games = new();
     }
 
+    /// <summary>
+    /// Adds or updates a game in the collection and notifies listeners.
+    /// </summary>
+    /// <param name="game">Game to add or update.</param>
+    public void AddOrUpdateGame(Game game)
+    {
+        _games[game.Identifier] = game;
+        OnPropertyChanged(nameof(Games));
+    }
+
 
     /// <summary>
     /// Saves settings to disk

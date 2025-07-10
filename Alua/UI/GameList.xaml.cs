@@ -127,7 +127,7 @@ public partial class GameList : Page
             
             foreach (var game in games)
             {
-                _settingsVM.Games[game.Identifier]= game;
+                _settingsVM.AddOrUpdateGame(game);
             }
             
             Log.Information("Found {Count} games from provider", games.Length);
@@ -187,9 +187,9 @@ public partial class GameList : Page
         }
         
         // Update or add new games.
-        foreach (var newGame in games) 
+        foreach (var newGame in games)
         {
-            _settingsVM.Games[newGame.Identifier] = newGame;
+            _settingsVM.AddOrUpdateGame(newGame);
         }
 
         // Clear and repopulate FilteredGames with ALL games from memory
