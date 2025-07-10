@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Serilog;
 
+
 //When you can't even say my name
 namespace Alua.Services.ViewModels;
 /// <summary>
@@ -42,8 +43,30 @@ public partial class SettingsVM  : ObservableObject
     /// <summary>
     /// Controls if we show the first run dialog or game list
     /// </summary>
-    [ObservableProperty, JsonInclude, JsonPropertyName("Init")]    
+    [ObservableProperty, JsonInclude, JsonPropertyName("Init")]
     private bool _initialised;
+
+    // -----------------------------------------------------------
+    // Filter settings persisted between sessions
+    // -----------------------------------------------------------
+
+    [ObservableProperty, JsonInclude, JsonPropertyName("HideComplete")]
+    private bool _hideComplete;
+
+    [ObservableProperty, JsonInclude, JsonPropertyName("HideNoAchievements")]
+    private bool _hideNoAchievements;
+
+    [ObservableProperty, JsonInclude, JsonPropertyName("HideUnstarted")]
+    private bool _hideUnstarted;
+
+    [ObservableProperty, JsonInclude, JsonPropertyName("Reverse")]
+    private bool _reverse;
+
+    [ObservableProperty, JsonInclude, JsonPropertyName("OrderBy")]
+    private OrderBy _orderBy = OrderBy.Name;
+
+    [ObservableProperty, JsonInclude, JsonPropertyName("SingleColumnLayout")]
+    private bool _singleColumnLayout;
 
     public SettingsVM()
     {

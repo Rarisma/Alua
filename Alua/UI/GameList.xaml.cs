@@ -2,6 +2,7 @@ using Alua.Services.ViewModels;
 using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
+using Microsoft.UI.Xaml.Controls;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 using static Alua.Services.ViewModels.OrderBy;
@@ -20,16 +21,20 @@ public partial class GameList : Page
     private static bool _initialLoadCompleted;
 
     // Commands for layouts
-    public AsyncCommand SingleColumnCommand => new(() => {
+    public AsyncCommand SingleColumnCommand => new(async () => {
         _appVm.SingleColumnLayout = true;
+        _settingsVM.SingleColumnLayout = true;
+        LayoutToggle.IsOn = true;
         UpdateItemsLayout();
-        return Task.CompletedTask;
+        await _settingsVM.Save();
     });
 
-    public AsyncCommand MultiColumnCommand => new(() => {
+    public AsyncCommand MultiColumnCommand => new(async () => {
         _appVm.SingleColumnLayout = false;
+        _settingsVM.SingleColumnLayout = false;
+        LayoutToggle.IsOn = false;
         UpdateItemsLayout();
-        return Task.CompletedTask;
+        await _settingsVM.Save();
     });
 
     public GameList() { InitializeComponent(); }
@@ -39,6 +44,14 @@ public partial class GameList : Page
         try
         {
             Log.Information("Initialised games list");
+            // Load persisted filter settings into the app VM
+            _appVm.HideComplete = _settingsVM.HideComplete;
+            _appVm.HideNoAchievements = _settingsVM.HideNoAchievements;
+            _appVm.HideUnstarted = _settingsVM.HideUnstarted;
+            _appVm.Reverse = _settingsVM.Reverse;
+            _appVm.OrderBy = _settingsVM.OrderBy;
+            _appVm.SingleColumnLayout = _settingsVM.SingleColumnLayout;
+
             if (_appVm.Providers.Count == 0)
             {
                 await _appVm.ConfigureProviders();
@@ -110,6 +123,10 @@ public partial class GameList : Page
                 RadioPlaytime.IsChecked = true;
                 break;
         }
+
+        // Layout toggle and repeater layout
+        LayoutToggle.IsOn = _appVm.SingleColumnLayout;
+        UpdateItemsLayout();
     }
 
     /// <summary>
@@ -205,7 +222,7 @@ public partial class GameList : Page
         _appVm.LoadingGamesSummary = "";
         Filter_Changed(null,null);
     }
-    private void Filter_Changed(object? sender, RoutedEventArgs? e)
+    private async void Filter_Changed(object? sender, RoutedEventArgs? e)
     {
         // read all four checkboxes
         _appVm.HideComplete = CheckHideComplete.IsChecked == true;
@@ -219,6 +236,15 @@ public partial class GameList : Page
         else if (RadioTotal.IsChecked == true) _appVm.OrderBy = TotalCount;
         else if (RadioUnlocked.IsChecked == true) _appVm.OrderBy = UnlockedCount;
         else if (RadioPlaytime.IsChecked == true) _appVm.OrderBy = Playtime;
+
+        // Persist settings
+        _settingsVM.HideComplete = _appVm.HideComplete;
+        _settingsVM.HideNoAchievements = _appVm.HideNoAchievements;
+        _settingsVM.HideUnstarted = _appVm.HideUnstarted;
+        _settingsVM.Reverse = _appVm.Reverse;
+        _settingsVM.OrderBy = _appVm.OrderBy;
+
+        await _settingsVM.Save();
 
         RefreshFiltered();
     }
@@ -288,10 +314,13 @@ public partial class GameList : Page
     }
 
     // Method to handle toggle button click
-    private void ToggleLayout_Click(object sender, RoutedEventArgs e)
+    private async void ToggleLayout_Click(object sender, RoutedEventArgs e)
     {
-        _appVm.SingleColumnLayout = !_appVm.SingleColumnLayout;
+        var toggle = (ToggleSwitch)sender;
+        _appVm.SingleColumnLayout = toggle.IsOn;
+        _settingsVM.SingleColumnLayout = toggle.IsOn;
         UpdateItemsLayout();
+        await _settingsVM.Save();
     }
 
     #region Async Commands
