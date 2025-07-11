@@ -38,10 +38,6 @@ public partial class AppVM : ObservableRecipient
     [ObservableProperty]
     private bool _singleColumnLayout;
 
-    // Search query for filtering games
-    [ObservableProperty]
-    private string _searchQuery = string.Empty;
-
     public List<IAchievementProvider> Providers = new();
 
     public async Task ConfigureProviders()

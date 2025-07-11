@@ -3,9 +3,6 @@ using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Input;
-using System;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 using static Alua.Services.ViewModels.OrderBy;
@@ -255,31 +252,27 @@ public partial class GameList : Page
 
     private void RefreshFiltered()
     {
-        var list = (_settingsVM.Games ?? new())
+        var list = (_settingsVM.Games ?? new ())
             .Where(g => !_appVm.HideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
             .Where(g => !_appVm.HideNoAchievements || g.Value.HasAchievements)
-            .Where(g => !_appVm.HideUnstarted || g.Value.UnlockedCount > 0)
-            .Where(g => string.IsNullOrWhiteSpace(_appVm.SearchQuery) ||
-                        g.Value.Name.Contains(_appVm.SearchQuery, StringComparison.OrdinalIgnoreCase));
+            .Where(g => !_appVm.HideUnstarted || g.Value.UnlockedCount > 0);
 
-        var ordered = list.OrderByDescending(g => g.Value.IsFavorite);
-
-        ordered = _appVm.OrderBy switch
+        list = _appVm.OrderBy switch
         {
-            OrderBy.Name => ordered.ThenBy(g => g.Value.Name),
-            CompletionPct => ordered.ThenBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
-            TotalCount => ordered.ThenBy(g => g.Value.Achievements.Count),
-            UnlockedCount => ordered.ThenBy(g => g.Value.UnlockedCount),
-            Playtime => ordered.ThenBy(g => g.Value.PlaytimeMinutes),
-            LastUpdated => ordered.ThenByDescending(g => g.Value.LastUpdated),
-            _ => ordered
+            OrderBy.Name => list.OrderBy(g => g.Value.Name),
+            CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
+            TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
+            UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
+            Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
+            LastUpdated => list.OrderByDescending(g => g.Value.LastUpdated),
+            _ => list
         };
 
-        var final = _appVm.Reverse ? ordered.Reverse() : ordered;
-
+        if (_appVm.Reverse) { list = list.Reverse(); }
+        
         // Clear and repopulate the existing collection instead of replacing it
         _appVm.FilteredGames.Clear();
-        foreach (var game in final.Select(g => g.Value))
+        foreach (var game in list.Select(g => g.Value))
         {
             _appVm.FilteredGames.Add(game);
         }
@@ -330,25 +323,6 @@ public partial class GameList : Page
         _settingsVM.SingleColumnLayout = toggle.IsOn;
         UpdateItemsLayout();
         await _settingsVM.Save();
-    }
-
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
-    {
-        _appVm.SearchQuery = SearchBox.Text;
-        RefreshFiltered();
-    }
-
-    private async void FavoriteToggle_Click(object sender, RoutedEventArgs e)
-    {
-        e.Handled = true;
-        var toggle = (ToggleButton)sender;
-        if (toggle.DataContext is Game game)
-        {
-            game.IsFavorite = toggle.IsChecked == true;
-            _settingsVM.AddOrUpdateGame(game);
-            await _settingsVM.Save();
-            RefreshFiltered();
-        }
     }
 
     #region Async Commands

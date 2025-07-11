@@ -38,12 +38,6 @@ public class Game
     /// </summary>
     [JsonInclude, JsonPropertyName("PlaytimeMinutes")]
     public int PlaytimeMinutes { get; set; }
-
-    /// <summary>
-    /// Indicates if the game is marked as favourite
-    /// </summary>
-    [JsonInclude, JsonPropertyName("IsFavorite")]
-    public bool IsFavorite { get; set; }
     
     /// <summary>
     /// All achievements for this game
@@ -69,7 +63,6 @@ public class Game
         Achievements = new ObservableCollection<Achievement>();
         Identifier = string.Empty;
         LastUpdated = DateTime.UtcNow;
-        IsFavorite = false;
     }
 
     #region UI Helpers

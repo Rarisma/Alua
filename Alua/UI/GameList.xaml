@@ -60,10 +60,6 @@
                                                        Style="{ThemeResource BaseTextBlockStyle}"
                                                        FontWeight="SemiBold"
                                                        Margin="0,0,0,4"/>
-                                            <TextBox x:Name="SearchBox"
-                                                     PlaceholderText="Search"
-                                                     Text="{x:Bind _appVm.SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                                     TextChanged="SearchBox_TextChanged"/>
                                             <CheckBox x:Name="CheckHideComplete"
                                                       Content="Hide 100% Complete"
                                                       Checked="Filter_Changed"
@@ -167,16 +163,6 @@
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
-                                        <ToggleButton x:Name="FavoriteToggle"
-                                                      IsChecked="{x:Bind IsFavorite, Mode=TwoWay}"
-                                                      Click="FavoriteToggle_Click"
-                                                      Grid.ColumnSpan="2"
-                                                      HorizontalAlignment="Right"
-                                                      VerticalAlignment="Top"
-                                                      Background="Transparent"
-                                                      BorderThickness="0">
-                                            <SymbolIcon Symbol="Favorite"/>
-                                        </ToggleButton>
                                         <!-- Left: Game Icon + Provider Icon -->
                                         <StackPanel Grid.Column="0" VerticalAlignment="Top"
                                                     HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
