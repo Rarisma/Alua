@@ -4,7 +4,7 @@ using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Serilog;
 using Game = Alua.Models.Game;
-
+// We never lost control 
 namespace Alua.Services.Providers;
 
 public sealed partial class SteamService : IAchievementProvider<SteamService>

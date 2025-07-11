@@ -10,6 +10,7 @@ namespace Alua.Services.ViewModels;
 /// </summary>
 public partial class SettingsVM  : ObservableObject
 {
+    #region Build info
     /// <summary>
     /// Shown in settings
     /// </summary>
@@ -21,7 +22,9 @@ public partial class SettingsVM  : ObservableObject
     /// </summary>
     [JsonIgnore]
     public string BuildString = "I can't even park";
-    
+    #endregion
+
+    #region Alua Data
     /// <summary>
     /// All games we have data for.
     /// </summary>
@@ -45,28 +48,27 @@ public partial class SettingsVM  : ObservableObject
     /// </summary>
     [ObservableProperty, JsonInclude, JsonPropertyName("Init")]
     private bool _initialised;
+    #endregion
 
-    // -----------------------------------------------------------
-    // Filter settings persisted between sessions
-    // -----------------------------------------------------------
-
-    [ObservableProperty, JsonInclude, JsonPropertyName("HideComplete")]
+    #region FilterData
+    [ObservableProperty, JsonPropertyName("FilterHideComplete")]
     private bool _hideComplete;
 
-    [ObservableProperty, JsonInclude, JsonPropertyName("HideNoAchievements")]
+    [ObservableProperty, JsonPropertyName("FilterHideNoAchievements")]
     private bool _hideNoAchievements;
 
-    [ObservableProperty, JsonInclude, JsonPropertyName("HideUnstarted")]
+    [ObservableProperty, JsonPropertyName("FilterHideUnstarted")]
     private bool _hideUnstarted;
 
-    [ObservableProperty, JsonInclude, JsonPropertyName("Reverse")]
+    [ObservableProperty, JsonPropertyName("FilterReverse")]
     private bool _reverse;
 
-    [ObservableProperty, JsonInclude, JsonPropertyName("OrderBy")]
+    [ObservableProperty, JsonPropertyName("FilterOrderBy")]
     private OrderBy _orderBy = OrderBy.Name;
 
-    [ObservableProperty, JsonInclude, JsonPropertyName("SingleColumnLayout")]
+    [ObservableProperty, JsonPropertyName("FilterSingleColumnLayout")]
     private bool _singleColumnLayout;
+    #endregion
 
     public SettingsVM()
     {

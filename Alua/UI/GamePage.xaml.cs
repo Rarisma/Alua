@@ -67,5 +67,6 @@ public sealed partial class GamePage : Page
         AppVM.SelectedGame = game;
 
         await Ioc.Default.GetRequiredService<SettingsVM>().Save();
+        RefreshFiltered();
     }
 }

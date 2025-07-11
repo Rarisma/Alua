@@ -99,7 +99,7 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
             <CheckBox x:Name="CheckShowUnlocked" Content="Show Unlocked" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
             <CheckBox x:Name="CheckShowLocked" Content="Show Locked" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
-            <CheckBox x:Name="CheckHideHidden" Content="Hide Hidden" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
+            <CheckBox x:Name="CheckHideHidden" Content="Hide Secret Achievements" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
         </StackPanel>
 
         <!-- Achievements List -->
