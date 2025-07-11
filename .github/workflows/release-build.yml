@@ -1,9 +1,6 @@
-# Name of the workflow
 name: Build & Release
 
-# Controls when the workflow will run
 on:
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
     inputs:
       version:
@@ -11,25 +8,18 @@ on:
         required: true
         type: string
 
-# Sets permissions for the GITHUB_TOKEN for this workflow
 permissions:
-  contents: write  # Required for creating releases
-  packages: read   # Required for reading packages
+  contents: write     # create releases
+  packages: read      # read packages
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  #---------- BUILD ----------
-  # This job builds the application for various platforms
+  # ---------- BUILD ----------
   build:
-    # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
-    # Set environment variable to disable locked mode for all dotnet commands in this job
     env:
       DOTNET_RESTORE_LOCKED_MODE: false
     strategy:
-      # When set to false, a failure in one matrix job does not cancel others
       fail-fast: false
-      # A matrix of configurations for this job
       matrix:
         include:
           # Desktop builds
@@ -43,36 +33,39 @@ jobs:
             art: macos-arm64
 
     steps:
-      # Step 1: Checkout the main repo into a specific directory named 'AluaAchievements'
+      # 1 Checkout main repo
       - name: Checkout AluaAchievements repo
         uses: actions/checkout@v4
         with:
           repository: Rarisma/AluaAchievements
           path: AluaAchievements
 
-      # Step 2: Checkout the second repo into a sibling directory named 'SACHYA'
+      # 2 Checkout sibling repo (if needed by the solution)
       - name: Checkout Sachya repo
         uses: actions/checkout@v4
         with:
           repository: rarisma/sachya
           path: SACHYA
 
-      # Step 3: Setup .NET
+      # 3 Install .NET SDK
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.*.*'
-          
+
+      # 4 Restore any optional workloads (Uno/Maui, etc.)
       - name: Install .NET workloads
-        run: dotnet workload restore
-      
-      # Step 4: Run dotnet restore from within the correct directory
-      - name: Restore dependencies
-        run: dotnet restore Alua.sln
         working-directory: ./AluaAchievements
-          
-      # Publishes the application
+        run: dotnet workload restore
+
+      # 5 NuGet restore
+      - name: Restore dependencies
+        working-directory: ./AluaAchievements
+        run: dotnet restore Alua.sln
+
+      # 6 Publish self-contained single-file binaries
       - name: Publish application
+        working-directory: ./AluaAchievements
         run: |
           dotnet publish Alua/Alua.csproj \
             -c Release \
@@ -83,33 +76,28 @@ jobs:
             -o publish \
             --no-restore
 
-      # Compresses the published output into a zip archive
+      # 7 Zip the publish folder
       - name: Archive artifact
-        run: |
-          cd publish
-          7z a ../${{ matrix.art }}.zip ./*
+        working-directory: ./AluaAchievements
+        run: 7z a ../${{ matrix.art }}.zip ./publish/*
 
-      # Uploads the compressed artifact to be used in other jobs
+      # 8 Upload for the release job
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.art }}
           path: ${{ matrix.art }}.zip
 
-  #---------- RELEASE ----------
-  # This job creates a GitHub release after the build job completes
+  # ---------- RELEASE ----------
   release:
-    # Specifies that the 'build' job must complete successfully before this job runs
     needs: build
     runs-on: ubuntu-latest
     steps:
-      # Downloads all artifacts from the 'build' job into the 'dist' directory
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
 
-      # Creates a GitHub release
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
