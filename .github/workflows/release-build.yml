@@ -9,8 +9,8 @@ on:
         type: string
 
 permissions:
-  contents: write     # create releases
-  packages: read      # read packages
+  contents: write   # needed to create releases
+  packages: read
 
 jobs:
   # ---------- BUILD ----------
@@ -22,7 +22,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Desktop builds
           - os: windows-latest
             rid: win-x64
             fw: net9.0-windows10.0.19041.0
@@ -33,55 +32,54 @@ jobs:
             art: macos-arm64
 
     steps:
-      # 1 Checkout main repo
-      - name: Checkout AluaAchievements repo
+      # 1 ─ Checkout repositories
+      - name: Checkout AluaAchievements
         uses: actions/checkout@v4
         with:
           repository: Rarisma/AluaAchievements
           path: AluaAchievements
 
-      # 2 Checkout sibling repo (if needed by the solution)
-      - name: Checkout Sachya repo
+      - name: Checkout SACHYA
         uses: actions/checkout@v4
         with:
           repository: rarisma/sachya
           path: SACHYA
 
-      # 3 Install .NET SDK
+      # 2 ─ Install the .NET SDK
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.*.*'
 
-      # 4 Restore any optional workloads (Uno/Maui, etc.)
+      # 3 ─ Optional workloads (Uno/Maui, etc.)
       - name: Install .NET workloads
         working-directory: ./AluaAchievements
         run: dotnet workload restore
 
-      # 5 NuGet restore
+      # 4 ─ Restore NuGet packages
       - name: Restore dependencies
         working-directory: ./AluaAchievements
         run: dotnet restore Alua.sln
 
-      # 6 Publish self-contained single-file binaries
+      # 5 ─ Publish self-contained, single-file binaries
       - name: Publish application
         working-directory: ./AluaAchievements
-        run: |
-          dotnet publish Alua/Alua.csproj \
-            -c Release \
-            -f ${{ matrix.fw }} \
-            -r ${{ matrix.rid }} \
-            --self-contained true \
-            -p:PublishSingleFile=true \
-            -o publish \
-            --no-restore
+        run: >
+          dotnet publish Alua/Alua.csproj
+          -c Release
+          -f ${{ matrix.fw }}
+          -r ${{ matrix.rid }}
+          --self-contained
+          -p:PublishSingleFile=true
+          -o publish
+          --no-restore
 
-      # 7 Zip the publish folder
+      # 6 ─ Zip the publish output
       - name: Archive artifact
-        working-directory: ./AluaAchievements
-        run: 7z a ../${{ matrix.art }}.zip ./publish/*
+        working-directory: ./AluaAchievements/publish
+        run: 7z a ../../${{ matrix.art }}.zip *
 
-      # 8 Upload for the release job
+      # 7 ─ Upload artifact for the release job
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -93,12 +91,12 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
 
-      - name: Create Release
+      - name: Create GitHub release
         uses: ncipollo/release-action@v1
         with:
           tag: ${{ github.event.inputs.version }}
