@@ -60,17 +60,17 @@ jobs:
       working-directory: ./AluaAchievements
       run: dotnet workload restore
 
-    # ► EXTRA — macOS workload ◄
+    # ► EXTRA — macOS workload
     - name: Install macOS workload
       if: matrix.os == 'macos-latest'
       run: dotnet workload install macos
 
-    # 4 ─ Restore NuGet (include RID for publish-time graphs)
+    # 4 ─ Restore NuGet (Windows job only)
     - name: Restore dependencies
       working-directory: ./AluaAchievements
       run: >
         dotnet restore Alua/Alua.csproj
-        -r ${{ matrix.rid }}
+        --framework net9.0-desktop --runtime   ${{ matrix.rid }}
 
     # 5 ─ Write .env from secret
     - name: Write .env from secret
