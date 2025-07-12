@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: write   # needed to create releases
+  contents: write
   packages: read
 
 jobs:
@@ -22,10 +22,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # Windows
           - os: windows-latest
             rid: win-x64
             fw: net9.0-desktop
             art: win-x64
+          # macOS
+          - os: macos-latest
+            rid: osx-arm64
+            fw: net9.0-macos
+            art: macos-arm64
 
     steps:
       # 1 ─ Checkout repositories
@@ -56,15 +62,14 @@ jobs:
       - name: Restore dependencies
         working-directory: ./AluaAchievements
         run: dotnet restore Alua.sln
-     
-      # inside the “build” job ­steps
-      - name: Write .env from secret
-        working-directory: ./AluaAchievements/Alua        # folder that holds Alua.csproj
-        run: |
-          # envcontent is expected to be the full text of the .env file
-          printf '%s\n' "${{ secrets.envcontent }}" > .env
 
-      # 5 ─ Publish self-contained, single-file binaries
+      # 5 ─ Materialise the .env file from a secret
+      - name: Write .env from secret
+        working-directory: ./AluaAchievements/Alua
+        shell: bash
+        run: printf '%s\n' "${{ secrets.envcontent }}" > .env
+
+      # 6 ─ Publish self-contained, single-file binaries
       - name: Publish application
         working-directory: ./AluaAchievements
         run: >
@@ -77,12 +82,18 @@ jobs:
           -o publish
           --no-restore
 
-      # 6 ─ Zip the publish output
+      # 7 ─ Zip the publish output (cross-platform)
       - name: Archive artifact
         working-directory: ./AluaAchievements/publish
-        run: 7z a ../../${{ matrix.art }}.zip *
+        shell: bash
+        run: |
+          if command -v 7z >/dev/null 2>&1; then
+            7z a ../../${{ matrix.art }}.zip *
+          else
+            zip -r ../../${{ matrix.art }}.zip .
+          fi
 
-      # 7 ─ Upload artifact for the release job
+      # 8 ─ Upload artifact for the release job
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
