@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 
 
@@ -81,7 +82,7 @@ public partial class SettingsVM  : ObservableObject
     /// <param name="game">Game to add or update.</param>
     public void AddOrUpdateGame(Game game)
     {
-        _games[game.Identifier] = game;
+        Games[game.Identifier] = game;
         OnPropertyChanged(nameof(Games));
     }
 
@@ -109,7 +110,7 @@ public partial class SettingsVM  : ObservableObject
         }
     }
 
-    /// <summary>
+    ///<summary>
     /// Reads settings from disk
     /// </summary>
     public static SettingsVM Load()

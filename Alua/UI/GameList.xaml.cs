@@ -16,10 +16,7 @@ public partial class GameList : Page
 {
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-
-    // Static flag to track if initial load has occurred
-    private static bool _initialLoadCompleted;
-
+    
     // Commands for layouts
     public AsyncCommand SingleColumnCommand => new(async () => {
         _appVm.SingleColumnLayout = true;
@@ -51,18 +48,14 @@ public partial class GameList : Page
             _appVm.Reverse = _settingsVM.Reverse;
             _appVm.OrderBy = _settingsVM.OrderBy;
             _appVm.SingleColumnLayout = _settingsVM.SingleColumnLayout;
-
-            if (_appVm.Providers.Count == 0)
-            {
-                await _appVm.ConfigureProviders();
-                Log.Information("No providers found, loading default providers.");
-            }
             
             // Restore UI controls from VM state
             RestoreFilterUIFromVM();
             
-            if (!_initialLoadCompleted)
+            if (!_appVm.InitialLoadCompleted)
             {
+                await _appVm.ConfigureProviders();
+
                 if (_settingsVM.Games.Count == 0)
                 {
                     Log.Information("No games found, scanning.");
@@ -74,7 +67,7 @@ public partial class GameList : Page
                     Log.Information(_settingsVM.Games.Count + " games found, refreshing.");
                     RefreshCommand.Execute(null);
                 }
-                _initialLoadCompleted = true;
+                _appVm.InitialLoadCompleted = true;
             }
             else
             {
@@ -174,7 +167,7 @@ public partial class GameList : Page
         _appVm.LoadingGamesSummary = "Preparing to refresh games...";
         
         // If this is the initial load and we have games in memory, load from memory instead of providers
-        if (!_initialLoadCompleted && _settingsVM.Games.Count > 0)
+        if (!_appVm.InitialLoadCompleted && _settingsVM.Games.Count > 0)
         {
             _appVm.LoadingGamesSummary = "Loading games from memory...";
             _appVm.FilteredGames.Clear();

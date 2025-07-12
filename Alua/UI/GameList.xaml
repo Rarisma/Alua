@@ -42,8 +42,8 @@
                                 android:Visibility="Visible" Margin="10"/>
                         <!-- Filter flyout -->
                         <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
-                          <Button.Flyout>
-                            <Flyout>
+                          <Button.Flyout >
+                            <Flyout Placement="Bottom">
                                     <Flyout.FlyoutPresenterStyle>
                                         <Style TargetType="FlyoutPresenter">
                                             <Setter Property="Padding" Value="16"/>

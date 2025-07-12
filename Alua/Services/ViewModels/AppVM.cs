@@ -19,6 +19,9 @@ public partial class AppVM : ObservableRecipient
     [ObservableProperty]
     private string _loadingGamesSummary = string.Empty;
 
+    [ObservableProperty] 
+    private bool _initialLoadCompleted;
+
     // Filter properties to persist between page changes
     [ObservableProperty]
     private bool _hideComplete;
