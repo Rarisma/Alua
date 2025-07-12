@@ -2,7 +2,7 @@
 A simple cross platform achievement tracking app, written in C# using the UNO Framework.
 
 # Installing
-No builds are available yet.
+See Releases tab.
 
 # Building
 Clone this repo, and open the .sln in a C# IDE of your choice (I recommend JetBrains Rider)
