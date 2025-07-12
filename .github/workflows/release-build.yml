@@ -55,7 +55,7 @@ jobs:
       with:
         dotnet-version: '9.*.*'
 
-    # 3 ─ Optional workloads (Uno / Maui)
+    # 3 ─ Optional workloads (Uno / MAUI)
     - name: Restore .NET workloads
       working-directory: ./AluaAchievements
       run: dotnet workload restore
@@ -65,10 +65,10 @@ jobs:
       if: matrix.os == 'macos-latest'
       run: dotnet workload install macos
 
-    # 4 ─ Restore NuGet
+    # 4 ─ Restore NuGet (include RID for publish-time graphs)
     - name: Restore dependencies
       working-directory: ./AluaAchievements
-      run: dotnet restore Alua.sln
+      run: dotnet restore Alua.sln -r ${{ matrix.rid }}
 
     # 5 ─ Write .env from secret
     - name: Write .env from secret
@@ -87,7 +87,7 @@ jobs:
         --self-contained
         -p:PublishSingleFile=true
         -o publish
-        --no-restore
+        --no-restore      # safe because restore above included the RID
 
     # 7 ─ Zip publish output
     - name: Archive artifact
