@@ -70,7 +70,6 @@ jobs:
       working-directory: ./AluaAchievements
       run: >
         dotnet restore Alua/Alua.csproj
-        -f ${{ matrix.fw }}
         -r ${{ matrix.rid }}
 
     # 5 ─ Write .env from secret
