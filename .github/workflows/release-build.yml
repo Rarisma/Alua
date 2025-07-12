@@ -29,14 +29,14 @@ jobs:
             fw: net9.0-desktop
             art: win-x64
 
-          # macOS (Apple silicon)
+          # macOS (Apple Silicon)
           - os: macos-latest
             rid: osx-arm64
             fw: net9.0-desktop
             art: macos-arm64
 
     steps:
-    # 1 ─ Repositories
+    # 1 ─ Repositories ----------------------------------------------------------
     - name: Checkout AluaAchievements
       uses: actions/checkout@v4
       with:
@@ -49,49 +49,51 @@ jobs:
         repository: rarisma/sachya
         path: SACHYA
 
-    # 2 ─ .NET SDK
-    - name: Setup .NET SDK
+    # 2 ─ .NET SDK --------------------------------------------------------------
+    - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '9.*.*'
+        dotnet-version: '9.*.*'     # install latest .NET 9 preview
+        cache: true                 # cache NuGet + workload packs
 
-    # 3 ─ Optional workloads (Uno / MAUI)
+    # 3 ─ Optional workloads (Uno / MAUI) --------------------------------------
     - name: Restore .NET workloads
       working-directory: ./AluaAchievements
-      run: dotnet workload restore
+      run: dotnet workload restore        # restores workloads listed in manifest
 
     # ► EXTRA — macOS workload
     - name: Install macOS workload
       if: matrix.os == 'macos-latest'
-      run: dotnet workload install macos
+      run: dotnet workload install macos  # needed for net9.0-desktop on macOS‑ARM
 
-    # 4 ─ Restore NuGet (Windows job only)
-    - name: Restore dependencies
+    # 4 ─ Restore NuGet packages (fixed) ---------------------------------------
+    - name: Restore project packages
       working-directory: ./AluaAchievements
-      run: >
-        dotnet restore Alua/Alua.csproj
-        --framework net9.0-desktop --runtime   ${{ matrix.rid }}
+      run: |
+        dotnet restore Alua/Alua.csproj \
+          -p:TargetFramework=${{ matrix.fw }} \
+          -r ${{ matrix.rid }}
 
-    # 5 ─ Write .env from secret
+    # 5 ─ Write .env from secret ----------------------------------------------
     - name: Write .env from secret
       working-directory: ./AluaAchievements/Alua
       shell: bash
       run: printf '%s\n' "${{ secrets.envcontent }}" > .env
 
-    # 6 ─ Publish self-contained single file
+    # 6 ─ Publish self‑contained single file -----------------------------------
     - name: Publish application
       working-directory: ./AluaAchievements
-      run: >
-        dotnet publish Alua/Alua.csproj
-        -c Release
-        -f ${{ matrix.fw }}
-        -r ${{ matrix.rid }}
-        --self-contained
-        -p:PublishSingleFile=true
-        -o publish
-        --no-restore
+      run: |
+        dotnet publish Alua/Alua.csproj \
+          -c Release \
+          -f ${{ matrix.fw }} \
+          -r ${{ matrix.rid }} \
+          --self-contained \
+          -p:PublishSingleFile=true \
+          -o publish \
+          --no-restore            # restore already done
 
-    # 7 ─ Zip publish output
+    # 7 ─ Zip publish output ----------------------------------------------------
     - name: Archive artifact
       working-directory: ./AluaAchievements/publish
       shell: bash
@@ -102,7 +104,7 @@ jobs:
           zip -r ../../${{ matrix.art }}.zip .
         fi
 
-    # 8 ─ Upload artifact
+    # 8 ─ Upload artifact -------------------------------------------------------
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
