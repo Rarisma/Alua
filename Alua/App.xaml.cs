@@ -109,11 +109,7 @@ public partial class App
             // When the navigation stack isn't restored navigate to the first page,
             // configuring the new page by passing required information as a navigation
             // parameter
-
-            //check if app has run before
-            var settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-            // If the app has not run before, navigate to the FirstRunPage, otherwise show main UI.
-            Frame.Navigate(settingsVM.Initialised ? typeof(MainPage) : typeof(FirstRunPage));
+            Frame.Navigate(typeof(MainPage));
         }
         
         // Ensure the current window is active

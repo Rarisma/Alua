@@ -12,7 +12,9 @@ public sealed partial class MainPage : Page
         InitializeComponent();
         App.Frame = AppContentFrame;
         App.Frame.Navigated += async (_, _) => { await Ioc.Default.GetRequiredService<SettingsVM>().Save(); };
-        App.Frame.Navigate(typeof(GameList));
+        
+        var settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+        App.Frame.Navigate(settingsVM.Initialised ?typeof(GameList) : typeof(FirstRunPage));
     }
 
     private void OpenSettings(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(SettingsPage));
