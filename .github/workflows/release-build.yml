@@ -56,6 +56,13 @@ jobs:
       - name: Restore dependencies
         working-directory: ./AluaAchievements
         run: dotnet restore Alua.sln
+     
+      # inside the “build” job ­steps
+      - name: Write .env from secret
+        working-directory: ./AluaAchievements/Alua        # folder that holds Alua.csproj
+        run: |
+          # envcontent is expected to be the full text of the .env file
+          printf '%s\n' "${{ secrets.envcontent }}" > .env
 
       # 5 ─ Publish self-contained, single-file binaries
       - name: Publish application
