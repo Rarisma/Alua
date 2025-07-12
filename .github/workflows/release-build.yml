@@ -9,15 +9,16 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: write          # create releases
   packages: read
 
 jobs:
-  # ---------- BUILD ----------
+# ────────────────── BUILD ──────────────────
   build:
     runs-on: ${{ matrix.os }}
     env:
       DOTNET_RESTORE_LOCKED_MODE: false
+
     strategy:
       fail-fast: false
       matrix:
@@ -27,93 +28,99 @@ jobs:
             rid: win-x64
             fw: net9.0-desktop
             art: win-x64
-          # macOS
+
+          # macOS (Apple silicon)
           - os: macos-latest
             rid: osx-arm64
             fw: net9.0-macos
             art: macos-arm64
 
     steps:
-      # 1 ─ Checkout repositories
-      - name: Checkout AluaAchievements
-        uses: actions/checkout@v4
-        with:
-          repository: Rarisma/AluaAchievements
-          path: AluaAchievements
+    # 1 ─ Repositories
+    - name: Checkout AluaAchievements
+      uses: actions/checkout@v4
+      with:
+        repository: Rarisma/AluaAchievements
+        path: AluaAchievements
 
-      - name: Checkout SACHYA
-        uses: actions/checkout@v4
-        with:
-          repository: rarisma/sachya
-          path: SACHYA
+    - name: Checkout SACHYA
+      uses: actions/checkout@v4
+      with:
+        repository: rarisma/sachya
+        path: SACHYA
 
-      # 2 ─ Install the .NET SDK
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.*.*'
+    # 2 ─ .NET SDK
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.*.*'
 
-      # 3 ─ Optional workloads (Uno/Maui, etc.)
-      - name: Install .NET workloads
-        working-directory: ./AluaAchievements
-        run: dotnet workload restore
+    # 3 ─ Optional workloads (Uno / Maui)
+    - name: Restore .NET workloads
+      working-directory: ./AluaAchievements
+      run: dotnet workload restore
 
-      # 4 ─ Restore NuGet packages
-      - name: Restore dependencies
-        working-directory: ./AluaAchievements
-        run: dotnet restore Alua.sln
+    # ► EXTRA — macOS workload ◄
+    - name: Install macOS workload
+      if: matrix.os == 'macos-latest'
+      run: dotnet workload install macos
 
-      # 5 ─ Materialise the .env file from a secret
-      - name: Write .env from secret
-        working-directory: ./AluaAchievements/Alua
-        shell: bash
-        run: printf '%s\n' "${{ secrets.envcontent }}" > .env
+    # 4 ─ Restore NuGet
+    - name: Restore dependencies
+      working-directory: ./AluaAchievements
+      run: dotnet restore Alua.sln
 
-      # 6 ─ Publish self-contained, single-file binaries
-      - name: Publish application
-        working-directory: ./AluaAchievements
-        run: >
-          dotnet publish Alua/Alua.csproj
-          -c Release
-          -f ${{ matrix.fw }}
-          -r ${{ matrix.rid }}
-          --self-contained
-          -p:PublishSingleFile=true
-          -o publish
-          --no-restore
+    # 5 ─ Write .env from secret
+    - name: Write .env from secret
+      working-directory: ./AluaAchievements/Alua
+      shell: bash
+      run: printf '%s\n' "${{ secrets.envcontent }}" > .env
 
-      # 7 ─ Zip the publish output (cross-platform)
-      - name: Archive artifact
-        working-directory: ./AluaAchievements/publish
-        shell: bash
-        run: |
-          if command -v 7z >/dev/null 2>&1; then
-            7z a ../../${{ matrix.art }}.zip *
-          else
-            zip -r ../../${{ matrix.art }}.zip .
-          fi
+    # 6 ─ Publish self-contained single file
+    - name: Publish application
+      working-directory: ./AluaAchievements
+      run: >
+        dotnet publish Alua/Alua.csproj
+        -c Release
+        -f ${{ matrix.fw }}
+        -r ${{ matrix.rid }}
+        --self-contained
+        -p:PublishSingleFile=true
+        -o publish
+        --no-restore
 
-      # 8 ─ Upload artifact for the release job
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.art }}
-          path: ${{ matrix.art }}.zip
+    # 7 ─ Zip publish output
+    - name: Archive artifact
+      working-directory: ./AluaAchievements/publish
+      shell: bash
+      run: |
+        if command -v 7z >/dev/null 2>&1; then
+          7z a ../../${{ matrix.art }}.zip *
+        else
+          zip -r ../../${{ matrix.art }}.zip .
+        fi
 
-  # ---------- RELEASE ----------
+    # 8 ─ Upload artifact
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.art }}
+        path: ${{ matrix.art }}.zip
+
+# ────────────────── RELEASE ──────────────────
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist
+    - name: Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist
 
-      - name: Create GitHub release
-        uses: ncipollo/release-action@v1
-        with:
-          tag: ${{ github.event.inputs.version }}
-          name: ${{ github.event.inputs.version }}
-          artifacts: "dist/**/*.zip"
-          generateReleaseNotes: true
+    - name: Create GitHub release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ github.event.inputs.version }}
+        name: ${{ github.event.inputs.version }}
+        artifacts: "dist/**/*.zip"
+        generateReleaseNotes: true
