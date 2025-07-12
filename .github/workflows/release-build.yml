@@ -24,7 +24,7 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            fw: net9.0-windows10.0.26100
+            fw: net9.0-desktop
             art: win-x64
 
     steps:
