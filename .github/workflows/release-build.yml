@@ -68,7 +68,10 @@ jobs:
     # 4 ─ Restore NuGet (include RID for publish-time graphs)
     - name: Restore dependencies
       working-directory: ./AluaAchievements
-      run: dotnet restore Alua.sln -r ${{ matrix.rid }}
+      run: >
+        dotnet restore Alua/Alua.csproj
+        -f ${{ matrix.fw }}
+        -r ${{ matrix.rid }}
 
     # 5 ─ Write .env from secret
     - name: Write .env from secret
@@ -87,7 +90,7 @@ jobs:
         --self-contained
         -p:PublishSingleFile=true
         -o publish
-        --no-restore      # safe because restore above included the RID
+        --no-restore
 
     # 7 ─ Zip publish output
     - name: Archive artifact
