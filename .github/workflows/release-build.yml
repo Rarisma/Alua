@@ -24,12 +24,8 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            fw: net9.0-windows10.0.26100.0
+            fw: net9.0-windows10.0.26100
             art: win-x64
-          - os: macos-latest
-            rid: osx-arm64
-            fw: net9.0-macos
-            art: macos-arm64
 
     steps:
       # 1 ─ Checkout repositories
