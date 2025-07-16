@@ -288,22 +288,21 @@ public partial class GameList : Page
     {
         if (_appVm.SingleColumnLayout)
         {
-            // Single column layout
-            gameRepeater.Layout = new StackLayout
-            {
-                Spacing = 10,
-                Orientation = Orientation.Vertical
-            };
+            // Show ListView and hide repeater
+            gameRepeater.Visibility = Visibility.Collapsed;
+            gameListView.Visibility = Visibility.Visible;
         }
         else
         {
-            // Multi-column layout with maximum of 4 columns
+            // Show repeater with multi-column layout
+            gameListView.Visibility = Visibility.Collapsed;
+            gameRepeater.Visibility = Visibility.Visible;
             gameRepeater.Layout = new UniformGridLayout
             {
                 MinRowSpacing = 10,
                 MinColumnSpacing = 10,
                 ItemsStretch = UniformGridLayoutItemsStretch.Fill,
-                MaximumRowsOrColumns = 4  
+                MaximumRowsOrColumns = 4
             };
         }
     }

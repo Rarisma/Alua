@@ -13,6 +13,59 @@
       xmlns:controls="clr-namespace:Alua.UI.Controls"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
+    <Page.Resources>
+        <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
+            <!--
+            Button acts as the clickable card container.
+            Using ThemeResources for background/border for theme adaptability.
+            Padding provides internal spacing.
+            HorizontalContentAlignment=Stretch ensures the Grid inside fills the Button.
+            -->
+            <Button Click="OpenGame" HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch" Padding="12" BorderThickness="1"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    CornerRadius="{StaticResource ControlCornerRadius}"
+                    MinHeight="120" MinWidth="300">
+                <Grid HorizontalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Left: Game Icon + Provider Icon -->
+                    <StackPanel Grid.Column="0" VerticalAlignment="Top"
+                                HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
+                        <Border Width="64" Height="64"
+                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                            <controls:CachedImage Source="{x:Bind Icon}" Stretch="Uniform"/>
+                        </Border>
+                        <controls:CachedImage Source="{x:Bind ProviderImage}"
+                                               Height="20"
+                                               Stretch="Uniform"
+                                               HorizontalAlignment="Center"/>
+                    </StackPanel>
+                    <!-- Right: Content -->
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="{x:Bind Name}"
+                                   Style="{StaticResource BodyStrongTextBlockStyle}"
+                                   TextWrapping="Wrap"/>
+                        <TextBlock Text="{x:Bind StatusText}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="{x:Bind PlaytimeText}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
+                                     Value="{x:Bind UnlockedCount}"
+                                     HorizontalAlignment="Stretch"
+                                     Margin="0,4,0,0"/>
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </DataTemplate>
+    </Page.Resources>
+
     <utu:LoadingView>
         <!-- Triggers for loading -->
         <utu:LoadingView.Source>
@@ -136,8 +189,13 @@
 
 
                         <!-- User Statistics -->
-                        <controls:ProfileCard/>
-                    </StackPanel>
+                    <controls:ProfileCard/>
+                </StackPanel>
+
+                    <ListView x:Name="gameListView"
+                              ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
+                              ItemTemplate="{StaticResource GameTemplate}"
+                              Visibility="Collapsed"/>
 
                     <ItemsRepeater x:Name="gameRepeater" ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    HorizontalAlignment="Stretch">
@@ -145,56 +203,7 @@
                             <UniformGridLayout MinRowSpacing="10" MinColumnSpacing="10" ItemsStretch="Fill" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
-                            <DataTemplate x:DataType="models:Game">
-                                <!--
-                                Button acts as the clickable card container.
-                                Using ThemeResources for background/border for theme adaptability.
-                                Padding provides internal spacing.
-                                HorizontalContentAlignment=Stretch ensures the Grid inside fills the Button.
-                                -->
-                                <Button Click="OpenGame" HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch" Padding="12" BorderThickness="1"
-                                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                        CornerRadius="{StaticResource ControlCornerRadius}"
-                                        MinHeight="120" MinWidth="300">
-                                    <Grid HorizontalAlignment="Stretch">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <!-- Left: Game Icon + Provider Icon -->
-                                        <StackPanel Grid.Column="0" VerticalAlignment="Top"
-                                                    HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
-                                            <Border Width="64" Height="64"
-                                                    CornerRadius="{StaticResource ControlCornerRadius}"
-                                                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                                                <controls:CachedImage Source="{x:Bind Icon}" Stretch="Uniform"/>
-                                            </Border>
-                                            <controls:CachedImage Source="{x:Bind ProviderImage}"
-                                                   Height="20"
-                                                   Stretch="Uniform"
-                                                   HorizontalAlignment="Center"/>
-                                        </StackPanel>
-                                        <!-- Right: Content -->
-                                        <StackPanel Grid.Column="1" Spacing="4">
-                                            <TextBlock Text="{x:Bind Name}"
-                                                       Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                       TextWrapping="Wrap"/>
-                                            <TextBlock Text="{x:Bind StatusText}"
-                                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            <TextBlock Text="{x:Bind PlaytimeText}"
-                                                       Style="{StaticResource CaptionTextBlockStyle}"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                                            <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
-                                                         Value="{x:Bind UnlockedCount}"
-                                                         HorizontalAlignment="Stretch"
-                                                         Margin="0,4,0,0"/>
-                                        </StackPanel>
-                                    </Grid>
-                                </Button>
-                            </DataTemplate>
+                            <StaticResource ResourceKey="GameTemplate" />
                         </ItemsRepeater.ItemTemplate>
                     </ItemsRepeater>
                 </StackPanel>
