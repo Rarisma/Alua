@@ -8,5 +8,6 @@
   <ItemGroup>
     <PackageVersion Include="dotenv.net" Version="3.2.1" />
     <PackageVersion Include="SteamWebAPI2" Version="4.4.1" />
+    <PackageVersion Include="Uno.Fonts.Fluent" Version="2.7.1" />
   </ItemGroup>
 </Project>

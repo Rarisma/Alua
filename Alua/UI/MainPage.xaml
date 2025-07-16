@@ -19,13 +19,14 @@
 
                 <AppBarButton Content="My Games" Click="OpenGamesList" HorizontalAlignment="Center">
                     <AppBarButton.Icon>
-                        <ImageIcon Source="/Assets/Icons/Achivement.png"/>
+                        <FontIcon Glyph="&#xE7FC;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
                     </AppBarButton.Icon>
                 </AppBarButton>
 
                 <AppBarButton Content="Settings" Click="OpenSettings" HorizontalAlignment="Right">
                     <AppBarButton.Icon>
-                        <ImageIcon Source="/Assets/Icons/Settings.png"/>
+                        <FontIcon Glyph="&#xE713;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
+
                     </AppBarButton.Icon>
                 </AppBarButton>
             </CommandBar.PrimaryCommands>

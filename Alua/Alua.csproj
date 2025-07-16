@@ -49,6 +49,7 @@
     <ItemGroup>
       <PackageReference Include="dotenv.net" />
       <PackageReference Include="SteamWebAPI2" />
+      <PackageReference Include="Uno.Fonts.Fluent" />
     </ItemGroup>
 
     <ItemGroup>
