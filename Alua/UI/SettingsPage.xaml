@@ -12,15 +12,22 @@
         <!-- Unimplemented features -->
         <TextBox Header="PSN Username" PlaceholderText="Enter your RA username here" MinWidth="250" Visibility="Collapsed"/>
 
-        <TextBlock Text="Acknowledgements:"/>
-        <TextBlock>
-            Achievement Icon - game-icons.net
-            All Logos and Icons are property of their respective owners.
-        </TextBlock>
-        <StackPanel VerticalAlignment="Bottom">
-            <TextBlock Text="{x:Bind _settingsVM.BuildNumber}"/>
-            <TextBlock Text="{x:Bind _settingsVM.BuildString}"/>
-        </StackPanel>
+        <Expander BorderBrush="transparent" Background="transparent">
+            <Expander.Header>
+                <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
+                    <TextBlock Text="{x:Bind _settingsVM.BuildNumber}" Margin="10"/>
+                    <TextBlock Text="{x:Bind _settingsVM.BuildString}" Margin="10"/>
+                </StackPanel>
+            </Expander.Header>
+            <Expander.Content>
+                <StackPanel>
+                    <TextBlock Text="Debug Settings" FontSize="24"/>
+                    <Button Content="Show init page" Click="ShowInitialPage"/>
+                    <Button Content="Show logs" Click="ShowLogs"/>
+                </StackPanel>
+            </Expander.Content>
+        </Expander>
+
     </StackPanel>
 
 </Page>

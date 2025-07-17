@@ -9,9 +9,12 @@
         <TextBlock Text="Please provide at least one account to get started." TextAlignment="Center" />
 
         <!-- Account input fields -->
-        <TextBox PlaceholderText="Steam ID or Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
+        <TextBox PlaceholderText="SteamID / Vanity URL Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
         <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind Frvm.RetroAchievementsUser, Mode=TwoWay}" />
 
+        <!-- steam guide on how to find your steam ID -->
+        <HyperlinkButton Content="How to find your SteamID" HorizontalAlignment="Center"
+                         NavigateUri="https://steamcommunity.com/sharedfiles/filedetails/?id=3516323179"/>
         <!-- Error text -->
         <TextBlock Text="{x:Bind Frvm.ErrorMessage}" Foreground="Red"
                    Visibility="{x:Bind Frvm.HasError}" TextAlignment="Center" />

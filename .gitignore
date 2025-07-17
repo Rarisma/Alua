@@ -410,3 +410,4 @@ Alua.sln.DotSettings
 Alua/.env
 .env
 .DS_Store
+Alua/appsettings.json

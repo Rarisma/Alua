@@ -2,8 +2,6 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
-
-
 //When you can't even say my name
 namespace Alua.Services.ViewModels;
 /// <summary>
@@ -16,13 +14,14 @@ public partial class SettingsVM  : ObservableObject
     /// Shown in settings
     /// </summary>
     [JsonIgnore]
-    public string BuildNumber = "0.3.0";
+    public string BuildNumber = "0.3.1";
 
     /// <summary>
     /// Shown under build number, enables debug mode.
+    /// Generally a reference to a song.
     /// </summary>
     [JsonIgnore]
-    public string BuildString = "I can't even park";
+    public string BuildString = "Hungry like the wolf";
     #endregion
 
     #region Alua Data

@@ -1,19 +1,17 @@
-using System.Collections.ObjectModel;
-using Alua.Services;
 using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using dotenv.net;
+using Microsoft.Extensions.Configuration;
+using Serilog;
 using Uno.Resizetizer;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using FirstRunVM = Alua.Services.ViewModels.FirstRunVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
-//I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSLES.
+//I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSILES.
 namespace Alua;
 public partial class App
 {
     public static Frame Frame = new();
-    
     /// <summary>
     /// Initializes the singleton application object. This is the first line of authored code
     /// executed, and as such is the logical equivalent of main() or WinMain().
@@ -43,6 +41,7 @@ public partial class App
                                 LogLevel.Information :
                                 LogLevel.Warning)
                         .AddConsole()
+
                         // Default filters for core Uno Platform namespaces
                         .CoreLogLevel(LogLevel.Warning);
 
@@ -68,6 +67,7 @@ public partial class App
                 .UseConfiguration(configure: configBuilder =>
                     configBuilder
                         .EmbeddedSource<App>()
+                        .EmbeddedSource<App>("appsettings.development.json")
                 )
                 .ConfigureServices(void (_, services) =>
                 {
@@ -77,20 +77,34 @@ public partial class App
                     services.AddSingleton<FirstRunVM>();
                 })
             );
+
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.Console()
+            .WriteTo.File(
+                path: Path.Combine(ApplicationData.Current.LocalFolder.Path, "alua.log"),
+                rollingInterval: RollingInterval.Day,
+                outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+            )
+            .CreateLogger();
         MainWindow = builder.Window;
-        DotEnv.Load();
-        var envVars = DotEnv.Read();
-        if (!envVars.TryGetValue("SteamAPI", out var steamApiKey))
-            throw new InvalidOperationException("Environment variable 'SteamAPI' not found.");
-        AppConfig.SteamAPIKey = steamApiKey;
-        if (!envVars.TryGetValue("RetroAPI", out var raApiKey))
-            throw new InvalidOperationException("Environment variable 'RetroAPI' not found.");
-        AppConfig.RAAPIKey = raApiKey;
+
 #if DEBUG
         MainWindow.UseStudio();
 #endif
         MainWindow.SetWindowIcon();
         Host = builder.Build();
+        
+        var config = Host.Services.GetRequiredService<IConfiguration>();
+        var steamApiKey = config["SteamAPI"];
+        if (string.IsNullOrEmpty(steamApiKey))
+            throw new InvalidOperationException("Environment variable 'SteamAPI' not found.");
+        AppConfig.SteamAPIKey = steamApiKey;
+        if (string.IsNullOrEmpty(config["RetroAPI"]))
+            throw new InvalidOperationException("Environment variable 'RetroAPI' not found.");
+        AppConfig.RAAPIKey = config["RetroAPI"];
+        
         Ioc.Default.ConfigureServices(Host.Services);
         
         // Do not repeat app initialization when the Window already has content,
