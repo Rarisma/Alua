@@ -8,6 +8,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: write
+
 jobs:
   # ---------- BUILD ----------
   build:
@@ -28,6 +31,11 @@ jobs:
             fw: net9.0-desktop
             art: osx-arm64
             binary_name: Alua.app
+          - os: ubuntu-latest
+            rid: linux-x64
+            fw: net9.0-desktop
+            art: linux-x64
+            binary_name: Alua
 
     steps:
       # 1 ─ Checkout repositories
@@ -68,8 +76,8 @@ jobs:
         run: dotnet restore Alua/Alua.sln
 
       # 6 ─ Clean publish directory
-      - name: Clean publish directory (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Clean publish directory (macOS/Linux)
+        if: matrix.os != 'windows-latest'
         run: rm -rf publish
 
       - name: Clean publish directory (Windows)
@@ -101,6 +109,17 @@ jobs:
             --self-contained \
             -o publish
 
+      - name: Publish (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          dotnet publish Alua/Alua/Alua.csproj \
+            -c Release \
+            -f ${{ matrix.fw }} \
+            -r ${{ matrix.rid }} \
+            -p:UseMonoRuntime=false \
+            --self-contained \
+            -o publish
+
       # 8 ─ Package artifacts
       - name: Package Windows artifact
         if: matrix.os == 'windows-latest'
@@ -114,29 +133,46 @@ jobs:
           cd publish
           zip -r ../alua-${{ matrix.art }}.zip Alua.app
 
+      - name: Package Linux artifact
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          cd publish
+          tar -czf ../alua-${{ matrix.art }}.tar.gz *
+
       # 9 ─ Upload artifacts
-      - name: Upload build artifacts
+      - name: Upload build artifacts (Windows/macOS)
+        if: matrix.os != 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.zip
 
+      - name: Upload build artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: alua-${{ matrix.art }}
+          path: alua-${{ matrix.art }}.tar.gz
+
   # ---------- RELEASE ----------
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.version }}
           name: Release ${{ github.event.inputs.version }}
           files: |
             alua-win-x64/alua-win-x64.zip
             alua-osx-arm64/alua-osx-arm64.zip
+            alua-linux-x64/alua-linux-x64.tar.gz
           draft: false
           prerelease: false
         env:
