@@ -8,10 +8,6 @@ on:
         required: true
         type: string
 
-permissions:
-  contents: write   # needed to create releases
-  packages: read
-
 jobs:
   # ---------- BUILD ----------
   build:
@@ -58,16 +54,29 @@ jobs:
         with:
           dotnet-version: '9.0.x'
 
-      # 3 ─ Restore dependencies
+      # 3 ─ Install required workloads
+      - name: Install .NET workloads
+        run: dotnet workload install android
+
+      # 4 ─ Extract version from input
+      - name: Extract version number
+        id: extract_version
+        run: echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+
+      # 5 ─ Restore dependencies
       - name: Restore dependencies
         run: dotnet restore Alua/Alua.sln
 
-      # 4 ─ Clean publish directory (macOS specific)
+      # 6 ─ Clean publish directory
       - name: Clean publish directory (macOS)
         if: matrix.os == 'macos-latest'
         run: rm -rf publish
 
-      # 5 ─ Build and publish
+      - name: Clean publish directory (Windows)
+        if: matrix.os == 'windows-latest'
+        run: Remove-Item -Path publish -Recurse -Force -ErrorAction SilentlyContinue
+
+      # 7 ─ Build and publish
       - name: Publish (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -92,11 +101,12 @@ jobs:
             --self-contained \
             -o publish
 
-      # 6 ─ Package artifacts
+      # 8 ─ Package artifacts
       - name: Package Windows artifact
         if: matrix.os == 'windows-latest'
         run: |
-          Compress-Archive -Path "publish/*" -DestinationPath "alua-${{ matrix.art }}.zip"
+          cd publish
+          Compress-Archive -Path * -DestinationPath ../alua-${{ matrix.art }}.zip
 
       - name: Package macOS artifact
         if: matrix.os == 'macos-latest'
@@ -104,7 +114,7 @@ jobs:
           cd publish
           zip -r ../alua-${{ matrix.art }}.zip Alua.app
 
-      # 7 ─ Upload artifacts
+      # 9 ─ Upload artifacts
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -115,22 +125,19 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-
     steps:
-      # 1 ─ Download all artifacts
       - name: Download all artifacts
         uses: actions/download-artifact@v4
-        with:
-          path: artifacts
 
-      # 2 ─ Create GitHub Release
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ inputs.version }}
-          name: Release ${{ inputs.version }}
+          tag_name: ${{ github.event.inputs.version }}
+          name: Release ${{ github.event.inputs.version }}
+          files: |
+            alua-win-x64/alua-win-x64.zip
+            alua-osx-arm64/alua-osx-arm64.zip
           draft: false
           prerelease: false
-          files: |
-            artifacts/alua-win-x64/alua-win-x64.zip
-            artifacts/alua-osx-arm64/alua-osx-arm64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -14,14 +14,14 @@ public partial class SettingsVM  : ObservableObject
     /// Shown in settings
     /// </summary>
     [JsonIgnore]
-    public string BuildNumber = "0.3.1";
+    public string BuildNumber = "0.3.2";
 
     /// <summary>
     /// Shown under build number, enables debug mode.
     /// Generally a reference to a song.
     /// </summary>
     [JsonIgnore]
-    public string BuildString = "Hungry like the wolf";
+    public string BuildString = "Sunday Sauce";
     #endregion
 
     #region Alua Data
