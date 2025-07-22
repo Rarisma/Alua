@@ -36,6 +36,11 @@ jobs:
             fw: net9.0-desktop
             art: linux-x64
             binary_name: Alua
+          - os: ubuntu-latest
+            rid: android-arm64
+            fw: net9.0-android
+            art: android-arm64
+            binary_name: net.rarisma.gravity-Signed.apk
 
     steps:
       # 1 ─ Checkout repositories
@@ -66,16 +71,22 @@ jobs:
       - name: Install .NET workloads
         run: dotnet workload install android
 
-      # 4 ─ Extract version from input
+      # 4 ─ Update appsettings.json with content from secret
+      - name: Update appsettings.json with content from secret
+        shell: bash
+        run: |
+          echo '${{ secrets.ENVCONTENT }}' > Alua/Alua/appsettings.json
+
+      # 5 ─ Extract version from input
       - name: Extract version number
         id: extract_version
         run: echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
 
-      # 5 ─ Restore dependencies
+      # 6 ─ Restore dependencies
       - name: Restore dependencies
         run: dotnet restore Alua/Alua.sln
 
-      # 6 ─ Clean publish directory
+      # 7 ─ Clean publish directory
       - name: Clean publish directory (macOS/Linux)
         if: matrix.os != 'windows-latest'
         run: rm -rf publish
@@ -84,7 +95,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: Remove-Item -Path publish -Recurse -Force -ErrorAction SilentlyContinue
 
-      # 7 ─ Build and publish
+      # 8 ─ Build and publish
       - name: Publish (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -110,7 +121,7 @@ jobs:
             -o publish
 
       - name: Publish (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
         run: |
           dotnet publish Alua/Alua/Alua.csproj \
             -c Release \
@@ -120,7 +131,16 @@ jobs:
             --self-contained \
             -o publish
 
-      # 8 ─ Package artifacts
+      - name: Publish (Android)
+        if: matrix.fw == 'net9.0-android'
+        run: |
+          dotnet publish Alua/Alua/Alua.csproj \
+            -c Release \
+            -f ${{ matrix.fw }} \
+            -r ${{ matrix.rid }} \
+            -o publish
+
+      # 9 ─ Package artifacts
       - name: Package Windows artifact
         if: matrix.os == 'windows-latest'
         run: |
@@ -134,12 +154,18 @@ jobs:
           zip -r ../alua-${{ matrix.art }}.zip Alua.app
 
       - name: Package Linux artifact
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
         run: |
           cd publish
           tar -czf ../alua-${{ matrix.art }}.tar.gz *
 
-      # 9 ─ Upload artifacts
+      - name: Package Android artifact
+        if: matrix.fw == 'net9.0-android'
+        run: |
+          cd publish
+          cp *.apk ../alua-${{ matrix.art }}.apk
+
+      # 10 ─ Upload artifacts
       - name: Upload build artifacts (Windows/macOS)
         if: matrix.os != 'ubuntu-latest'
         uses: actions/upload-artifact@v4
@@ -148,11 +174,18 @@ jobs:
           path: alua-${{ matrix.art }}.zip
 
       - name: Upload build artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
         uses: actions/upload-artifact@v4
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.tar.gz
+
+      - name: Upload build artifacts (Android)
+        if: matrix.fw == 'net9.0-android'
+        uses: actions/upload-artifact@v4
+        with:
+          name: alua-${{ matrix.art }}
+          path: alua-${{ matrix.art }}.apk
 
   # ---------- RELEASE ----------
   release:
@@ -173,6 +206,7 @@ jobs:
             alua-win-x64/alua-win-x64.zip
             alua-osx-arm64/alua-osx-arm64.zip
             alua-linux-x64/alua-linux-x64.tar.gz
+            alua-android-arm64/alua-android-arm64.apk
           draft: false
           prerelease: false
         env:
