@@ -12,7 +12,11 @@ public sealed partial class MainPage : Page
     {
         InitializeComponent();
         App.Frame = AppContentFrame;
-        App.Frame.Navigated += async (_, _) => { await Ioc.Default.GetRequiredService<SettingsVM>().Save(); };
+        App.Frame.Navigated += async (_, _) =>
+        {
+            GC.Collect();
+            await Ioc.Default.GetRequiredService<SettingsVM>().Save();
+        };
         
         var settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
         App.Frame.Navigate(settingsVM.Initialised ? typeof(GameList) : typeof(FirstRunPage));

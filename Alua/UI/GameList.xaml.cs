@@ -17,6 +17,9 @@ public partial class GameList : Page
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     
+    // Cache the multi-column layout to prevent recreation issues
+    private UniformGridLayout? _multiColumnLayout;
+
     // Commands for layouts
     public AsyncCommand SingleColumnCommand => new(async () => {
         _appVm.SingleColumnLayout = true;
@@ -297,13 +300,20 @@ public partial class GameList : Page
             // Show repeater with multi-column layout
             gameListView.Visibility = Visibility.Collapsed;
             gameRepeater.Visibility = Visibility.Visible;
-            gameRepeater.Layout = new UniformGridLayout
+            
+            // Create the layout only once and reuse it
+            if (_multiColumnLayout == null)
             {
-                MinRowSpacing = 10,
-                MinColumnSpacing = 10,
-                ItemsStretch = UniformGridLayoutItemsStretch.Fill,
-                MaximumRowsOrColumns = 4
-            };
+                _multiColumnLayout = new UniformGridLayout
+                {
+                    MinRowSpacing = 10,
+                    MinColumnSpacing = 10,
+                    ItemsStretch = UniformGridLayoutItemsStretch.Fill,
+                    MaximumRowsOrColumns = 4
+                };
+            }
+            
+            gameRepeater.Layout = _multiColumnLayout;
         }
     }
 

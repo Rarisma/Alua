@@ -115,7 +115,7 @@ jobs:
             -f ${{ matrix.fw }} \
             -r ${{ matrix.rid }} \
             -p:UseMonoRuntime=false \
-            -p:PackageFormat=app \
+            -p:PackageFormat=pkg \
             -p:CodesignKey=- \
             --self-contained \
             -o publish
@@ -151,7 +151,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           cd publish
-          zip -r ../alua-${{ matrix.art }}.zip Alua.app
+          cp *.pkg ../alua-${{ matrix.art }}.pkg
 
       - name: Package Linux artifact
         if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
@@ -166,12 +166,19 @@ jobs:
           cp *.apk ../alua-${{ matrix.art }}.apk
 
       # 10 ─ Upload artifacts
-      - name: Upload build artifacts (Windows/macOS)
-        if: matrix.os != 'ubuntu-latest'
+      - name: Upload build artifacts (Windows)
+        if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.zip
+
+      - name: Upload build artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: alua-${{ matrix.art }}
+          path: alua-${{ matrix.art }}.pkg
 
       - name: Upload build artifacts (Linux)
         if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
@@ -204,7 +211,7 @@ jobs:
           name: Release ${{ github.event.inputs.version }}
           files: |
             alua-win-x64/alua-win-x64.zip
-            alua-osx-arm64/alua-osx-arm64.zip
+            alua-osx-arm64/alua-osx-arm64.pkg
             alua-linux-x64/alua-linux-x64.tar.gz
             alua-android-arm64/alua-android-arm64.apk
           draft: false
