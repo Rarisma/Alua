@@ -26,6 +26,12 @@ jobs:
             rid: win-x64
             fw: net9.0-desktop
             art: win-x64
+            binary_name: Alua.exe
+          - os: macos-latest
+            rid: osx-arm64
+            fw: net9.0-desktop
+            art: osx-arm64
+            binary_name: Alua.app
 
     steps:
       # 1 ─ Checkout repositories
@@ -41,68 +47,90 @@ jobs:
           repository: rarisma/sachya
           path: SACHYA
 
+      - name: Checkout Alua
+        uses: actions/checkout@v4
+        with:
+          path: Alua
+
       # 2 ─ Install the .NET SDK
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.*.*'
+          dotnet-version: '9.0.x'
 
-      # 3 ─ Optional workloads (Uno/Maui, etc.)
-      - name: Install .NET workloads
-        working-directory: ./AluaAchievements
-        run: dotnet workload restore
-
-      # 4 ─ Restore NuGet packages
+      # 3 ─ Restore dependencies
       - name: Restore dependencies
-        working-directory: ./AluaAchievements
-        run: dotnet restore Alua.sln
-     
-      # inside the “build” job ­steps
-      - name: Write .env from secret
-        working-directory: ./AluaAchievements/Alua        # folder that holds Alua.csproj
+        run: dotnet restore Alua/Alua.sln
+
+      # 4 ─ Clean publish directory (macOS specific)
+      - name: Clean publish directory (macOS)
+        if: matrix.os == 'macos-latest'
+        run: rm -rf publish
+
+      # 5 ─ Build and publish
+      - name: Publish (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          # envcontent is expected to be the full text of the .env file
-          printf '%s\n' "${{ secrets.envcontent }}" > .env
+          dotnet publish Alua/Alua/Alua.csproj `
+            -c Release `
+            -f ${{ matrix.fw }} `
+            -r ${{ matrix.rid }} `
+            -p:UseMonoRuntime=false `
+            --self-contained `
+            -o publish
 
-      # 5 ─ Publish self-contained, single-file binaries
-      - name: Publish application
-        working-directory: ./AluaAchievements
-        run: >
-          dotnet publish Alua/Alua.csproj
-          -c Release
-          -f ${{ matrix.fw }}
-          -r ${{ matrix.rid }}
-          --self-contained
-          -p:PublishSingleFile=true
-          -o publish
-          --no-restore
+      - name: Publish (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          dotnet publish Alua/Alua/Alua.csproj \
+            -c Release \
+            -f ${{ matrix.fw }} \
+            -r ${{ matrix.rid }} \
+            -p:UseMonoRuntime=false \
+            -p:PackageFormat=app \
+            -p:CodesignKey=- \
+            --self-contained \
+            -o publish
 
-      # 6 ─ Zip the publish output
-      - name: Archive artifact
-        working-directory: ./AluaAchievements/publish
-        run: 7z a ../../${{ matrix.art }}.zip *
+      # 6 ─ Package artifacts
+      - name: Package Windows artifact
+        if: matrix.os == 'windows-latest'
+        run: |
+          Compress-Archive -Path "publish/*" -DestinationPath "alua-${{ matrix.art }}.zip"
 
-      # 7 ─ Upload artifact for the release job
-      - name: Upload artifact
+      - name: Package macOS artifact
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd publish
+          zip -r ../alua-${{ matrix.art }}.zip Alua.app
+
+      # 7 ─ Upload artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.art }}
-          path: ${{ matrix.art }}.zip
+          name: alua-${{ matrix.art }}
+          path: alua-${{ matrix.art }}.zip
 
   # ---------- RELEASE ----------
   release:
     needs: build
     runs-on: ubuntu-latest
+
     steps:
-      - name: Download artifacts
+      # 1 ─ Download all artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: artifacts
 
-      - name: Create GitHub release
-        uses: ncipollo/release-action@v1
+      # 2 ─ Create GitHub Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
         with:
-          tag: ${{ github.event.inputs.version }}
-          name: ${{ github.event.inputs.version }}
-          artifacts: "dist/**/*.zip"
-          generateReleaseNotes: true
+          tag_name: ${{ inputs.version }}
+          name: Release ${{ inputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/alua-win-x64/alua-win-x64.zip
+            artifacts/alua-osx-arm64/alua-osx-arm64.zip

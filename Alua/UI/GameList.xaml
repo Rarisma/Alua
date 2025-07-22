@@ -89,7 +89,7 @@
                         <!-- Show refresh and scan buttons on Desktop platforms -->
                         <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible"
                                 Command="{x:Bind RefreshCommand}" skia:Visibility="Visible"
-                                android:Visibility="Visible" Margin="10"/>
+                                android:Visibility="Collapsed" Margin="10"/>
                         <Button HorizontalAlignment="Center" Content="Full Rescan" win:Visibility="Visible"
                                 Command="{x:Bind ScanCommand}" skia:Visibility="Visible"
                                 android:Visibility="Visible" Margin="10"/>
@@ -186,11 +186,9 @@
                                 </Flyout>
                           </Button.Flyout>
                         </Button>
+                    </StackPanel>
 
-
-                        <!-- User Statistics -->
                     <controls:ProfileCard/>
-                </StackPanel>
 
                     <ListView x:Name="gameListView"
                               ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"

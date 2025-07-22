@@ -1,15 +1,13 @@
 <Project Sdk="Uno.Sdk">
     <PropertyGroup>
         <TargetFrameworks>net9.0-desktop;net9.0-android;</TargetFrameworks>
-        <TargetFrameworks Condition=" $([MSBuild]::IsOSPlatform('windows')) ">$(TargetFrameworks);net9.0-windows10.0.26100; net9.0-android;net9.0-browserwasm;net9.0-desktop</TargetFrameworks>
-
         <OutputType>Exe</OutputType>
         <UnoSingleProject>true</UnoSingleProject>
 
         <!-- Display name -->
         <ApplicationTitle>Alua</ApplicationTitle>
         <!-- App Identifier -->
-        <ApplicationId>net.rarisma.alua</ApplicationId>
+        <ApplicationId>net.rarisma.gravity</ApplicationId>
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
         <ApplicationVersion>1</ApplicationVersion>
@@ -35,7 +33,6 @@
         -->
         <UnoFeatures>
             Lottie;
-            MediaElement;
             Hosting;
             Toolkit;
             Logging;
@@ -81,6 +78,12 @@
     <ItemGroup>
       <None Remove="Assets\Icons\steam.png" />
       <UnoImage Include="Assets\Icons\steam.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <UnoIcon Remove="Assets\Icons\icon.svg" />
+      <Content Remove="Assets\Icons\icon.png" />
+      <UnoIcon Include="Assets\Icons\icon.png" />
     </ItemGroup>
 
 </Project>

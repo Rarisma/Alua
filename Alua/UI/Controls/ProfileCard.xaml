@@ -8,7 +8,8 @@
     BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
     BorderThickness="1"
     d:DesignHeight="120"
-    d:DesignWidth="480">
+    d:DesignWidth="480"
+    Width="420">
 
     <UserControl.Resources>
         <Style x:Key="ValueTextStyle" TargetType="TextBlock">
