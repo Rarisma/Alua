@@ -149,6 +149,11 @@ jobs:
           # Copy all application files to MacOS directory
           cp -R publish/* publish/Alua.app/Contents/MacOS/ 2>/dev/null || true
 
+          # Copy resources (fonts, etc.) into the bundle Resources directory
+          if [ -d publish/Resources ]; then
+            cp -R publish/Resources/* publish/Alua.app/Contents/Resources/
+          fi
+
           # Remove the app bundle from itself (avoid recursion)
           rm -rf publish/Alua.app/Contents/MacOS/Alua.app
 
