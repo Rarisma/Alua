@@ -152,9 +152,20 @@ jobs:
           # Remove the app bundle from itself (avoid recursion)
           rm -rf publish/Alua.app/Contents/MacOS/Alua.app
 
-          # Create the font directory structure
-          mkdir -p publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts
+          # Create the font directory structure in Resources
           mkdir -p publish/Alua.app/Contents/Resources/Uno.Fonts.Fluent/Fonts
+
+          # Copy the actual font file to Resources directory
+          if [ -f "publish/Alua.app/Contents/MacOS/Fonts/uno-fluentui-assets.ttf" ]; then
+            cp "publish/Alua.app/Contents/MacOS/Fonts/uno-fluentui-assets.ttf" \
+               "publish/Alua.app/Contents/Resources/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf"
+          elif [ -f "publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf" ]; then
+            cp "publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf" \
+               "publish/Alua.app/Contents/Resources/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf"
+          fi
+
+          # Create the font directory structure in MacOS for the symlink
+          mkdir -p publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts
 
           # Create symbolic link to the font file in Resources
           ln -sf '../../../Resources/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf' \
@@ -165,6 +176,10 @@ jobs:
           ls -la publish/Alua.app/Contents/
           echo "MacOS contents:"
           ls -la publish/Alua.app/Contents/MacOS/ | head -10
+          echo "Resources font file:"
+          ls -la publish/Alua.app/Contents/Resources/Uno.Fonts.Fluent/Fonts/
+          echo "Symlink verification:"
+          ls -la publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/
 
       # Create custom PKG with font fix
       - name: Create macOS PKG with font fix
