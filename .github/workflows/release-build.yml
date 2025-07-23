@@ -203,7 +203,7 @@ jobs:
           cd publish
           Compress-Archive -Path * -DestinationPath ../alua-${{ matrix.art }}.zip
 
-x      - name: Package Linux artifact
+      - name: Package Linux artifact
         if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
         run: |
           cd publish
