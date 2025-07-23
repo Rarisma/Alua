@@ -1,2 +1,18 @@
 ﻿<Project>
+  <!-- Fix for Uno.Fonts.Fluent font files not being found in macOS app bundle -->
+  <Target Name="CopyUnoFontsToMacOSBundle" AfterTargets="Publish" Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$(TargetFramework)' == 'net9.0-desktop'">
+    <ItemGroup>
+      <UnoFluentFonts Include="$(PublishDir)Uno.Fonts.Fluent/**/*.ttf" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(UnoFluentFonts)"
+          DestinationFiles="@(UnoFluentFonts->'$(PublishDir)Alua.app/Contents/MacOS/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <!-- Alternative: Create symbolic links to the Resources folder -->
+  <Target Name="CreateFontSymlinks" AfterTargets="CopyUnoFontsToMacOSBundle" Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$(TargetFramework)' == 'net9.0-desktop'">
+    <Exec Command="mkdir -p '$(PublishDir)Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts'" />
+    <Exec Command="ln -sf '../../../Resources/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf' '$(PublishDir)Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf'" />
+  </Target>
 </Project>

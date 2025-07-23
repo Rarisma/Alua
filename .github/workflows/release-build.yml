@@ -115,8 +115,6 @@ jobs:
             -f ${{ matrix.fw }} \
             -r ${{ matrix.rid }} \
             -p:UseMonoRuntime=false \
-            -p:PackageFormat=pkg \
-            -p:CodesignKey=- \
             --self-contained \
             -o publish
 
@@ -140,18 +138,41 @@ jobs:
             -r ${{ matrix.rid }} \
             -o publish
 
+      # Apply font fix for macOS
+      - name: Apply font fix for macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Create the font directory structure in MacOS
+          mkdir -p publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts
+
+          # Create symbolic link to the font file in Resources
+          ln -sf '../../../Resources/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf' \
+            'publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf'
+
+          # Verify the symbolic link was created
+          ls -la publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/
+
+      # Create custom PKG with font fix
+      - name: Create macOS PKG with font fix
+        if: matrix.os == 'macos-latest'
+        run: |
+          # Create package build structure
+          mkdir -p pkg-build/Applications
+          cp -R publish/Alua.app pkg-build/Applications/
+
+          # Create the PKG installer
+          pkgbuild --root pkg-build \
+            --identifier net.rarisma.gravity \
+            --version ${{ steps.extract_version.outputs.version }} \
+            --install-location / \
+            alua-${{ matrix.art }}.pkg
+
       # 9 ─ Package artifacts
       - name: Package Windows artifact
         if: matrix.os == 'windows-latest'
         run: |
           cd publish
           Compress-Archive -Path * -DestinationPath ../alua-${{ matrix.art }}.zip
-
-      - name: Package macOS artifact
-        if: matrix.os == 'macos-latest'
-        run: |
-          cd publish
-          cp *.pkg ../alua-${{ matrix.art }}.pkg
 
       - name: Package Linux artifact
         if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
