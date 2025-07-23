@@ -154,6 +154,12 @@ jobs:
             cp -R publish/Resources/* publish/Alua.app/Contents/Resources/
           fi
 
+          # Ensure Uno.Fonts.Fluent fonts are copied to the expected location
+          if [ -d publish/Uno.Fonts.Fluent/Fonts ]; then
+            mkdir -p publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts
+            cp publish/Uno.Fonts.Fluent/Fonts/* publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/
+          fi
+
           # Remove the app bundle from itself (avoid recursion)
           rm -rf publish/Alua.app/Contents/MacOS/Alua.app
 
