@@ -142,15 +142,29 @@ jobs:
       - name: Apply font fix for macOS
         if: matrix.os == 'macos-latest'
         run: |
-          # Create the font directory structure in MacOS
+          # Create the complete App bundle structure
+          mkdir -p publish/Alua.app/Contents/MacOS
+          mkdir -p publish/Alua.app/Contents/Resources
+
+          # Copy all application files to MacOS directory
+          cp -R publish/* publish/Alua.app/Contents/MacOS/ 2>/dev/null || true
+
+          # Remove the app bundle from itself (avoid recursion)
+          rm -rf publish/Alua.app/Contents/MacOS/Alua.app
+
+          # Create the font directory structure
           mkdir -p publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts
+          mkdir -p publish/Alua.app/Contents/Resources/Uno.Fonts.Fluent/Fonts
 
           # Create symbolic link to the font file in Resources
           ln -sf '../../../Resources/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf' \
             'publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/uno-fluentui-assets.ttf'
 
-          # Verify the symbolic link was created
-          ls -la publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/
+          # Verify the structure was created
+          echo "App bundle structure:"
+          ls -la publish/Alua.app/Contents/
+          echo "MacOS contents:"
+          ls -la publish/Alua.app/Contents/MacOS/ | head -10
 
       # Create custom PKG with font fix
       - name: Create macOS PKG with font fix
@@ -174,7 +188,7 @@ jobs:
           cd publish
           Compress-Archive -Path * -DestinationPath ../alua-${{ matrix.art }}.zip
 
-      - name: Package Linux artifact
+x      - name: Package Linux artifact
         if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
         run: |
           cd publish
