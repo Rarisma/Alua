@@ -11,11 +11,14 @@
 
     <Page.Resources>
         <controls1:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
+        <controls1:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
+        <controls1:PercentageRoundingConverter x:Key="PercentageRoundingConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <Border Width="50" Height="50" CornerRadius="5" Background="Transparent" Margin="0,0,10,0">
                     <controls1:CachedImage Source="{x:Bind Icon}" Stretch="UniformToFill">
@@ -27,6 +30,17 @@
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                     <TextBlock Text="{x:Bind Title}" FontSize="20" TextWrapping="Wrap"/>
                     <TextBlock Text="{x:Bind Description}" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                </StackPanel>
+
+                <!-- Rarity Badge -->
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="5"
+                           Visibility="{x:Bind RarityPercentage, Converter={StaticResource NullToVisibilityConverter}}">
+                    <!-- Percentage if available -->
+                    <TextBlock HorizontalAlignment="Center"
+                               FontSize="11"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}">
+                        <Run Text="{x:Bind RarityPercentage, Converter={StaticResource PercentageRoundingConverter}}"/><Run Text="%"/>
+                    </TextBlock>
                 </StackPanel>
             </Grid>
         </DataTemplate>

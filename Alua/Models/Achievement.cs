@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 
 //Curtains: opened  Lights: on  Moment: unmissed  Eyes: buttered
 namespace Alua.Models;
+
 /// <summary>
 /// Base Class for Achievements.
 /// </summary>
@@ -49,6 +50,12 @@ public class Achievement
     [JsonInclude, JsonPropertyName("Hidden")]
     public bool IsHidden { get; set; }
     
+    /// <summary>
+    /// Percentage of players who have unlocked this achievement (0-100)
+    /// </summary>
+    [JsonInclude, JsonPropertyName("RarityPercentage")]
+    public double? RarityPercentage { get; set; }
+
     /// <summary>
     /// Progress of achievement (if applicable)
     /// </summary>

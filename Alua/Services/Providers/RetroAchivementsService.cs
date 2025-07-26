@@ -81,17 +81,25 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
         List<Game> result = new List<Game>();
         foreach (var game in response)
         {
-            result.Add(new Game
+            try
             {
-                Name = game.Title ?? "Unknown Game",
-                Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
-                Author = string.Empty,
-                Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
-                PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
-                Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
-                Identifier = "ra-"+game.GameID,
-                LastUpdated = DateTime.UtcNow
-            });
+                result.Add(new Game
+                {
+                    Name = game.Title ?? "Unknown Game",
+                    Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
+                    Author = string.Empty,
+                    Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
+                    PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
+                    Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
+                    Identifier = "ra-"+game.GameID,
+                    LastUpdated = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Cannot refresh game {GameId} in RetroAchievements", game.GameID);
+            }
+
         }
         
         return result.ToArray();
@@ -135,14 +143,26 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     ? "default_icon.png"
                     : $"https://i.retroachievements.org/Badge/{kvp.Value.BadgeName}.png";
 
-                achievements.Add(new()
+                var achievement = new Achievement
                 {
                     Title = kvp.Value.Title ?? "Achievement Name Unavailable",
                     Description = kvp.Value.Description ?? "Achievement Description Unavailable",
                     IsUnlocked = kvp.Value.DateEarned.HasValue,
                     Id = kvp.Key,
                     Icon = iconUrl
-                });
+                };
+                
+                // Get achievement unlock percentage
+                if (int.TryParse(kvp.Key, out int achievementId))
+                {
+                    double percentage = await GetAchievementUnlockPercentage(achievementId);
+                    if (percentage >= 0) // Only set if we got valid data
+                    {
+                        achievement.RarityPercentage = percentage;
+                    }
+                }
+
+                achievements.Add(achievement);
             }
         }
         catch (Exception ex)
@@ -153,5 +173,29 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
 
         return achievements;
     }
-}
 
+    /// <summary>
+    /// Gets the percentage of users who have unlocked a specific achievement
+    /// </summary>
+    /// <param name="achievementId">The achievement ID</param>
+    /// <returns>Percentage (0-100) of users who unlocked the achievement, or -1 if failed</returns>
+    private async Task<double> GetAchievementUnlockPercentage(int achievementId)
+    {
+        try
+        {
+            var unlockData = await _apiClient.GetAchievementUnlocksAsync(achievementId, count: 1); // We only need the counts, not the actual unlock list
+            
+            if (unlockData.TotalPlayers > 0)
+            {
+                return (double)unlockData.UnlocksCount / unlockData.TotalPlayers * 100.0;
+            }
+            
+            return -1; // Invalid data
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to get unlock percentage for achievement {AchievementId}", achievementId);
+            return -1; // Failed to get data
+        }
+    }
+}

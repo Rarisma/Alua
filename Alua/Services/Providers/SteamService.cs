@@ -192,12 +192,19 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 .ToDictionary(a => a.name);
 
             var progress = await _apiClient.GetPlayerAchievementsAsync(_steamId, appId, language: "english");
+             
+            // Get global achievement percentages for rarity calculation
+            var globalStats = await _apiClient.GetGlobalAchievementPercentagesForAppAsync(appId);
+            var rarityData = globalStats.achievementpercentages?.achievements
+                ?.ToDictionary(a => a.name, a => (double)a.percent) ?? new Dictionary<string, double>();
+
             var list = new List<Achievement>(progress.playerstats.achievements.Count);
             foreach (var ach in progress.playerstats.achievements)
             {
+                Achievement achievement;
                 if (defs.TryGetValue(ach.apiname, out var def))
                 {
-                    list.Add(new Achievement
+                    achievement = new Achievement
                     {
                         Title = string.IsNullOrWhiteSpace(def.displayName) ? ach.name : def.displayName,
                         Description = def.description,
@@ -205,11 +212,11 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                         IsUnlocked = ach.achieved == 1,
                         Id = ach.apiname,
                         IsHidden = def.hidden == 1
-                    });
+                    };
                 }
                 else
                 {
-                    list.Add(new Achievement
+                    achievement = new Achievement
                     {
                         Title = ach.name,
                         Description = ach.description,
@@ -218,8 +225,16 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                         IsUnlocked = ach.achieved == 1,
                         Id = ach.apiname,
                         IsHidden = false
-                    });
+                    };
                 }
+                
+                // Set percentage if available
+                if (rarityData.TryGetValue(ach.apiname, out double percentage))
+                {
+                    achievement.RarityPercentage = percentage;
+                }
+                
+                list.Add(achievement);
             }
 
             return list.ToArray();
