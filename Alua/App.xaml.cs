@@ -6,10 +6,10 @@ using Uno.Resizetizer;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using FirstRunVM = Alua.Services.ViewModels.FirstRunVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
-
 //I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSILES.
 namespace Alua;
-public partial class App
+
+internal partial class App : Application
 {
     public static Frame Frame = new();
     /// <summary>
@@ -104,7 +104,7 @@ public partial class App
         if (string.IsNullOrEmpty(config["RetroAPI"]))
             throw new InvalidOperationException("Environment variable 'RetroAPI' not found.");
         AppConfig.RAAPIKey = config["RetroAPI"];
-        
+
         Ioc.Default.ConfigureServices(Host.Services);
         
         // Do not repeat app initialization when the Window already has content,

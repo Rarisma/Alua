@@ -13,21 +13,22 @@ public interface IAchievementProvider<TSelf>: IAchievementProvider  where TSelf 
     /// Gets the users whole library
     /// </summary>
     /// <returns>Array of Games</returns>
-    public Task<Game[]> GetLibrary();
+    Task<Game[]> GetLibrary();
     
     /// <summary>
     /// Gets recently played games by the user
     /// </summary>
     /// <returns>Array of games</returns>
-    public Task<Game[]> RefreshLibrary();
+    Task<Game[]> RefreshLibrary();
     
     /// <summary>
     /// Updates data for a single title
     /// </summary>
     /// <param name="identifier">Game Identifier</param>
     /// <returns>Game Object</returns>
-    public Task<Game> RefreshTitle(string identifier);
+    Task<Game> RefreshTitle(string identifier);
 }
+
 
 
 public interface IAchievementProvider

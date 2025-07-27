@@ -8,8 +8,10 @@ namespace Alua.UI;
 
 public sealed partial class MainPage : Page
 {
-    public MainPage()
+    AppVM _appVM;
+    public MainPage(AppVM appVM, SettingsVM settingsVM)
     {
+        _appVM = appVM;
         InitializeComponent();
         App.Frame = AppContentFrame;
         App.Frame.Navigated += async (_, _) =>
@@ -18,13 +20,21 @@ public sealed partial class MainPage : Page
             await Ioc.Default.GetRequiredService<SettingsVM>().Save();
         };
         
-        var settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-        App.Frame.Navigate(settingsVM.Initialised ? typeof(GameList) : typeof(FirstRunPage));
+        if (settingsVM.Initialised)
+        {
+            App.Frame.Navigate(typeof(GameList));
+        }
+        else
+        {
+            //Hide nav bar.
+            App.Frame.Navigate(typeof(FirstRunPage));
+            _appVM.CommandBarVisibility = Visibility.Collapsed;
+        }
     }
 
     private void OpenSettings(object sender, RoutedEventArgs e)
     {
-        Ioc.Default.GetRequiredService<AppVM>().InitialLoadCompleted = false;
+        _appVM.InitialLoadCompleted = false; //Will force reload al providers.
         App.Frame.Navigate(typeof(SettingsPage));
     }
 

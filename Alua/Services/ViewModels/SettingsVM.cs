@@ -1,27 +1,35 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 //When you can't even say my name
 namespace Alua.Services.ViewModels;
 /// <summary>
-/// Main VM.
+/// Stores user data.
 /// </summary>
 public partial class SettingsVM  : ObservableObject
 {
     #region Build info
     /// <summary>
-    /// Shown in settings
+    /// Shown in settings, and used to track when a full refresh is loaded
     /// </summary>
-    [JsonIgnore]
-    public string BuildNumber = "0.4.0";
+    [JsonInclude]
+    public Version Version => Assembly.GetExecutingAssembly().GetName().Version ?? new();
 
     /// <summary>
     /// Shown under build number, enables debug mode.
     /// Generally a reference to a song.
     /// </summary>
     [JsonIgnore]
-    public string BuildString = "Mandingo";
+    public string BuildString = "Too Sweet";
+
+    /// <summary>
+    /// Rescan forced if opening a settings.json below this version.
+    /// This is used so all games have the same data.
+    /// E.g. if a new field is being tracked in a new version.
+    /// </summary>
+    [JsonIgnore]
+    public static Version MinimumVersion = new(0,3,0);
     #endregion
 
     #region Alua Data
@@ -124,11 +132,21 @@ public partial class SettingsVM  : ObservableObject
                 string content = File.ReadAllText(path);
                 if (string.IsNullOrEmpty(content))
                 {
-                    Log.Warning("Settings file is empty, returning default settings.");
+                    Log.Warning("Settings file exists but is empty, returning default settings.");
                     return new SettingsVM();
                 }
-                
-                return JsonSerializer.Deserialize<SettingsVM>(content)!;
+                else
+                {
+                    SettingsVM Model = JsonSerializer.Deserialize<SettingsVM>(content)!;
+                    if (MinimumVersion > Model.Version)
+                    {
+                        //Alua needs to rescan users library.
+                        Log.Warning("Minimum version check failed; deleting game data.");
+                        Model.Games = [];
+                    }
+                    else {Log.Information($"Loaded settings file from version {Model.Version.ToString()}");}
+                    return Model;
+                }
             }
             
             //File doesn't exist.
@@ -137,7 +155,7 @@ public partial class SettingsVM  : ObservableObject
         }
         catch (Exception ex) //Loading error.
         {
-            Log.Error(ex, "Could not load settings");
+            Log.Error(ex, "Could not load existing settings file");
             return new SettingsVM();
         }
     }

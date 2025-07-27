@@ -31,6 +31,18 @@ public class AsyncCommand : ICommand, ILoadable
         }
     }
 
+    public async void Execute()
+    {
+        try
+        {
+            IsExecuting = true;
+            await _executeAsync();
+        }
+        finally
+        {
+            IsExecuting = false;
+        }
+    }
     public async void Execute(object parameter)
     {
         try

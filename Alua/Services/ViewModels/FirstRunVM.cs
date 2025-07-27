@@ -1,5 +1,4 @@
 using Alua.UI;
-using CommunityToolkit.Mvvm.DependencyInjection;
 
 namespace Alua.Services.ViewModels;
 
@@ -19,15 +18,12 @@ public partial class FirstRunVM : ObservableObject
     [ObservableProperty]
     private bool _hasError;
     
-    
-    public FirstRunVM()
+    public FirstRunVM(SettingsVM settingsVM)
     {
-        _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-        // Initialize from SettingsVM if needed, though for a true first run, these would be null/empty.
+        _settingsVM = settingsVM;
         SteamID = _settingsVM.SteamID;
         RetroAchievementsUser = _settingsVM.RetroAchievementsUsername;
     }
-
     
     /// <summary>
     /// Continue to the main UI.
@@ -48,12 +44,16 @@ public partial class FirstRunVM : ObservableObject
         _settingsVM.RetroAchievementsUsername = RetroAchievementsUser;
         _settingsVM.Initialised = true; // Mark first run as complete
         await _settingsVM.Save();
+        
         App.Frame.Navigate(typeof(GameList));
     }
 
     partial void OnSteamIDChanged(string? value) => ClearErrorOnChange();
     partial void OnRetroAchievementsUserChanged(string? value) => ClearErrorOnChange();
-
+    
+    /// <summary>
+    /// Resets error messages when a field is changed.
+    /// </summary>
     private void ClearErrorOnChange()
     {
         if (HasError)

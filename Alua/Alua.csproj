@@ -10,6 +10,7 @@
         <ApplicationId>net.rarisma.gravity</ApplicationId>
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <AssemblyVersion>0.4.0</AssemblyVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <!-- Package Publisher -->
         <ApplicationPublisher>Rarisma</ApplicationPublisher>

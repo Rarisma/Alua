@@ -15,15 +15,15 @@
         <Expander BorderBrush="transparent" Background="transparent">
             <Expander.Header>
                 <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
-                    <TextBlock Text="{x:Bind _settingsVM.BuildNumber}" Margin="10"/>
+                    <TextBlock Text="{x:Bind _settingsVM.Version}" Margin="10"/>
                     <TextBlock Text="{x:Bind _settingsVM.BuildString}" Margin="10"/>
                 </StackPanel>
             </Expander.Header>
             <Expander.Content>
                 <StackPanel>
                     <TextBlock Text="Debug Settings" FontSize="24"/>
-                    <Button Content="Show init page" Click="ShowInitialPage"/>
-                    <Button Content="Show logs" Click="ShowLogs"/>
+                    <Button Content="Show init page" Click="{x:Bind ShowInitialPage}"/>
+                    <Button Content="Show logs" Click="{x:Bind ShowLogs}"/>
                 </StackPanel>
             </Expander.Content>
         </Expander>

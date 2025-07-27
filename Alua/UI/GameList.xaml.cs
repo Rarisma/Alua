@@ -44,6 +44,7 @@ public partial class GameList : Page
         try
         {
             Log.Information("Initialised games list");
+            _appVm.CommandBarVisibility = Visibility.Visible;
             // Load persisted filter settings into the app VM
             _appVm.HideComplete = _settingsVM.HideComplete;
             _appVm.HideNoAchievements = _settingsVM.HideNoAchievements;
@@ -63,12 +64,12 @@ public partial class GameList : Page
                 {
                     Log.Information("No games found, scanning.");
                     _settingsVM.Games = [];
-                    ScanCommand.Execute(null);
+                    ScanCommand.Execute();
                 }
                 else
                 {
                     Log.Information(_settingsVM.Games.Count + " games found, refreshing.");
-                    RefreshCommand.Execute(null);
+                    RefreshCommand.Execute();
                 }
                 _appVm.InitialLoadCompleted = true;
             }
@@ -76,12 +77,9 @@ public partial class GameList : Page
             {
                 // If we've already loaded once, just populate the filtered games
                 _appVm.FilteredGames.Clear();
-                if (_settingsVM.Games != null) 
-                { 
-                    foreach (var game in _settingsVM.Games.Values)
-                    {
-                        _appVm.FilteredGames.Add(game);
-                    }
+                foreach (var game in _settingsVM.Games.Values)
+                {
+                    _appVm.FilteredGames.Add(game);
                 }
                 Filter_Changed(null,null);
             }

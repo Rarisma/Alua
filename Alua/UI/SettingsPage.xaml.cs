@@ -1,6 +1,4 @@
-using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using Serilog;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
 namespace Alua.UI;
@@ -11,16 +9,20 @@ public sealed partial class SettingsPage : Page
     public SettingsPage() => InitializeComponent();
 
     #region Debug helpers
-    private void ShowInitialPage(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(FirstRunPage));
-
-    #endregion
-
-    private void ShowLogs(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Shows set up page again.
+    /// </summary>
+    private void ShowInitialPage() => App.Frame.Navigate(typeof(FirstRunPage));
+    
+    /// <summary>
+    /// Shows log for session in a dialog
+    /// </summary>
+    private async Task ShowLogs()
     {
-        string log = File.ReadAllText(Path.Combine(ApplicationData.Current.LocalFolder.Path, "alua" +
+        string log = await File.ReadAllTextAsync(Path.Combine(ApplicationData.Current.LocalFolder.Path, "alua" +
             DateTime.Now.ToString("yyyyMMdd") + ".log"));
         
-        ContentDialog logwindow = new()
+        ContentDialog dialog = new()
         {
             XamlRoot = App.Frame.XamlRoot,
             Title = "Logs",
@@ -33,12 +35,13 @@ public sealed partial class SettingsPage : Page
                 {
                     Text = log,
                     TextWrapping = TextWrapping.Wrap,
-                    Margin = new(10)
+                    Margin = new Thickness(10)
                 },
                 VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            }
+            },
+            Resources = { ["ContentDialogMaxWidth"] = 1080 }
         };
-        logwindow.Resources["ContentDialogMaxWidth"] = 1080;
-        logwindow.ShowAsync();
+        await dialog.ShowAsync();
     }
+    #endregion
 }

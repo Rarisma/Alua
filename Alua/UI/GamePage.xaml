@@ -45,7 +45,7 @@
             </Grid>
         </DataTemplate>
     </Page.Resources>
-    <RefreshContainer RefreshRequested="RefreshGamePull">
+    <RefreshContainer RefreshRequested="{x:Bind Refresh}">
 
         <Grid Margin="10">
         <Grid.RowDefinitions>
@@ -87,7 +87,7 @@
                     <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap" />
 
                     <!-- Refresh button -->
-                    <Button Visibility="Visible" android:Visibility="Collapsed" Click="RefreshGameClick"
+                    <Button Visibility="Visible" android:Visibility="Collapsed" Click="{x:Bind Refresh}"
                             Margin="10,0,0,0">
                         <SymbolIcon Symbol="Refresh"/>
                     </Button>

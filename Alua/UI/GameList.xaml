@@ -25,7 +25,7 @@
                     HorizontalContentAlignment="Stretch" Padding="12" BorderThickness="1"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    CornerRadius="{StaticResource ControlCornerRadius}"
+                    CornerRadius="4"
                     MinHeight="120" MinWidth="300">
                 <Grid HorizontalAlignment="Stretch">
                     <Grid.ColumnDefinitions>
@@ -36,7 +36,7 @@
                     <StackPanel Grid.Column="0" VerticalAlignment="Top"
                                 HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
                         <Border Width="64" Height="64"
-                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                CornerRadius="4"
                                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
                             <controls:CachedImage Source="{x:Bind Icon}" Stretch="Uniform"/>
                         </Border>
@@ -88,7 +88,7 @@
                     <StackPanel Orientation="Horizontal">
                         <!-- Show refresh and scan buttons on Desktop platforms -->
                         <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible"
-                                Command="{x:Bind RefreshCommand}" skia:Visibility="Visible"
+                                Click="{x:Bind Refresh}" skia:Visibility="Visible"
                                 android:Visibility="Collapsed" Margin="10"/>
                         <Button HorizontalAlignment="Center" Content="Full Rescan" win:Visibility="Visible"
                                 Command="{x:Bind ScanCommand}" skia:Visibility="Visible"

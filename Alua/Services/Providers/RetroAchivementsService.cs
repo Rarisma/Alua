@@ -136,6 +136,9 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             // Get detailed user progress (including achievements) for this game.
             var progress = await _apiClient.GetGameInfoAndUserProgressAsync(_username, gameID, includeAwardMetadata: true);
 
+            // Get game extended data for unlock statistics in batch
+            var gameExtended = await _apiClient.GetGameAsync(gameID);
+            
             foreach (var kvp in progress.Achievements)
             {
                 // Construct the full URL only if a badge name is available; otherwise fallback to a default icon.
@@ -152,10 +155,10 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     Icon = iconUrl
                 };
                 
-                // Get achievement unlock percentage
+                // Calculate unlock percentage using batch data instead of individual API calls
                 if (int.TryParse(kvp.Key, out int achievementId))
                 {
-                    double percentage = await GetAchievementUnlockPercentage(achievementId);
+                    double percentage = CalculateUnlockPercentageFromBatch(achievementId, gameExtended);
                     if (percentage >= 0) // Only set if we got valid data
                     {
                         achievement.RarityPercentage = percentage;
@@ -175,27 +178,38 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     }
 
     /// <summary>
-    /// Gets the percentage of users who have unlocked a specific achievement
+    /// Calculates the unlock percentage from batch game data instead of individual API calls
     /// </summary>
     /// <param name="achievementId">The achievement ID</param>
+    /// <param name="gameData">Game extended data containing NumAwarded statistics</param>
     /// <returns>Percentage (0-100) of users who unlocked the achievement, or -1 if failed</returns>
-    private async Task<double> GetAchievementUnlockPercentage(int achievementId)
+    private double CalculateUnlockPercentageFromBatch(int achievementId, dynamic gameData)
     {
         try
         {
-            var unlockData = await _apiClient.GetAchievementUnlocksAsync(achievementId, count: 1); // We only need the counts, not the actual unlock list
-            
-            if (unlockData.TotalPlayers > 0)
+            // Try to get NumAwarded from the game data
+            if (gameData?.Achievements != null)
             {
-                return (double)unlockData.UnlocksCount / unlockData.TotalPlayers * 100.0;
+                var achievementKey = achievementId.ToString();
+                if (gameData.Achievements.ContainsKey(achievementKey))
+                {
+                    var achievementData = gameData.Achievements[achievementKey];
+                    int numAwarded = achievementData?.NumAwarded ?? 0;
+                    int totalPlayers = gameData.NumDistinctPlayersCasual ?? gameData.NumDistinctPlayers ?? 0;
+                    
+                    if (totalPlayers > 0)
+                    {
+                        return (double)numAwarded / totalPlayers * 100.0;
+                    }
+                }
             }
             
-            return -1; // Invalid data
+            return -1; // Invalid data or achievement not found
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Failed to get unlock percentage for achievement {AchievementId}", achievementId);
-            return -1; // Failed to get data
+            Log.Warning(ex, "Failed to calculate unlock percentage for achievement {AchievementId} from batch data", achievementId);
+            return -1; // Failed to calculate
         }
     }
 }

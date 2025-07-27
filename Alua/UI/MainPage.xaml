@@ -9,7 +9,8 @@
         </Grid.RowDefinitions>
 
         <!-- App content bar -->
-        <CommandBar HorizontalAlignment="Left" Grid.Row="0" OverflowButtonVisibility="Collapsed">
+        <CommandBar HorizontalAlignment="Left" Grid.Row="0" OverflowButtonVisibility="Collapsed"
+                    Visibility="{x:Bind  _appVM.CommandBarVisibility, Mode=TwoWay}">
             <CommandBar.PrimaryCommands>
                 <AppBarButton Content="Back" Click="Back" HorizontalAlignment="Left">
                     <AppBarButton.Icon>

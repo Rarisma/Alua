@@ -41,6 +41,9 @@ public partial class AppVM : ObservableRecipient
     [ObservableProperty]
     private bool _singleColumnLayout;
 
+    [ObservableProperty]
+    private Visibility _commandBarVisibility = Visibility.Visible;
+    
     public List<IAchievementProvider> Providers = new();
 
     public async Task ConfigureProviders()
