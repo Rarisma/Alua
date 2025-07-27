@@ -1,26 +1,24 @@
-using Alua.Services;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using SettingsVM = Alua.Services.ViewModels.SettingsVM;
-
 //FHN walked so Alua could run.
 namespace Alua.UI;
 
 public sealed partial class MainPage : Page
 {
-    AppVM _appVM;
-    public MainPage(AppVM appVM, SettingsVM settingsVM)
+    AppVM _appVM = Ioc.Default.GetRequiredService<AppVM>();
+    SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    
+    public MainPage()
     {
-        _appVM = appVM;
         InitializeComponent();
         App.Frame = AppContentFrame;
         App.Frame.Navigated += async (_, _) =>
         {
             GC.Collect();
-            await Ioc.Default.GetRequiredService<SettingsVM>().Save();
+            await _settingsVM.Save();
         };
         
-        if (settingsVM.Initialised)
+        if (_settingsVM.Initialised)
         {
             App.Frame.Navigate(typeof(GameList));
         }

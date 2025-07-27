@@ -1,15 +1,13 @@
+using Alua.Services.ViewModels;
 using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Serilog;
 using Uno.Resizetizer;
-using AppVM = Alua.Services.ViewModels.AppVM;
-using FirstRunVM = Alua.Services.ViewModels.FirstRunVM;
-using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 //I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSILES.
 namespace Alua;
 
-internal partial class App : Application
+public partial class App : Application
 {
     public static Frame Frame = new();
     /// <summary>
@@ -101,20 +99,21 @@ internal partial class App : Application
         if (string.IsNullOrEmpty(steamApiKey))
             throw new InvalidOperationException("Environment variable 'SteamAPI' not found.");
         AppConfig.SteamAPIKey = steamApiKey;
-        if (string.IsNullOrEmpty(config["RetroAPI"]))
+        
+        var retroApiKey = config["RetroAPI"];
+        if (string.IsNullOrEmpty(retroApiKey))
             throw new InvalidOperationException("Environment variable 'RetroAPI' not found.");
-        AppConfig.RAAPIKey = config["RetroAPI"];
+        AppConfig.RAAPIKey = retroApiKey;
 
         Ioc.Default.ConfigureServices(Host.Services);
         
         // Do not repeat app initialization when the Window already has content,
         // just ensure that the window is active
-        Frame = MainWindow.Content as Frame;
-        if (Frame == null)
+        Frame = MainWindow.Content as Frame ?? new Frame();
+        if (MainWindow.Content == null)
         {
             // Create a Frame to act as the navigation context and navigate to the first page
             // Place the frame in the current Window
-            Frame = new Frame();
             MainWindow.Content = Frame;
         }
 

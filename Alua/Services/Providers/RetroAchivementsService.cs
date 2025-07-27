@@ -112,8 +112,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// <returns>Game object with updated title, icon, and achievements.</returns>
     public async Task<Game> RefreshTitle(string identifier)
     {
-        int gameId = int.Parse(identifier);
-        GameInfo gameInfo = await _apiClient.GetGameAsync(gameId);
+        int gameId = int.Parse(identifier.Split("-")[1]);
+        GameInfoExtended gameInfo = await _apiClient.GetGameExtendedAsync(gameId);
         return new Game
         {
             Name = gameInfo.Title ?? "Unknown Game",
@@ -122,7 +122,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             Platform = Platforms.RetroAchievements,
             PlaytimeMinutes = -1,
             Achievements = (await GetAchievements(gameId)).ToObservableCollection(),
-            Identifier = "ra-"+identifier,
+            Identifier = "ra-"+gameId,
             LastUpdated = DateTime.UtcNow
         };
     }
@@ -137,7 +137,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             var progress = await _apiClient.GetGameInfoAndUserProgressAsync(_username, gameID, includeAwardMetadata: true);
 
             // Get game extended data for unlock statistics in batch
-            var gameExtended = await _apiClient.GetGameAsync(gameID);
+            var gameExtended = await _apiClient.GetGameExtendedAsync(gameID);
             
             foreach (var kvp in progress.Achievements)
             {
@@ -187,19 +187,43 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     {
         try
         {
-            // Try to get NumAwarded from the game data
-            if (gameData?.Achievements != null)
+            // Check if gameData has the expected structure
+            // The Sachya.GameInfo object might not have an Achievements property
+            var gameDataType = gameData.GetType();
+            var achievementsProperty = gameDataType.GetProperty("Achievements");
+            
+            if (achievementsProperty != null)
             {
-                var achievementKey = achievementId.ToString();
-                if (gameData.Achievements.ContainsKey(achievementKey))
+                var achievements = achievementsProperty.GetValue(gameData);
+                if (achievements != null)
                 {
-                    var achievementData = gameData.Achievements[achievementKey];
-                    int numAwarded = achievementData?.NumAwarded ?? 0;
-                    int totalPlayers = gameData.NumDistinctPlayersCasual ?? gameData.NumDistinctPlayers ?? 0;
+                    var achievementKey = achievementId.ToString();
+                    var achievementsDict = achievements as IDictionary<string, AchievementCoreInfo>;
                     
-                    if (totalPlayers > 0)
+                    if (achievementsDict != null && achievementsDict.ContainsKey(achievementKey))
                     {
-                        return (double)numAwarded / totalPlayers * 100.0;
+                        var achievementData = achievementsDict[achievementKey];
+                        var achievementDataType = achievementData.GetType();
+                        var numAwardedProperty = achievementDataType.GetProperty("NumAwarded");
+                        
+                        if (numAwardedProperty != null)
+                        {
+                            int numAwarded = (int)(numAwardedProperty.GetValue(achievementData) ?? 0);
+                            
+                            // Try to get total players count
+                            var totalPlayersProperty = gameDataType.GetProperty("NumDistinctPlayersCasual") ?? 
+                                                     gameDataType.GetProperty("NumDistinctPlayers");
+                            
+                            if (totalPlayersProperty != null)
+                            {
+                                int totalPlayers = (int)(totalPlayersProperty.GetValue(gameData) ?? 0);
+                                
+                                if (totalPlayers > 0)
+                                {
+                                    return (double)numAwarded / totalPlayers * 100.0;
+                                }
+                            }
+                        }
                     }
                 }
             }

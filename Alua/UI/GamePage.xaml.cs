@@ -10,7 +10,8 @@ namespace Alua.UI;
 
 public sealed partial class GamePage : Page
 {
-    AppVM AppVM => Ioc.Default.GetRequiredService<AppVM>();
+    AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
+    SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
     private ObservableCollection<Achievement> _filteredAchievements = new();
     public ObservableCollection<Achievement> FilteredAchievements => _filteredAchievements;
@@ -67,10 +68,10 @@ public sealed partial class GamePage : Page
 
             //Update settings collection and this page's binding source.
             Game game = await provider.RefreshTitle(AppVM.SelectedGame.Identifier);
-            Ioc.Default.GetRequiredService<SettingsVM>().AddOrUpdateGame(game);
+            SettingsVM.AddOrUpdateGame(game);
             AppVM.SelectedGame = game;
 
-            await Ioc.Default.GetRequiredService<SettingsVM>().Save();
+            await SettingsVM.Save();
             RefreshFiltered();
         }
         catch (Exception ex)
