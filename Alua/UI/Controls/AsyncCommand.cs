@@ -4,8 +4,8 @@ namespace Alua.UI.Controls;
 /// </summary>
 public class AsyncCommand : ICommand, ILoadable
 {
-    public event EventHandler? CanExecuteChanged;
-    public event EventHandler? IsExecutingChanged;
+    public event EventHandler CanExecuteChanged;
+    public event EventHandler IsExecutingChanged;
 
     private readonly Func<Task> _executeAsync;
     private bool _isExecuting;
@@ -15,7 +15,7 @@ public class AsyncCommand : ICommand, ILoadable
         _executeAsync = executeAsync;
     }
 
-    public bool CanExecute(object? parameter) => !IsExecuting;
+    public bool CanExecute(object parameter) => !IsExecuting;
 
     public bool IsExecuting
     {
@@ -28,19 +28,6 @@ public class AsyncCommand : ICommand, ILoadable
                 IsExecutingChanged?.Invoke(this, EventArgs.Empty);
                 CanExecuteChanged?.Invoke(this, EventArgs.Empty);
             }
-        }
-    }
-
-    public async void Execute()
-    {
-        try
-        {
-            IsExecuting = true;
-            await _executeAsync();
-        }
-        finally
-        {
-            IsExecuting = false;
         }
     }
     public async void Execute(object? parameter)

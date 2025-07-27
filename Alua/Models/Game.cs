@@ -123,6 +123,7 @@ public class Game
             {
                 Platforms.Steam => "ms-appx:///Assets/Icons/Steam.png",
                 Platforms.RetroAchievements => "ms-appx:///Assets/Icons/RetroAchievements.png",
+                Platforms.PlayStation => "ms-appx:///Assets/Icons/PSN.png",
                 _ => "ms-appx:///Assets/Icons/UnknownProvider.png"
             };
         }

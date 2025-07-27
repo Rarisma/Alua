@@ -52,6 +52,12 @@ public partial class SettingsVM  : ObservableObject
     private string? _retroAchievementsUsername;
 
     /// <summary>
+    /// PSN username of user we are getting data for.
+    /// </summary>
+    [ObservableProperty, JsonInclude, JsonPropertyName("psnsso")]
+    private string? _psnSSO;
+
+    /// <summary>
     /// Controls if we show the first run dialog or game list
     /// </summary>
     [ObservableProperty, JsonInclude, JsonPropertyName("Init")]

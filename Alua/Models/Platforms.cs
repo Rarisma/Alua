@@ -8,6 +8,10 @@ public enum Platforms
     /// </summary>
     Steam,
     EpicGames,
+    
+    /// <summary>
+    /// Playstation platform, from Sony Interactive Entertainment.
+    /// </summary>
     PlayStation,
     Xbox,
     

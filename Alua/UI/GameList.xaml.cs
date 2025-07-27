@@ -64,12 +64,12 @@ public partial class GameList : Page
                 {
                     Log.Information("No games found, scanning.");
                     _settingsVM.Games = [];
-                    ScanCommand.Execute();
+                    ScanCommand.Execute(null);
                 }
                 else
                 {
                     Log.Information(_settingsVM.Games.Count + " games found, refreshing.");
-                    RefreshCommand.Execute();
+                    RefreshCommand.Execute(null);
                 }
                 _appVm.InitialLoadCompleted = true;
             }

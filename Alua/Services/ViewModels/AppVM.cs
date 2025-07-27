@@ -67,6 +67,13 @@ public partial class AppVM : ObservableRecipient
                 Providers.Add(ra);
                 Log.Information("Successfully configured retro achievements");
             }
+            if (!string.IsNullOrWhiteSpace(svm.PsnSSO))
+            {
+                Log.Information("Configuring PSN achievements");
+                var psn = await PSNService.Create(svm.PsnSSO);
+                Providers.Add(psn);
+                Log.Information("Successfully configured PSN achievements");
+            }
         }
         catch (Exception ex)
         {
@@ -74,6 +81,7 @@ public partial class AppVM : ObservableRecipient
         }
 
     }
+    
 }
 
 public enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime, LastUpdated }

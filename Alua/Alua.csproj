@@ -46,6 +46,7 @@
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="SteamWebAPI2" />
+      <PackageReference Include="AutoMapper" />
       <PackageReference Include="Uno.Fonts.Fluent" />
     </ItemGroup>
 

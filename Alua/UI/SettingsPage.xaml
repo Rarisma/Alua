@@ -9,8 +9,8 @@
         <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
                  Margin="0,20" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
 
-        <!-- Unimplemented features -->
-        <TextBox Header="PSN Username" PlaceholderText="Enter your RA username here" MinWidth="250" Visibility="Collapsed"/>
+        <TextBox Header="PSN Username" PlaceholderText="Enter your PSN SSO Token here" MinWidth="250"
+                 Margin="0,20" Text="{x:Bind _settingsVM.PsnSSO, Mode=TwoWay}"/>
 
         <Expander BorderBrush="transparent" Background="transparent">
             <Expander.Header>
