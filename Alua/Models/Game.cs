@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
+using Windows.Foundation.Metadata;
 
 //GARY HIT EM WITH THE
 namespace Alua.Models;
@@ -124,6 +125,7 @@ public class Game
                 Platforms.Steam => "ms-appx:///Assets/Icons/Steam.png",
                 Platforms.RetroAchievements => "ms-appx:///Assets/Icons/RetroAchievements.png",
                 Platforms.PlayStation => "ms-appx:///Assets/Icons/PSN.png",
+                Platforms.Xbox => "ms-appx:///Assets/Icons/Xbox.png",
                 _ => "ms-appx:///Assets/Icons/UnknownProvider.png"
             };
         }

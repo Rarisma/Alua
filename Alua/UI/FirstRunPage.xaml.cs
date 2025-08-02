@@ -1,4 +1,6 @@
 using Alua.Services.ViewModels;
+using CommunityToolkit.Mvvm.DependencyInjection;
+
 namespace Alua.UI;
 
 /// <summary>
@@ -8,9 +10,9 @@ public partial class FirstRunPage : Page
 {
     public FirstRunVM Frvm;
 
-    public FirstRunPage(FirstRunVM vm)
+    public FirstRunPage()
     {
-        Frvm = vm;
+        Frvm = Ioc.Default.GetRequiredService<FirstRunVM>();
         InitializeComponent();
     } 
 }

@@ -152,12 +152,8 @@ public partial class GameList : Page
         // Show a message or update a property for the UI
         _appVm.LoadingGamesSummary = "";
         
-        // Clear and repopulate FilteredGames with ALL games from memory (same as Refresh method)
-        _appVm.FilteredGames.Clear();
-        foreach (var game in _settingsVM.Games.Values)
-        {
-            Filter_Changed(null, null);
-        }
+        // Refresh the filtered games collection once after all games are loaded
+        RefreshFiltered();
     }
 
     /// <summary>

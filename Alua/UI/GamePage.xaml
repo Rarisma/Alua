@@ -13,6 +13,8 @@
         <controls1:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
         <controls1:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <controls1:PercentageRoundingConverter x:Key="PercentageRoundingConverter"/>
+        <controls1:HasAchievementsToVisibilityConverter x:Key="HasAchievementsToVisibilityConverter"/>
+        <controls1:PlaytimeToVisibilityConverter x:Key="PlaytimeToVisibilityConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
                 <Grid.ColumnDefinitions>
@@ -93,7 +95,8 @@
                     </Button>
                 </StackPanel>
 
-                <StackPanel Grid.Row="1" Orientation="Horizontal">
+                <StackPanel Grid.Row="1" Orientation="Horizontal" 
+                            Visibility="{x:Bind AppVM.SelectedGame.PlaytimeMinutes, Converter={StaticResource PlaytimeToVisibilityConverter}}">
                     <TextBlock Text="Playtime: " FontSize="14" TextWrapping="Wrap" />
                     <TextBlock Text="{x:Bind AppVM.SelectedGame.PlaytimeText}" FontSize="14" TextWrapping="Wrap" />
                 </StackPanel>
@@ -105,7 +108,8 @@
                 <!-- Progress Bar -->
                 <ProgressBar Grid.Row="3" Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
                     Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"  Width="150" Height="10"
-                    VerticalAlignment="Center" Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"/>
+                    VerticalAlignment="Center" Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"
+                    Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource HasAchievementsToVisibilityConverter}}"/>
             </Grid>
         </Grid>
 

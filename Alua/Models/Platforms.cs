@@ -7,17 +7,24 @@ public enum Platforms
     /// Steam platform, from Valve Corp.
     /// </summary>
     Steam,
-    EpicGames,
     
     /// <summary>
     /// Playstation platform, from Sony Interactive Entertainment.
     /// </summary>
     PlayStation,
+    
+    /// <summary>
+    /// Microsoft Xbox platform, from Microsoft Corporation.
+    /// </summary>
     Xbox,
     
     /// <summary>
     /// RetroAchievements, from RetroAchievements.org
     /// </summary>
     RetroAchievements,
-    GooglePlay
+    GooglePlay,
+    iOS,
+    EpicGames,
+    uPlay,
+    GOG,
 }

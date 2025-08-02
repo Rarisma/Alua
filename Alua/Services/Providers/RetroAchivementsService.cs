@@ -1,6 +1,8 @@
 using System;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
+using Sachya.Clients;
+using Sachya.Definitions.RetroAchievements;
 using Serilog;
 using Game = Alua.Models.Game;
 //I'M STILL IN A DREAM, SNAKE EATER
@@ -77,7 +79,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// <returns></returns>
     public async Task<Game[]> RefreshLibrary()
     {
-        var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 20);
+        var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5);
         List<Game> result = new List<Game>();
         foreach (var game in response)
         {

@@ -14,6 +14,8 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
+        <controls:HasAchievementsToVisibilityConverter x:Key="HasAchievementsToVisibilityConverter"/>
+        <controls:PlaytimeToVisibilityConverter x:Key="PlaytimeToVisibilityConverter"/>
         <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
             <!--
             Button acts as the clickable card container.
@@ -55,11 +57,13 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <TextBlock Text="{x:Bind PlaytimeText}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Visibility="{x:Bind PlaytimeMinutes, Converter={StaticResource PlaytimeToVisibilityConverter}}"/>
                         <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
                                      Value="{x:Bind UnlockedCount}"
                                      HorizontalAlignment="Stretch"
-                                     Margin="0,4,0,0"/>
+                                     Margin="0,4,0,0"
+                                     Visibility="{x:Bind HasAchievements, Converter={StaticResource HasAchievementsToVisibilityConverter}}"/>
                     </StackPanel>
                 </Grid>
             </Button>

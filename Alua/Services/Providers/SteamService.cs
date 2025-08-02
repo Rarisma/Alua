@@ -2,6 +2,8 @@ using System;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
+using Sachya.Clients;
+using Sachya.Definitions.Steam;
 using Serilog;
 using Game = Alua.Models.Game;
 // We never lost control 
@@ -251,10 +253,10 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// </summary>
     /// <param name="src"></param>
     /// <returns></returns>
-    private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Game> src)
+    private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src)
     {
         List<Game> result = new();
-        foreach  (Sachya.Game g in src)
+        foreach  (var g in src)
         {
             result.Add(new Game
             {
