@@ -192,7 +192,24 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     {
         try
         {
-            // Try to get player-specific achievement data for this title
+            // First, try to get player-specific achievement data with unlock status
+            var playerAchievements = await _apiClient.GetPlayerAchievementsAsync(_xuid, titleId);
+            
+            if (playerAchievements?.Titles != null && playerAchievements.Titles.Any())
+            {
+                var titleInfo = playerAchievements.Titles.FirstOrDefault();
+                if (titleInfo?.Achievement != null && titleInfo.Achievement.TotalAchievements > 0)
+                {
+                    // Try to get detailed achievement schema for this title
+                    var detailedAchievements = await TryGetDetailedAchievementsWithProgress(titleId, titleInfo);
+                    if (detailedAchievements != null && detailedAchievements.Any())
+                    {
+                        return detailedAchievements.ToArray();
+                    }
+                }
+            }
+            
+            // Fallback: Try the player/title endpoint
             var playerTitleData = await _apiClient.GetPlayerTitleAchievementsAsync(_xuid, titleId);
             
             if (playerTitleData?.Titles == null || !playerTitleData.Titles.Any())
@@ -201,42 +218,40 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 return [];
             }
 
-            var titleInfo = playerTitleData.Titles.FirstOrDefault();
-            if (titleInfo?.Achievement == null || titleInfo.Achievement.TotalAchievements == 0)
+            var titleData = playerTitleData.Titles.FirstOrDefault();
+            if (titleData?.Achievement == null || titleData.Achievement.TotalAchievements == 0)
             {
                 Log.Information("Xbox title {TitleId} has no achievements", titleId);
                 return [];
             }
 
-            // Try to get detailed achievement information
-            var detailedAchievements = await TryGetDetailedAchievements(titleId);
-            
-            if (detailedAchievements != null && detailedAchievements.Any())
+            // Try once more to get detailed achievements with the title data
+            var achievements = await TryGetDetailedAchievementsWithProgress(titleId, titleData);
+            if (achievements != null && achievements.Any())
             {
-                // We have detailed achievement data
-                return detailedAchievements.ToArray();
+                return achievements.ToArray();
             }
 
-            // Fallback: Create placeholder achievements based on summary data
+            // Final fallback: Create placeholder achievements
             Log.Information("Creating placeholder achievements for Xbox title {TitleId} (Total: {Total}, Unlocked: {Unlocked})", 
-                titleId, titleInfo.Achievement.TotalAchievements, titleInfo.Achievement.CurrentAchievements);
+                titleId, titleData.Achievement.TotalAchievements, titleData.Achievement.CurrentAchievements);
 
-            var achievements = new List<AluaAchievement>();
-            for (int i = 0; i < titleInfo.Achievement.TotalAchievements; i++)
+            var placeholderAchievements = new List<AluaAchievement>();
+            for (int i = 0; i < titleData.Achievement.TotalAchievements; i++)
             {
-                achievements.Add(new AluaAchievement
+                placeholderAchievements.Add(new AluaAchievement
                 {
                     Title = $"Achievement {i + 1}",
-                    Description = $"Progress: {titleInfo.Achievement.CurrentGamerscore}/{titleInfo.Achievement.TotalGamerscore} Gamerscore",
+                    Description = $"Progress: {titleData.Achievement.CurrentGamerscore}/{titleData.Achievement.TotalGamerscore} Gamerscore",
                     Icon = string.Empty,
-                    IsUnlocked = i < titleInfo.Achievement.CurrentAchievements,
+                    IsUnlocked = i < titleData.Achievement.CurrentAchievements,
                     Id = $"xbox-{titleId}-{i}",
                     IsHidden = false,
                     RarityPercentage = null
                 });
             }
             
-            return achievements.ToArray();
+            return placeholderAchievements.ToArray();
         }
         catch (Exception ex)
         {
@@ -245,45 +260,83 @@ public sealed class XboxService : IAchievementProvider<XboxService>
         }
     }
 
-    private async Task<List<AluaAchievement>?> TryGetDetailedAchievements(string titleId)
+    private async Task<List<AluaAchievement>?> TryGetDetailedAchievementsWithProgress(string titleId, Title titleInfo)
     {
         try
         {
-            // Try to get the title's achievement schema
-            var titleAchievements = await _apiClient.GetTitleAchievementsAsync(titleId);
-            
-            if (titleAchievements?.Achievements == null || !titleAchievements.Achievements.Any())
+            // First try to get the multiple titles endpoint which returns full Achievement objects
+            var multipleResponse = await _apiClient.GetMultipleTitleAchievementsAsync(titleId);
+            if (multipleResponse?.Achievements != null && multipleResponse.Achievements.Any())
             {
-                // Try the multiple titles endpoint as a fallback
-                var multipleResponse = await _apiClient.GetMultipleTitleAchievementsAsync(titleId);
-                if (multipleResponse?.Achievements != null && multipleResponse.Achievements.Any())
+                // This endpoint returns Achievement objects with Progressions
+                var result = new List<AluaAchievement>();
+                
+                foreach (var ach in multipleResponse.Achievements)
                 {
-                    // Convert detailed achievements
-                    return multipleResponse.Achievements.Select(ach => new AluaAchievement
+                    // Check if achievement is unlocked by looking at Progressions
+                    bool isUnlocked = false;
+                    if (ach.Progressions != null && ach.Progressions.Any())
+                    {
+                        // If there's a progression with a TimeUnlocked, the achievement is unlocked
+                        isUnlocked = ach.Progressions.Any(p => p.TimeUnlocked != default(DateTime));
+                    }
+                    
+                    result.Add(new AluaAchievement
                     {
                         Title = ach.Name ?? "Unknown Achievement",
                         Description = ach.Description ?? string.Empty,
                         Icon = ach.Icon ?? string.Empty,
-                        IsUnlocked = false, // We'll need to match these with player data
+                        IsUnlocked = isUnlocked,
                         Id = $"xbox-{titleId}-{ach.Id}",
                         IsHidden = ach.IsSecret,
                         RarityPercentage = null
-                    }).ToList();
+                    });
                 }
-                return null;
+                
+                // Verify our unlock count matches what the API reported
+                var actualUnlocked = result.Count(a => a.IsUnlocked);
+                var expectedUnlocked = titleInfo.Achievement?.CurrentAchievements ?? 0;
+                
+                if (actualUnlocked != expectedUnlocked)
+                {
+                    Log.Information("Xbox unlock status may be approximate for title {TitleId}. Found {Actual} unlocked, expected {Expected}", 
+                        titleId, actualUnlocked, expectedUnlocked);
+                }
+                
+                return result;
             }
-
-            // Convert title achievements to Alua format
-            return titleAchievements.Achievements.Select(ach => new AluaAchievement
+            
+            // Fallback: Try the title achievements endpoint (returns TitleAchievement objects without progress)
+            var titleAchievements = await _apiClient.GetTitleAchievementsAsync(titleId);
+            
+            if (titleAchievements?.Achievements != null && titleAchievements.Achievements.Any())
             {
-                Title = ach.Name ?? "Unknown Achievement",
-                Description = ach.Description ?? string.Empty,
-                Icon = ach.Icon ?? string.Empty,
-                IsUnlocked = false, // Default to false, we need player-specific data
-                Id = $"xbox-{titleId}-{ach.Id}",
-                IsHidden = false, // TitleAchievement doesn't have IsSecret property
-                RarityPercentage = null
-            }).ToList();
+                // This endpoint returns TitleAchievement objects without individual progress
+                // We'll have to approximate which achievements are unlocked
+                var unlockedCount = titleInfo.Achievement?.CurrentAchievements ?? 0;
+                var result = new List<AluaAchievement>();
+                
+                for (int i = 0; i < titleAchievements.Achievements.Count; i++)
+                {
+                    var ach = titleAchievements.Achievements[i];
+                    result.Add(new AluaAchievement
+                    {
+                        Title = ach.Name ?? $"Achievement {i + 1}",
+                        Description = ach.Description ?? string.Empty,
+                        Icon = ach.Icon ?? string.Empty,
+                        // Approximate: mark first N achievements as unlocked
+                        IsUnlocked = i < unlockedCount,
+                        Id = $"xbox-{titleId}-{ach.Id}",
+                        IsHidden = false, // TitleAchievement doesn't have IsSecret
+                        RarityPercentage = null
+                    });
+                }
+                
+                Log.Warning("Using approximate unlock status for Xbox title {TitleId}. Title endpoint doesn't provide individual progress.", titleId);
+                return result;
+            }
+            
+            return null;
         }
         catch (Exception ex)
         {
@@ -301,16 +354,17 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     {
         List<Game> result = new();
         
-        for (int index = 0; index < src.Count; index++)
+        // Filter to only include games with achievements
+        var gamesWithAchievements = src.Where(t => 
+            t.Achievement != null && 
+            t.Achievement.TotalGamerscore > 0).ToList();
+        
+        for (int index = 0; index < gamesWithAchievements.Count; index++)
         {
-            var title = src[index];
+            var title = gamesWithAchievements[index];
             
-            // Check if the game has achievements from the title history data
-            var achievements = new AluaAchievement[0];
-            if (title.Achievement != null && title.Achievement.TotalAchievements > 0)
-            {
-                achievements = await GetAchievementDataAsync(title.TitleId);
-            }
+            // Get achievement data for this title
+            var achievements = await GetAchievementDataAsync(title.TitleId);
             
             result.Add(new Game
             {
@@ -324,7 +378,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 LastUpdated = DateTime.UtcNow
             });
 
-            _appVm.LoadingGamesSummary = $"Scanned {title.Name} ({index + 1}/{src.Count})";
+            _appVm.LoadingGamesSummary = $"Scanned {title.Name} ({index + 1}/{gamesWithAchievements.Count})";
         }
 
         return result.ToArray();
@@ -337,36 +391,39 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     {
         List<Game> result = new();
         
-        for (int index = 0; index < src.Count; index++)
+        // Filter to only include games with achievements
+        var gamesWithAchievements = src.Where(t => 
+            t.Achievement != null && 
+            t.Achievement.TotalGamerscore > 0).ToList();
+        
+        for (int index = 0; index < gamesWithAchievements.Count; index++)
         {
-            var title = src[index];
+            var title = gamesWithAchievements[index];
             
-            // Use achievement data that's already included
+            // Get achievement data for this title
             var achievements = new List<AluaAchievement>();
-            if (title.Achievement != null && title.Achievement.TotalAchievements > 0)
+            
+            // Try to get detailed achievements
+            var detailed = await TryGetDetailedAchievementsWithProgress(title.TitleId, title);
+            if (detailed != null && detailed.Any())
             {
-                // Try to get detailed achievements
-                var detailed = await TryGetDetailedAchievements(title.TitleId);
-                if (detailed != null && detailed.Any())
+                achievements = detailed;
+            }
+            else
+            {
+                // Create placeholder achievements
+                for (int i = 0; i < title.Achievement.TotalAchievements; i++)
                 {
-                    achievements = detailed;
-                }
-                else
-                {
-                    // Create placeholder achievements
-                    for (int i = 0; i < title.Achievement.TotalAchievements; i++)
+                    achievements.Add(new AluaAchievement
                     {
-                        achievements.Add(new AluaAchievement
-                        {
-                            Title = $"Achievement {i + 1}",
-                            Description = $"Xbox Achievement",
-                            Icon = string.Empty,
-                            IsUnlocked = i < title.Achievement.CurrentAchievements,
-                            Id = $"xbox-{title.TitleId}-{i}",
-                            IsHidden = false,
-                            RarityPercentage = null
-                        });
-                    }
+                        Title = $"Achievement {i + 1}",
+                        Description = $"Xbox Achievement",
+                        Icon = string.Empty,
+                        IsUnlocked = i < title.Achievement.CurrentAchievements,
+                        Id = $"xbox-{title.TitleId}-{i}",
+                        IsHidden = false,
+                        RarityPercentage = null
+                    });
                 }
             }
             
@@ -382,7 +439,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 LastUpdated = DateTime.UtcNow
             });
 
-            _appVm.LoadingGamesSummary = $"Scanned {title.Name} ({index + 1}/{src.Count})";
+            _appVm.LoadingGamesSummary = $"Scanned {title.Name} ({index + 1}/{gamesWithAchievements.Count})";
         }
 
         return result.ToArray();

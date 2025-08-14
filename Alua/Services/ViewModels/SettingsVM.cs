@@ -58,6 +58,12 @@ public partial class SettingsVM  : ObservableObject
     private string? _psnSSO;
 
     /// <summary>
+    /// OpenXBL API key for Xbox Live integration
+    /// </summary>
+    [ObservableProperty, JsonInclude, JsonPropertyName("OpenXBLKey")]
+    private string? _openXBLKey;
+
+    /// <summary>
     /// Controls if we show the first run dialog or game list
     /// </summary>
     [ObservableProperty, JsonInclude, JsonPropertyName("Init")]

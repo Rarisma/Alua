@@ -12,6 +12,9 @@
         <TextBox Header="PSN Username" PlaceholderText="Enter your PSN SSO Token here" MinWidth="250"
                  Margin="0,20" Text="{x:Bind _settingsVM.PsnSSO, Mode=TwoWay}"/>
 
+        <TextBox Header="OpenXBL API Key" PlaceholderText="Enter your OpenXBL API key here" MinWidth="250"
+                 Margin="0,20" Text="{x:Bind _settingsVM.OpenXBLKey, Mode=TwoWay}"/>
+
         <Expander BorderBrush="transparent" Background="transparent">
             <Expander.Header>
                 <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">

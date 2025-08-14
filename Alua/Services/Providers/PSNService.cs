@@ -53,6 +53,46 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     }
 
     /// <summary>
+    /// Creates a new instance of the PSN Service using username and password
+    /// </summary>
+    /// <param name="username">PlayStation account email/username</param>
+    /// <param name="password">PlayStation account password</param>
+    /// <returns>PSNService</returns>
+    public static async Task<PSNService> CreateFromCredentials(string username, string password)
+    {
+        try
+        {
+            Log.Information("Creating PSN service with username and password");
+            var settingsVm = Ioc.Default.GetRequiredService<SettingsVM>();
+            
+            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
+            {
+                Log.Warning("Username or password not provided.");
+                throw new InvalidOperationException("Username and password are required.");
+            }
+            
+            // Get NPSSO token from credentials
+            var npssoToken = await PSNClient.GetNpssoFromCredentials(username, password);
+            Log.Information("Successfully obtained NPSSO token from credentials");
+            
+            PSNService psn = new()
+            {
+                _apiClient = await PSNClient.CreateFromNpsso(npssoToken),
+                _appVm = Ioc.Default.GetRequiredService<AppVM>(),
+                _settingsVm = settingsVm
+            };
+
+            Log.Information("Successfully created PSN service using credentials");
+            return psn;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to create PSN service with credentials");
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Gets the users whole PSN library
     /// </summary>
     /// <returns>Array of Games</returns>

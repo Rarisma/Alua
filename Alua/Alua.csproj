@@ -80,6 +80,8 @@
     <ItemGroup>
       <None Remove="Assets\Icons\steam.png" />
       <UnoImage Include="Assets\Icons\steam.png" />
+      <None Remove="Assets\Icons\Xbox.png" />
+      <UnoImage Include="Assets\Icons\xbox.png" />
     </ItemGroup>
 
     <ItemGroup>

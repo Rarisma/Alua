@@ -13,6 +13,9 @@ public partial class FirstRunVM : ObservableObject
     private string? _retroAchievementsUser;
 
     [ObservableProperty]
+    private string? _openXBLKey;
+
+    [ObservableProperty]
     private string? _errorMessage;
 
     [ObservableProperty]
@@ -23,6 +26,7 @@ public partial class FirstRunVM : ObservableObject
         _settingsVM = settingsVM;
         SteamID = _settingsVM.SteamID;
         RetroAchievementsUser = _settingsVM.RetroAchievementsUsername;
+        OpenXBLKey = _settingsVM.OpenXBLKey;
     }
     
     /// <summary>
@@ -30,9 +34,9 @@ public partial class FirstRunVM : ObservableObject
     /// </summary>
     public async Task Continue()
     {
-        if (string.IsNullOrWhiteSpace(SteamID) && string.IsNullOrWhiteSpace(RetroAchievementsUser))
+        if (string.IsNullOrWhiteSpace(SteamID) && string.IsNullOrWhiteSpace(RetroAchievementsUser) && string.IsNullOrWhiteSpace(OpenXBLKey))
         {
-            ErrorMessage = "Please enter at least one ID or username.";
+            ErrorMessage = "Please enter at least one ID, username, or API key.";
             HasError = true;
             return;
         }
@@ -42,6 +46,7 @@ public partial class FirstRunVM : ObservableObject
 
         _settingsVM.SteamID = SteamID;
         _settingsVM.RetroAchievementsUsername = RetroAchievementsUser;
+        _settingsVM.OpenXBLKey = OpenXBLKey;
         _settingsVM.Initialised = true; // Mark first run as complete
         await _settingsVM.Save();
         
@@ -50,6 +55,7 @@ public partial class FirstRunVM : ObservableObject
 
     partial void OnSteamIDChanged(string? value) => ClearErrorOnChange();
     partial void OnRetroAchievementsUserChanged(string? value) => ClearErrorOnChange();
+    partial void OnOpenXBLKeyChanged(string? value) => ClearErrorOnChange();
     
     /// <summary>
     /// Resets error messages when a field is changed.

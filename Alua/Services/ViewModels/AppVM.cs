@@ -74,6 +74,14 @@ public partial class AppVM : ObservableRecipient
                 Providers.Add(psn);
                 Log.Information("Successfully configured PSN achievements");
             }
+            
+            if (!string.IsNullOrWhiteSpace(svm.OpenXBLKey))
+            {
+                Log.Information("Configuring Xbox Live achievements");
+                var xbox = await XboxService.Create(svm.OpenXBLKey);
+                Providers.Add(xbox);
+                Log.Information("Successfully configured Xbox Live achievements");
+            }
         }
         catch (Exception ex)
         {

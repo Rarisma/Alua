@@ -11,6 +11,7 @@
         <!-- Account input fields -->
         <TextBox PlaceholderText="SteamID / Vanity URL Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
         <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind Frvm.RetroAchievementsUser, Mode=TwoWay}" />
+        <TextBox PlaceholderText="OpenXBL API Key (for Xbox)" Text="{x:Bind Frvm.OpenXBLKey, Mode=TwoWay}" />
 
         <!-- steam guide on how to find your steam ID -->
         <HyperlinkButton Content="How to find your SteamID" HorizontalAlignment="Center"
