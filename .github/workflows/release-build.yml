@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: windows-latest
             rid: win-x64
             fw: net9.0-desktop
             art: win-x64
