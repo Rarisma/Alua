@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Net;
 using System.Text.Json;
 using System.Web;
+using Alua.Services;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya.PSN;
@@ -105,6 +106,8 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             var trophyTitles = await _apiClient.GetUserTrophyTitlesAsync( "me");
             List<Game> games = new();
             foreach (var game in trophyTitles.TrophyTitles) { games.Add(ConvertToAluaGame(game)); }
+            
+            
             return games.ToArray();
         }
         catch (Exception ex)
@@ -147,6 +150,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                 // Small delay to avoid hitting rate limits
                 await Task.Delay(100);
             }
+            
             
             return gamesWithTrophies.ToArray();
         }

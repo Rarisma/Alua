@@ -12,8 +12,26 @@
         <TextBox Header="PSN Username" PlaceholderText="Enter your PSN SSO Token here" MinWidth="250"
                  Margin="0,20" Text="{x:Bind _settingsVM.PsnSSO, Mode=TwoWay}"/>
 
-        <TextBox Header="OpenXBL API Key" PlaceholderText="Enter your OpenXBL API key here" MinWidth="250"
-                 Margin="0,20" Text="{x:Bind _settingsVM.OpenXBLKey, Mode=TwoWay}"/>
+        <!-- Xbox Live Authentication -->
+        <StackPanel Margin="0,20">
+            <TextBlock Text="Xbox Live" FontWeight="Bold" Margin="0,0,0,5"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="Sign in with Microsoft" 
+                        Click="{x:Bind AuthenticateXbox}" 
+                        Visibility="{x:Bind IsXboxAuthenticated, Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"
+                        IsEnabled="{x:Bind IsAuthenticating, Converter={StaticResource BoolNegationConverter}, Mode=OneWay}"/>
+                
+                <StackPanel Orientation="Horizontal" Spacing="10" 
+                            Visibility="{x:Bind IsXboxAuthenticated, Mode=OneWay}">
+                    <TextBlock Text="Signed in as:" VerticalAlignment="Center"/>
+                    <TextBlock Text="{x:Bind _settingsVM.XboxGamertag, Mode=OneWay}" 
+                              FontWeight="Bold" VerticalAlignment="Center"/>
+                    <Button Content="Sign Out" Click="{x:Bind SignOutXbox}" />
+                </StackPanel>
+                
+                <ProgressRing IsActive="{x:Bind IsAuthenticating, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
 
         <Expander BorderBrush="transparent" Background="transparent">
             <Expander.Header>

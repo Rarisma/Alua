@@ -1,4 +1,5 @@
 using System;
+using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Sachya.Clients;
@@ -68,6 +69,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             result.Add(game);
             Ioc.Default.GetRequiredService<ViewModels.AppVM>().LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
         }
+        
 
         return result.ToArray();
     }
@@ -81,11 +83,12 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     {
         var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5);
         List<Game> result = new List<Game>();
+        
         foreach (var game in response)
         {
             try
             {
-                result.Add(new Game
+                var aluaGame = new Game
                 {
                     Name = game.Title ?? "Unknown Game",
                     Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
@@ -95,7 +98,9 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
                     Identifier = "ra-"+game.GameID,
                     LastUpdated = DateTime.UtcNow
-                });
+                };
+                
+                result.Add(aluaGame);
             }
             catch (Exception ex)
             {
@@ -103,6 +108,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             }
 
         }
+        
         
         return result.ToArray();
     }
@@ -116,7 +122,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     {
         int gameId = int.Parse(identifier.Split("-")[1]);
         GameInfoExtended gameInfo = await _apiClient.GetGameExtendedAsync(gameId);
-        return new Game
+        var game = new Game
         {
             Name = gameInfo.Title ?? "Unknown Game",
             Icon = "https://i.retroachievements.org/" + (gameInfo.ImageIcon ?? ""),
@@ -127,6 +133,8 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             Identifier = "ra-"+gameId,
             LastUpdated = DateTime.UtcNow
         };
+        
+        return game;
     }
 
     private async Task<List<Achievement>> GetAchievements(int gameID)

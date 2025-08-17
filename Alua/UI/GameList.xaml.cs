@@ -1,3 +1,4 @@
+using Alua.Services;
 using Alua.Services.ViewModels;
 using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
@@ -98,24 +99,15 @@ public partial class GameList : Page
         CheckUnstarted.IsChecked = _appVm.HideUnstarted;
         CheckReverse.IsChecked = _appVm.Reverse;
 
-        // Restore radio button states from VM
-        switch (_appVm.OrderBy)
+        // Restore ComboBox selection from VM
+        var orderByString = _appVm.OrderBy.ToString();
+        foreach (ComboBoxItem item in SortByComboBox.Items)
         {
-            case OrderBy.Name:
-                RadioName.IsChecked = true;
+            if (item.Tag?.ToString() == orderByString)
+            {
+                SortByComboBox.SelectedItem = item;
                 break;
-            case CompletionPct:
-                RadioCompletion.IsChecked = true;
-                break;
-            case TotalCount:
-                RadioTotal.IsChecked = true;
-                break;
-            case UnlockedCount:
-                RadioUnlocked.IsChecked = true;
-                break;
-            case Playtime:
-                RadioPlaytime.IsChecked = true;
-                break;
+            }
         }
 
         // Layout toggle and repeater layout
@@ -143,6 +135,50 @@ public partial class GameList : Page
             
             Log.Information("Found {Count} games from provider", games.Length);
         }
+        
+        // Fetch HowLongToBeat data for all games in parallel
+        _appVm.LoadingGamesSummary = "Fetching HowLongToBeat data...";
+        
+        var gamesToFetch = _settingsVM.Games.Values
+            .Where(g => !g.HowLongToBeatLastFetched.HasValue || 
+                       (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
+            .ToList();
+        
+        Log.Information("Fetching HLTB data for {Count} games", gamesToFetch.Count);
+        
+        if (gamesToFetch.Any())
+        {
+            // Use a semaphore to limit concurrent requests to 5
+            using var semaphore = new SemaphoreSlim(5, 5);
+            var completedCount = 0;
+            var totalCount = gamesToFetch.Count;
+            
+            var tasks = gamesToFetch.Select(async game =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    using var hltbService = new HowLongToBeatService();
+                    await hltbService.FetchAndUpdateGameData(game);
+                    
+                    var current = Interlocked.Increment(ref completedCount);
+                    _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
+                    
+                    _settingsVM.AddOrUpdateGame(game);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to fetch HLTB data for {GameName}", game.Name);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+            
+            await Task.WhenAll(tasks);
+        }
+        
         //Save scan results
         await _settingsVM.Save();
         Log.Information("loaded {0} games, {1} achievements",
@@ -198,6 +234,47 @@ public partial class GameList : Page
         {
             _settingsVM.AddOrUpdateGame(newGame);
         }
+        
+        // Fetch HowLongToBeat data for new/updated games in parallel
+        var gamesToFetch = games.Where(g => !g.HowLongToBeatLastFetched.HasValue || 
+                                           (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
+                                .ToList();
+        
+        if (gamesToFetch.Any())
+        {
+            _appVm.LoadingGamesSummary = "Fetching HowLongToBeat data...";
+            Log.Information("Fetching HLTB data for {Count} refreshed games", gamesToFetch.Count);
+            
+            // Use a semaphore to limit concurrent requests to 5
+            using var semaphore = new SemaphoreSlim(5, 5);
+            var completedCount = 0;
+            var totalCount = gamesToFetch.Count;
+            
+            var tasks = gamesToFetch.Select(async game =>
+            {
+                await semaphore.WaitAsync();
+                try
+                {
+                    using var hltbService = new HowLongToBeatService();
+                    await hltbService.FetchAndUpdateGameData(game);
+                    
+                    var current = Interlocked.Increment(ref completedCount);
+                    _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
+                    
+                    _settingsVM.AddOrUpdateGame(game);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to fetch HLTB data for {GameName}", game.Name);
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            });
+            
+            await Task.WhenAll(tasks);
+        }
 
         // Clear and repopulate FilteredGames with ALL games from memory
         _appVm.FilteredGames.Clear();
@@ -220,13 +297,11 @@ public partial class GameList : Page
         _appVm.HideUnstarted = CheckUnstarted.IsChecked == true;
         _appVm.Reverse = CheckReverse.IsChecked == true;
 
-        // read which radio is checked
-        if (RadioName.IsChecked == true) _appVm.OrderBy = OrderBy.Name;
-        else if (RadioCompletion.IsChecked == true) _appVm.OrderBy = CompletionPct;
-        else if (RadioTotal.IsChecked == true) _appVm.OrderBy = TotalCount;
-        else if (RadioUnlocked.IsChecked == true) _appVm.OrderBy = UnlockedCount;
-        else if (RadioPlaytime.IsChecked == true) _appVm.OrderBy = Playtime;
-        else if (RadioRecent.IsChecked == true) _appVm.OrderBy = LastUpdated;
+        // read which item is selected in the ComboBox
+        if (SortByComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string tag)
+        {
+            _appVm.OrderBy = Enum.Parse<OrderBy>(tag);
+        }
 
         // Persist settings
         _settingsVM.HideComplete = _appVm.HideComplete;
@@ -247,6 +322,16 @@ public partial class GameList : Page
             .Where(g => !_appVm.HideNoAchievements || g.Value.HasAchievements)
             .Where(g => !_appVm.HideUnstarted || g.Value.UnlockedCount > 0);
 
+        // Filter out games without HLTB data when sorting by HLTB
+        if (_appVm.OrderBy == HowLongToBeatMain)
+        {
+            list = list.Where(g => g.Value.HowLongToBeatMain.HasValue);
+        }
+        else if (_appVm.OrderBy == HowLongToBeatCompletionist)
+        {
+            list = list.Where(g => g.Value.HowLongToBeatCompletionist.HasValue);
+        }
+
         list = _appVm.OrderBy switch
         {
             OrderBy.Name => list.OrderBy(g => g.Value.Name),
@@ -255,6 +340,8 @@ public partial class GameList : Page
             UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
             Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
             LastUpdated => list.OrderByDescending(g => g.Value.LastUpdated),
+            HowLongToBeatMain => list.OrderBy(g => g.Value.HowLongToBeatMain.Value),
+            HowLongToBeatCompletionist => list.OrderBy(g => g.Value.HowLongToBeatCompletionist.Value),
             _ => list
         };
 

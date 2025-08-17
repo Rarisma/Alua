@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:android="http://uno.ui/android"
     xmlns:controls1="clr-namespace:Alua.UI.Controls"
+    xmlns:converters="clr-namespace:Alua.UI.Converters"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:data="clr-namespace:Alua.Models"
     mc:Ignorable="android"
@@ -15,6 +16,7 @@
         <controls1:PercentageRoundingConverter x:Key="PercentageRoundingConverter"/>
         <controls1:HasAchievementsToVisibilityConverter x:Key="HasAchievementsToVisibilityConverter"/>
         <controls1:PlaytimeToVisibilityConverter x:Key="PlaytimeToVisibilityConverter"/>
+        <converters:HoursToTimeTextConverter x:Key="HoursToTimeTextConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
                 <Grid.ColumnDefinitions>
@@ -75,41 +77,71 @@
             </Border>
 
             <Grid Grid.Column="1" VerticalAlignment="Center">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                <StackPanel Grid.Row="0" Orientation="Horizontal">
-                    <Image Source="{x:Bind AppVM.SelectedGame.ProviderImage}" Height="20" Stretch="Uniform"
-                           HorizontalAlignment="Center" Margin="0,0,10,0"/>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <!-- Left side content -->
+                <Grid Grid.Column="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <Image Source="{x:Bind AppVM.SelectedGame.ProviderImage}" Height="20" Stretch="Uniform"
+                               HorizontalAlignment="Center" Margin="0,0,10,0"/>
 
-                    <!-- Game Title -->
-                    <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap" />
+                        <!-- Game Title -->
+                        <TextBlock Text="{x:Bind AppVM.SelectedGame.Name}" FontSize="24" TextWrapping="Wrap" />
 
-                    <!-- Refresh button -->
-                    <Button Visibility="Visible" android:Visibility="Collapsed" Click="{x:Bind Refresh}"
-                            Margin="10,0,0,0">
-                        <SymbolIcon Symbol="Refresh"/>
-                    </Button>
-                </StackPanel>
+                        <!-- Refresh button -->
+                        <Button Visibility="Visible" android:Visibility="Collapsed" Click="{x:Bind Refresh}"
+                                Margin="10,0,0,0">
+                            <SymbolIcon Symbol="Refresh"/>
+                        </Button>
+                    </StackPanel>
 
-                <StackPanel Grid.Row="1" Orientation="Horizontal" 
-                            Visibility="{x:Bind AppVM.SelectedGame.PlaytimeMinutes, Converter={StaticResource PlaytimeToVisibilityConverter}}">
-                    <TextBlock Text="Playtime: " FontSize="14" TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Bind AppVM.SelectedGame.PlaytimeText}" FontSize="14" TextWrapping="Wrap" />
-                </StackPanel>
+                    <!-- Current Playtime -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" 
+                                Visibility="{x:Bind AppVM.SelectedGame.PlaytimeMinutes, Converter={StaticResource PlaytimeToVisibilityConverter}}">
+                        <TextBlock Text="Playtime: " FontSize="14" TextWrapping="Wrap" />
+                        <TextBlock Text="{x:Bind AppVM.SelectedGame.PlaytimeText}" FontSize="14" TextWrapping="Wrap" />
+                    </StackPanel>
 
-                <!-- Achievement Count / Status -->
-                <TextBlock Grid.Row="2" Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center"
-                           Margin="0,0,10,5"/>
+                    <!-- Achievement Count / Status -->
+                    <TextBlock Grid.Row="2" Text="{x:Bind AppVM.SelectedGame.StatusText}" VerticalAlignment="Center"
+                               Margin="0,0,10,5"/>
 
-                <!-- Progress Bar -->
-                <ProgressBar Grid.Row="3" Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
-                    Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"  Width="150" Height="10"
-                    VerticalAlignment="Center" Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"
-                    Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource HasAchievementsToVisibilityConverter}}"/>
+                    <!-- Progress Bar -->
+                    <ProgressBar Grid.Row="3" Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
+                        Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"  Width="150" Height="10"
+                        VerticalAlignment="Center" Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"
+                        Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource HasAchievementsToVisibilityConverter}}"/>
+                </Grid>
+                
+                <!-- Right side - HowLongToBeat Times -->
+                <Grid Grid.Column="1" Margin="20,0,0,0" 
+                      Visibility="{x:Bind AppVM.SelectedGame.HasHowLongToBeatData, Mode=OneWay, Converter={StaticResource HasAchievementsToVisibilityConverter}}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    
+                    <!-- Story Time -->
+                    <TextBlock Grid.Row="0" Text="Story" FontWeight="Bold" FontSize="14" />
+                    <TextBlock Grid.Row="1" Text="{x:Bind AppVM.SelectedGame.HowLongToBeatMain, Mode=OneWay, Converter={StaticResource HoursToTimeTextConverter}}" 
+                               FontSize="14" Margin="0,0,0,10" />
+                    
+                    <!-- 100% Time -->
+                    <TextBlock Grid.Row="2" Text="100%" FontWeight="Bold" FontSize="14" />
+                    <TextBlock Grid.Row="3" Text="{x:Bind AppVM.SelectedGame.HowLongToBeatCompletionist, Mode=OneWay, Converter={StaticResource HoursToTimeTextConverter}}" 
+                               FontSize="14" />
+                </Grid>
             </Grid>
         </Grid>
 

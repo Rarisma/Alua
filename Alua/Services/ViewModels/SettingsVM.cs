@@ -9,6 +9,8 @@ namespace Alua.Services.ViewModels;
 /// </summary>
 public partial class SettingsVM  : ObservableObject
 {
+    private readonly object _gamesLock = new object();
+    
     #region Build info
     /// <summary>
     /// Shown in settings, and used to track when a full refresh is loaded
@@ -58,10 +60,16 @@ public partial class SettingsVM  : ObservableObject
     private string? _psnSSO;
 
     /// <summary>
-    /// OpenXBL API key for Xbox Live integration
+    /// Microsoft authentication data for Xbox Live integration (serialized)
     /// </summary>
-    [ObservableProperty, JsonInclude, JsonPropertyName("OpenXBLKey")]
-    private string? _openXBLKey;
+    [ObservableProperty, JsonInclude, JsonPropertyName("microsoftAuthData")]
+    private string? _microsoftAuthData;
+    
+    /// <summary>
+    /// Xbox Live gamertag for display purposes
+    /// </summary>
+    [ObservableProperty, JsonInclude, JsonPropertyName("xboxGamertag")]
+    private string? _xboxGamertag;
 
     /// <summary>
     /// Controls if we show the first run dialog or game list
@@ -101,7 +109,10 @@ public partial class SettingsVM  : ObservableObject
     /// <param name="game">Game to add or update.</param>
     public void AddOrUpdateGame(Game game)
     {
-        Games[game.Identifier] = game;
+        lock (_gamesLock)
+        {
+            Games[game.Identifier] = game;
+        }
         OnPropertyChanged(nameof(Games));
     }
 
@@ -119,8 +130,35 @@ public partial class SettingsVM  : ObservableObject
 
             //Write to disk.
             Log.Information($"Saving settings to {settings.Path}");
-            string json = JsonSerializer.Serialize(this);
+            
+            // Create a copy of the Games dictionary to avoid collection modification during serialization
+            Dictionary<string, Game> gamesCopy;
+            lock (_gamesLock)
+            {
+                gamesCopy = new Dictionary<string, Game>(Games);
+            }
+            
+            // Create a copy of the settings object for serialization instead of swapping the dictionary
+            var settingsCopy = new SettingsVM
+            {
+                _games = gamesCopy,
+                _steamID = _steamID,
+                _retroAchievementsUsername = _retroAchievementsUsername,
+                _psnSSO = _psnSSO,
+                _microsoftAuthData = _microsoftAuthData,
+                _xboxGamertag = _xboxGamertag,
+                _initialised = _initialised,
+                _hideComplete = _hideComplete,
+                _hideNoAchievements = _hideNoAchievements,
+                _hideUnstarted = _hideUnstarted,
+                _reverse = _reverse,
+                _orderBy = _orderBy,
+                _singleColumnLayout = _singleColumnLayout
+            };
+            
+            string json = JsonSerializer.Serialize(settingsCopy);
             await File.WriteAllTextAsync(settings.Path, json);
+            
             Log.Information("Saved settings.");
         }
         catch (Exception e)

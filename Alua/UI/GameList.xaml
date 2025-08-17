@@ -140,31 +140,18 @@
                                                        Style="{ThemeResource BaseTextBlockStyle}"
                                                        FontWeight="SemiBold"
                                                        Margin="0,0,0,4"/>
-                                            <RadioButton x:Name="RadioName"
-                                                         Content="Name (A-Z)"
-                                                         GroupName="OrderBy"
-                                                         Checked="Filter_Changed"
-                                                         IsChecked="True"/>
-                                            <RadioButton x:Name="RadioCompletion"
-                                                         Content="Completion %"
-                                                         GroupName="OrderBy"
-                                                         Checked="Filter_Changed"/>
-                                            <RadioButton x:Name="RadioTotal"
-                                                         Content="Total Achievement Count"
-                                                         GroupName="OrderBy"
-                                                         Checked="Filter_Changed"/>
-                                            <RadioButton x:Name="RadioUnlocked"
-                                                         Content="Unlocked Achievement Count"
-                                                         GroupName="OrderBy"
-                                                         Checked="Filter_Changed"/>
-                                            <RadioButton x:Name="RadioPlaytime"
-                                                         Content="Playtime"
-                                                         GroupName="OrderBy"
-                                                         Checked="Filter_Changed"/>
-                                            <RadioButton x:Name="RadioRecent"
-                                                         Content="Recently Played"
-                                                         GroupName="OrderBy"
-                                                         Checked="Filter_Changed"/>
+                                            <ComboBox x:Name="SortByComboBox"
+                                                      HorizontalAlignment="Stretch"
+                                                      SelectionChanged="Filter_Changed">
+                                                <ComboBoxItem Content="Name (A-Z)" Tag="Name"/>
+                                                <ComboBoxItem Content="Completion %" Tag="CompletionPct"/>
+                                                <ComboBoxItem Content="Total Achievements" Tag="TotalCount"/>
+                                                <ComboBoxItem Content="Unlocked Achievements" Tag="UnlockedCount"/>
+                                                <ComboBoxItem Content="Playtime" Tag="Playtime"/>
+                                                <ComboBoxItem Content="Recently Played" Tag="LastUpdated"/>
+                                                <ComboBoxItem Content="HLTB Story Time" Tag="HowLongToBeatMain"/>
+                                                <ComboBoxItem Content="HLTB 100% Time" Tag="HowLongToBeatCompletionist"/>
+                                            </ComboBox>
                                             <CheckBox x:Name="CheckReverse"
                                                       Content="Reverse order"
                                                       Checked="Filter_Changed"

@@ -54,6 +54,36 @@ public class Game
     
     [JsonInclude, JsonPropertyName("Identifier")]
     public string Identifier { get; set; }
+    
+    /// <summary>
+    /// Time to beat main story in hours
+    /// </summary>
+    [JsonInclude, JsonPropertyName("HowLongToBeatMain")]
+    public double? HowLongToBeatMain { get; set; }
+    
+    /// <summary>
+    /// Time to beat main story + extras in hours
+    /// </summary>
+    [JsonInclude, JsonPropertyName("HowLongToBeatMainExtras")]
+    public double? HowLongToBeatMainExtras { get; set; }
+    
+    /// <summary>
+    /// Time to 100% complete the game in hours
+    /// </summary>
+    [JsonInclude, JsonPropertyName("HowLongToBeatCompletionist")]
+    public double? HowLongToBeatCompletionist { get; set; }
+    
+    /// <summary>
+    /// Average time across all play styles in hours
+    /// </summary>
+    [JsonInclude, JsonPropertyName("HowLongToBeatAllStyles")]
+    public double? HowLongToBeatAllStyles { get; set; }
+    
+    /// <summary>
+    /// Last time HowLongToBeat data was fetched
+    /// </summary>
+    [JsonInclude, JsonPropertyName("HowLongToBeatLastFetched")]
+    public DateTime? HowLongToBeatLastFetched { get; set; }
 
     // Add parameterless constructor for JSON deserialization
     public Game()
@@ -161,6 +191,47 @@ public class Game
             // Less than an hour
             return $"{minutes} min";
         }
+    }
+    
+    /// <summary>
+    /// Returns formatted HowLongToBeat main story time
+    /// </summary>
+    [JsonIgnore]
+    public string HowLongToBeatMainText => FormatHowLongToBeatTime(HowLongToBeatMain, "Main Story");
+    
+    /// <summary>
+    /// Returns formatted HowLongToBeat completionist time
+    /// </summary>
+    [JsonIgnore]
+    public string HowLongToBeatCompletionistText => FormatHowLongToBeatTime(HowLongToBeatCompletionist, "100% Complete");
+    
+    /// <summary>
+    /// Returns true if HowLongToBeat data is available
+    /// </summary>
+    [JsonIgnore]
+    public bool HasHowLongToBeatData => HowLongToBeatMain.HasValue || HowLongToBeatCompletionist.HasValue;
+    
+    /// <summary>
+    /// Formats HowLongToBeat time values for display
+    /// </summary>
+    private string FormatHowLongToBeatTime(double? hours, string label)
+    {
+        if (!hours.HasValue || hours.Value <= 0)
+            return string.Empty;
+        
+        if (hours.Value < 1)
+        {
+            int minutes = (int)(hours.Value * 60);
+            return $"{label}: {minutes} min";
+        }
+        
+        int wholeHours = (int)hours.Value;
+        int remainingMinutes = (int)((hours.Value - wholeHours) * 60);
+        
+        if (remainingMinutes > 0)
+            return $"{label}: {wholeHours}h {remainingMinutes}m";
+        
+        return $"{label}: {wholeHours}h";
     }
     #endregion
 }

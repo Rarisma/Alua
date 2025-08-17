@@ -1,5 +1,6 @@
 using System;
 using System.Text.RegularExpressions;
+using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya;
 using Sachya.Clients;
@@ -155,7 +156,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 ? string.Empty
                 : $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{iconHash}.jpg";
 
-            return new Game
+            var game = new Game
             {
                 Identifier       = "steam-"+appId,
                 Name             = data.name,
@@ -166,6 +167,8 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 Achievements     = (await GetAchievementDataAsync(appId.ToString())).ToObservableCollection(),
                 LastUpdated      = DateTime.UtcNow
             };
+            
+            return game;
         }
         catch (Exception ex)
         {
@@ -256,9 +259,10 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src)
     {
         List<Game> result = new();
+        
         foreach  (var g in src)
         {
-            result.Add(new Game
+            var game = new Game
             {
                 Name            = g.name,
                 Icon            = $"https://media.steampowered.com/steamcommunity/public/images/apps/{g.appid}/{g.img_icon_url}.jpg",
@@ -268,7 +272,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 Identifier      = "steam-"+g.appid,
                 Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection(),
                 LastUpdated     = DateTime.UtcNow
-            });
+            };
+            
+            result.Add(game);
 
             _appVm.LoadingGamesSummary = $"Scanned {g.name} ({src.IndexOf(g)}/{src.Count})";
         }
