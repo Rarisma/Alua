@@ -189,7 +189,12 @@
                     <ItemsRepeater x:Name="gameRepeater" ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    HorizontalAlignment="Stretch">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinRowSpacing="10" MinColumnSpacing="10" ItemsStretch="Fill" />
+                            <UniformGridLayout MinRowSpacing="10" 
+                                             MinColumnSpacing="10" 
+                                             ItemsStretch="Fill"
+                                             MinItemWidth="1"
+                                             MinItemHeight="120"
+                                             MaximumRowsOrColumns="4" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <StaticResource ResourceKey="GameTemplate" />

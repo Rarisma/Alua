@@ -59,7 +59,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
     #region Methods
     /// <summary>
-    /// Gets a users whole library
+    /// Gets a users whole library including family shared games with achievements
     /// </summary>
     /// <returns>Game array</returns>
     public async Task<Game[]> GetLibrary()
@@ -88,7 +88,47 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 return [];
             }
 
-            return await ConvertToAluaAsync(owned.response.games);
+            // Get recently played games (includes family shared)
+            var recentlyPlayed = await _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 100);
+            
+            // Create a set of owned game IDs for quick lookup
+            var ownedGameIds = new HashSet<int>(owned.response.games.Select(g => g.appid));
+            
+            // Find family shared games (games played but not owned)
+            var familySharedGames = new List<Sachya.Definitions.Steam.Game>();
+            
+            if (recentlyPlayed?.response?.games != null)
+            {
+                foreach (var game in recentlyPlayed.response.games)
+                {
+                    // If this game was played but not owned, it's likely family shared
+                    if (!ownedGameIds.Contains(game.appid))
+                    {
+                        try
+                        {
+                            // Check if the user has achievement data for this game
+                            var achievements = await _apiClient.GetPlayerAchievementsAsync(_steamId, game.appid);
+                            
+                            // If we got achievement data, add this as a family shared game
+                            if (achievements?.playerstats?.achievements != null && achievements.playerstats.achievements.Count > 0)
+                            {
+                                familySharedGames.Add(game);
+                                Log.Information("Found family shared game with achievements: {GameName} ({AppId})", game.name, game.appid);
+                            }
+                        }
+                        catch
+                        {
+                            // If we can't get achievement data, skip this game
+                            Log.Debug("No achievement access for game {AppId}, skipping", game.appid);
+                        }
+                    }
+                }
+            }
+            
+            // Combine owned and family shared games
+            var allGames = owned.response.games.Concat(familySharedGames).ToList();
+
+            return await ConvertToAluaAsync(allGames);
         }
         catch (Exception ex)
         {

@@ -390,7 +390,9 @@ public partial class GameList : Page
                     MinRowSpacing = 10,
                     MinColumnSpacing = 10,
                     ItemsStretch = UniformGridLayoutItemsStretch.Fill,
-                    MaximumRowsOrColumns = 4
+                    MinItemWidth = 1,  // Allow items to shrink as needed
+                    MinItemHeight = 120, // Maintain minimum height
+                    MaximumRowsOrColumns = 4  // Always exactly 4 columns
                 };
             }
             
