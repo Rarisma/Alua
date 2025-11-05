@@ -127,5 +127,7 @@ public partial class App : Application
         
         // Ensure the current window is active
         MainWindow.Activate();
+        
+        Microsoft.UI.Xaml.Window.Current.AppWindow.Resize(new Windows.Graphics.SizeInt32 { Width = 2000, Height = 2000 } );
     }
 }
