@@ -14,26 +14,26 @@ public class Game
     /// Name of game
     /// </summary>
     [JsonInclude, JsonPropertyName("GameName")]
-    public string Name { get; set; }
-    
+    public string Name { get; set; } = string.Empty;
+
     /// <summary>
     /// Game developer
     /// </summary>
     [JsonInclude, JsonPropertyName("Developer")]
-    public string Author { get; set; }
-    
+    public string Author { get; set; } = string.Empty;
+
     /// <summary>
     /// Icon for the game
     /// </summary>
     [JsonInclude, JsonPropertyName("Icon")]
-    public string Icon { get; set; }
+    public string Icon { get; set; } = string.Empty;
 
     /// <summary>
     /// Last time the game information was updated
     /// </summary>
     [JsonInclude, JsonPropertyName("LastUpdated")]
-    public DateTime LastUpdated { get; set; }
-    
+    public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+
     /// <summary>
     /// Total playtime in minutes
     /// </summary>
@@ -44,8 +44,8 @@ public class Game
     /// All achievements for this game
     /// </summary>
     [JsonInclude, JsonPropertyName("Achievements")]
-    public ObservableCollection<Achievement> Achievements { get; set; }
-    
+    public ObservableCollection<Achievement> Achievements { get; set; } = new();
+
     /// <summary>
     /// Platform where this achievement originated from
     /// </summary>
@@ -53,8 +53,8 @@ public class Game
     public Platforms Platform { get; set; }
     
     [JsonInclude, JsonPropertyName("Identifier")]
-    public string Identifier { get; set; }
-    
+    public string Identifier { get; set; } = string.Empty;
+
     /// <summary>
     /// Time to beat main story in hours
     /// </summary>
@@ -85,17 +85,6 @@ public class Game
     [JsonInclude, JsonPropertyName("HowLongToBeatLastFetched")]
     public DateTime? HowLongToBeatLastFetched { get; set; }
 
-    // Add parameterless constructor for JSON deserialization
-    public Game()
-    {
-        Name = string.Empty;
-        Author = string.Empty;
-        Icon = string.Empty;
-        Achievements = new ObservableCollection<Achievement>();
-        Identifier = string.Empty;
-        LastUpdated = DateTime.UtcNow;
-    }
-
     #region UI Helpers
     /// <summary>
     /// How many achievements the user has unlocked
@@ -108,6 +97,11 @@ public class Game
     /// </summary>
     [JsonIgnore]
     public bool HasAchievements => Achievements.Count != 0;
+    /// <summary>
+    /// Returns true if the user has unlocked any achievements
+    /// </summary>
+    [JsonIgnore]
+    public bool HasPlaytime => PlaytimeMinutes != -1;
     
     /// <summary>
     /// Returns
@@ -160,6 +154,12 @@ public class Game
             };
         }
     }
+
+    [JsonIgnore]
+    public Uri? IconUri => TryCreateUri(Icon);
+
+    [JsonIgnore]
+    public Uri? ProviderImageUri => TryCreateUri(ProviderImage);
     
     /// <summary>
     /// Returns a formatted string of the total playtime
@@ -232,6 +232,16 @@ public class Game
             return $"{label}: {wholeHours}h {remainingMinutes}m";
         
         return $"{label}: {wholeHours}h";
+    }
+
+    private static Uri? TryCreateUri(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return Uri.TryCreate(value, UriKind.Absolute, out var uri) ? uri : null;
     }
     #endregion
 }

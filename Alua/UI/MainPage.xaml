@@ -1,39 +1,164 @@
 <Page x:Class="Alua.UI.MainPage"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:utu="using:Uno.Toolkit.UI"
+      xmlns:controls="using:Alua.UI.Controls"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-    <Grid HorizontalAlignment="Stretch">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
 
-        <!-- App content bar -->
-        <CommandBar HorizontalAlignment="Left" Grid.Row="0" OverflowButtonVisibility="Collapsed"
-                    Visibility="{x:Bind  _appVM.CommandBarVisibility, Mode=TwoWay}">
-            <CommandBar.PrimaryCommands>
-                <AppBarButton Content="Back" Click="Back" HorizontalAlignment="Left">
-                    <AppBarButton.Icon>
-                        <SymbolIcon Symbol="Back"/>
-                    </AppBarButton.Icon>
-                </AppBarButton>
+    <Page.Resources>
+        <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+    </Page.Resources>
 
-                <AppBarButton Content="My Games" Click="OpenGamesList" HorizontalAlignment="Center">
-                    <AppBarButton.Icon>
-                        <FontIcon Glyph="&#xE7FC;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
-                    </AppBarButton.Icon>
-                </AppBarButton>
+    <utu:SafeArea Insets="Top,Bottom" Mode="Padding">
+        <Grid HorizontalAlignment="Stretch">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
-                <AppBarButton Content="Settings" Click="OpenSettings" HorizontalAlignment="Right">
-                    <AppBarButton.Icon>
-                        <FontIcon Glyph="&#xE713;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
+            <!-- App content bar -->
+            <CommandBar HorizontalAlignment="Left" Grid.Row="0" OverflowButtonVisibility="Auto"
+                        Visibility="{x:Bind _appVM.CommandBarVisibility, Mode=TwoWay}" DefaultLabelPosition="Collapsed">
 
-                    </AppBarButton.Icon>
-                </AppBarButton>
-            </CommandBar.PrimaryCommands>
-        </CommandBar>
+                <CommandBar.PrimaryCommands>
+                    <AppBarButton Content="Back" Click="Back">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Back"/>
+                        </AppBarButton.Icon>
+                    </AppBarButton>
 
-        <!-- Hosts content for app -->
-        <Frame x:Name="AppContentFrame" Grid.Row="1"/>
-    </Grid>
+                    <AppBarButton Content="My Games" Click="OpenGamesList">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE7FC;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+
+                    <!-- Refresh Button -->
+                    <AppBarButton x:Name="RefreshButton" Content="Refresh" Click="Refresh_Click"
+                                  Visibility="{x:Bind _appVM.GameListControlsVisibility, Mode=OneWay}">
+                        <AppBarButton.Icon>
+                            <SymbolIcon Symbol="Refresh"/>
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+
+                    <!-- Filter Button -->
+                    <AppBarButton x:Name="FilterButton" Content="Filter"
+                                  Visibility="{x:Bind _appVM.GameListControlsVisibility, Mode=OneWay}">
+                        <AppBarButton.Icon>
+                            <FontIcon x:Name="FilterIcon" Glyph="&#xE71C;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
+                        </AppBarButton.Icon>
+                        <AppBarButton.Flyout>
+                            <Flyout x:Name="FilterFlyout" Placement="Bottom">
+                                <Flyout.FlyoutPresenterStyle>
+                                    <Style TargetType="FlyoutPresenter">
+                                        <Setter Property="Padding" Value="16"/>
+                                        <Setter Property="CornerRadius" Value="8"/>
+                                        <Setter Property="MaxWidth" Value="320"/>
+                                        <Setter Property="Background" Value="{ThemeResource SystemChromeMediumLowColor}"/>
+                                    </Style>
+                                </Flyout.FlyoutPresenterStyle>
+
+                                <StackPanel Spacing="16">
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="Filter"
+                                                   Style="{ThemeResource BaseTextBlockStyle}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,4"/>
+                                        <CheckBox x:Name="CheckHideComplete"
+                                                  Content="Hide 100% Complete"
+                                                  Checked="Filter_Changed"
+                                                  Unchecked="Filter_Changed"/>
+                                        <CheckBox x:Name="CheckNoAchievements"
+                                                  Content="Hide games with no Achievements"
+                                                  Checked="Filter_Changed"
+                                                  Unchecked="Filter_Changed"/>
+                                        <CheckBox x:Name="CheckUnstarted"
+                                                  Content="Hide unstarted games"
+                                                  Checked="Filter_Changed"
+                                                  Unchecked="Filter_Changed"/>
+                                    </StackPanel>
+
+                                    <Rectangle Height="1"
+                                               Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                                               Margin="0,4"/>
+
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="Sort by"
+                                                   Style="{ThemeResource BaseTextBlockStyle}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,4"/>
+                                        <ComboBox x:Name="SortByComboBox"
+                                                  HorizontalAlignment="Stretch"
+                                                  SelectionChanged="Filter_Changed">
+                                            <ComboBoxItem Content="Name (A-Z)" Tag="Name"/>
+                                            <ComboBoxItem Content="Completion %" Tag="CompletionPct"/>
+                                            <ComboBoxItem Content="Total Achievements" Tag="TotalCount"/>
+                                            <ComboBoxItem Content="Unlocked Achievements" Tag="UnlockedCount"/>
+                                            <ComboBoxItem Content="Playtime" Tag="Playtime"/>
+                                            <ComboBoxItem Content="Recently Played" Tag="LastUpdated"/>
+                                            <ComboBoxItem Content="HLTB Story Time" Tag="HowLongToBeatMain"/>
+                                            <ComboBoxItem Content="HLTB 100% Time" Tag="HowLongToBeatCompletionist"/>
+                                        </ComboBox>
+                                        <CheckBox x:Name="CheckReverse"
+                                                  Content="Reverse order"
+                                                  Checked="Filter_Changed"
+                                                  Unchecked="Filter_Changed"
+                                                  Margin="0,8,0,0"/>
+                                    </StackPanel>
+
+                                    <Rectangle Height="1"
+                                               Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                                               Margin="0,4"/>
+
+                                    <StackPanel x:Name="LayoutOptionsPanel" Spacing="8">
+                                        <TextBlock Text="View"
+                                                   Style="{ThemeResource BaseTextBlockStyle}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,4"/>
+                                        <ToggleSwitch x:Name="LayoutToggle"
+                                                      OffContent="Multi-Column View"
+                                                      OnContent="Single Column View"
+                                                      Toggled="ToggleLayout_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Flyout>
+                        </AppBarButton.Flyout>
+                    </AppBarButton>
+
+                    <AppBarButton Content="Settings" Click="OpenSettings">
+                        <AppBarButton.Icon>
+                            <FontIcon Glyph="&#xE713;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
+                        </AppBarButton.Icon>
+                    </AppBarButton>
+
+                    <!-- Search Bar - Moved to right side after all icons -->
+                    <AppBarElementContainer VerticalAlignment="Center">
+                        <TextBox x:Name="SearchBox"
+                                 PlaceholderText="Search games..."
+                                 TextChanged="SearchBox_TextChanged"
+                                 MinWidth="200"
+                                 HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Center"
+                                 Margin="8,0,8,0"
+                                 Visibility="{x:Bind _appVM.GameListControlsVisibility, Mode=OneWay}"/>
+                    </AppBarElementContainer>
+                </CommandBar.PrimaryCommands>
+            </CommandBar>
+
+            <!-- Error notification bar -->
+            <InfoBar x:Name="ErrorInfoBar"
+                     Grid.Row="1"
+                     IsOpen="{x:Bind _appVM.HasError, Mode=OneWay}"
+                     Severity="Warning"
+                     Title="Connection Issue"
+                     Message="{x:Bind _appVM.ErrorMessage, Mode=OneWay}"
+                     IsClosable="True"
+                     Closed="ErrorInfoBar_Closed"
+                     Margin="8,4,8,4"/>
+
+            <!-- Hosts content for app -->
+            <Frame x:Name="AppContentFrame" Grid.Row="2"/>
+        </Grid>
+    </utu:SafeArea>
 </Page>

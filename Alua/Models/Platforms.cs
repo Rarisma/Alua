@@ -22,6 +22,7 @@ public enum Platforms
     /// RetroAchievements, from RetroAchievements.org
     /// </summary>
     RetroAchievements,
+    
     GooglePlay,
     iOS,
     EpicGames,

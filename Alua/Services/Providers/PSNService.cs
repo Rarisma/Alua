@@ -268,7 +268,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                 UnlockedOn = earnedTrophy?.EarnedDateTime,
                 Icon = trophy.TrophyIconUrl,
                 IsHidden = trophy.TrophyHidden,
-                RarityPercentage = double.TryParse(earnedTrophy?.TrophyEarnedRate, out var rate) ? rate : -1,
+                RarityPercentage = Math.Round(double.TryParse(earnedTrophy?.TrophyEarnedRate, out var rate) ? rate : -1,2),
             };
             
             achievements.Add(achievement);

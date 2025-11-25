@@ -1,14 +1,63 @@
+using System.Net.Mime;
+using System.Runtime.InteropServices;
 using Alua.Services.ViewModels;
 using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.Configuration;
+using Microsoft.UI.Windowing;
+using Microsoft.UI.Xaml;
 using Serilog;
+using Microsoft.UI;
 using Uno.Resizetizer;
 //I AM COMING DOWN TO THE PAWN SHOP TO SELL MY INFRARED HEATSEEKERS FOR THE SIDEWINDER MISSILES.
 namespace Alua;
 
 public partial class App : Application
 {
+    // P/Invoke declarations for macOS window centering via Objective-C runtime
+#if TRUE
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern void objc_msgSend(IntPtr receiver, IntPtr selector);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "sel_registerName")]
+    private static extern IntPtr sel_registerName(string selectorName);
+
+    [DllImport("/usr/lib/libobjc.dylib")]
+    private static extern IntPtr objc_getClass(string name);
+
+    [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
+    private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector);
+#endif
+
+    private static void CenterWindowOnMac(Window window)
+    {
+#if TRUE
+        try
+        {
+            // Get the NSApplication shared instance
+            var nsApplicationClass = objc_getClass("NSApplication");
+            var sharedAppSelector = sel_registerName("sharedApplication");
+            var sharedApp = objc_msgSend_IntPtr(nsApplicationClass, sharedAppSelector);
+
+            // Get the main window
+            var mainWindowSelector = sel_registerName("mainWindow");
+            var mainWindow = objc_msgSend_IntPtr(sharedApp, mainWindowSelector);
+
+            if (mainWindow != IntPtr.Zero)
+            {
+                // Center the window
+                var centerSelector = sel_registerName("center");
+                objc_msgSend(mainWindow, centerSelector);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to center window on macOS");
+        }
+#endif
+    }
+
+
     public static Frame Frame = new();
     /// <summary>
     /// Initializes the singleton application object. This is the first line of authored code
@@ -127,7 +176,8 @@ public partial class App : Application
         
         // Ensure the current window is active
         MainWindow.Activate();
-        
-        Microsoft.UI.Xaml.Window.Current.AppWindow.Resize(new Windows.Graphics.SizeInt32 { Width = 2000, Height = 2000 } );
+
+        // Center the window on macOS
+        CenterWindowOnMac(MainWindow);
     }
 }

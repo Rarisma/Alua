@@ -16,21 +16,30 @@
         <StackPanel Margin="0,20">
             <TextBlock Text="Xbox Live" FontWeight="Bold" Margin="0,0,0,5"/>
             <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="Sign in with Microsoft" 
-                        Click="{x:Bind AuthenticateXbox}" 
-                        Visibility="{x:Bind IsXboxAuthenticated, Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"
-                        IsEnabled="{x:Bind IsAuthenticating, Converter={StaticResource BoolNegationConverter}, Mode=OneWay}"/>
-                
-                <StackPanel Orientation="Horizontal" Spacing="10" 
+                <Button Content="Sign in with Microsoft"
+                        Click="{x:Bind AuthenticateXbox}"
+                        Visibility="{x:Bind IsXboxAuthenticated,
+                        Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+
+                <StackPanel Orientation="Horizontal" Spacing="10"
                             Visibility="{x:Bind IsXboxAuthenticated, Mode=OneWay}">
                     <TextBlock Text="Signed in as:" VerticalAlignment="Center"/>
-                    <TextBlock Text="{x:Bind _settingsVM.XboxGamertag, Mode=OneWay}" 
+                    <TextBlock Text="{x:Bind _settingsVM.XboxGamertag, Mode=OneWay}"
                               FontWeight="Bold" VerticalAlignment="Center"/>
                     <Button Content="Sign Out" Click="{x:Bind SignOutXbox}" />
                 </StackPanel>
-                
+
                 <ProgressRing IsActive="{x:Bind IsAuthenticating, Mode=OneWay}" />
             </StackPanel>
+        </StackPanel>
+
+        <!-- Library Management -->
+        <StackPanel Margin="0,20">
+            <TextBlock Text="Library Management" FontWeight="Bold" Margin="0,0,0,5"/>
+            <Button Content="Full Rescan"
+                    Click="{x:Bind FullRescan}"
+                    ToolTipService.ToolTip="Rescan all configured platforms for games and achievements"
+                    Margin="0,5"/>
         </StackPanel>
 
         <Expander BorderBrush="transparent" Background="transparent">

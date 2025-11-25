@@ -14,8 +14,7 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <controls:HasAchievementsToVisibilityConverter x:Key="HasAchievementsToVisibilityConverter"/>
-        <controls:PlaytimeToVisibilityConverter x:Key="PlaytimeToVisibilityConverter"/>
+        <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
             <!--
             Button acts as the clickable card container.
@@ -40,9 +39,9 @@
                         <Border Width="64" Height="64"
                                 CornerRadius="4"
                                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                            <controls:CachedImage Source="{x:Bind Icon}" Stretch="Uniform"/>
+                            <controls:CachedImage UriSource="{x:Bind IconUri}" Stretch="Uniform"/>
                         </Border>
-                        <controls:CachedImage Source="{x:Bind ProviderImage}"
+                        <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
                                                Height="20"
                                                Stretch="Uniform"
                                                HorizontalAlignment="Center"/>
@@ -58,12 +57,12 @@
                         <TextBlock Text="{x:Bind PlaytimeText}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   Visibility="{x:Bind PlaytimeMinutes, Converter={StaticResource PlaytimeToVisibilityConverter}}"/>
+                                   Visibility="{x:Bind HasPlaytime, Converter={StaticResource BoolToVisibility}}"/>
                         <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
                                      Value="{x:Bind UnlockedCount}"
                                      HorizontalAlignment="Stretch"
                                      Margin="0,4,0,0"
-                                     Visibility="{x:Bind HasAchievements, Converter={StaticResource HasAchievementsToVisibilityConverter}}"/>
+                                     Visibility="{x:Bind HasAchievements, Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
                 </Grid>
             </Button>
@@ -89,96 +88,6 @@
         <RefreshContainer RefreshRequested="{x:Bind Refresh}">
             <ScrollViewer Padding="12,0,12,12" >
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <!-- Show refresh and scan buttons on Desktop platforms -->
-                        <Button HorizontalAlignment="Center" Content="Refresh" win:Visibility="Visible"
-                                Click="{x:Bind Refresh}" skia:Visibility="Visible"
-                                android:Visibility="Collapsed" Margin="10"/>
-                        <Button HorizontalAlignment="Center" Content="Full Rescan" win:Visibility="Visible"
-                                Command="{x:Bind ScanCommand}" skia:Visibility="Visible"
-                                android:Visibility="Visible" Margin="10"/>
-                        <!-- Filter flyout -->
-                        <Button HorizontalAlignment="Center" Content="Filter" Margin="10">
-                          <Button.Flyout >
-                            <Flyout Placement="Bottom">
-                                    <Flyout.FlyoutPresenterStyle>
-                                        <Style TargetType="FlyoutPresenter">
-                                            <Setter Property="Padding" Value="16"/>
-                                            <Setter Property="CornerRadius" Value="8"/>
-                                            <Setter Property="MaxWidth" Value="320"/>
-                                            <Setter Property="Background" Value="{ThemeResource SystemChromeMediumLowColor}"/>
-                                        </Style>
-                                    </Flyout.FlyoutPresenterStyle>
-
-                                    <StackPanel Spacing="16">
-
-                                        <StackPanel Spacing="8">
-                                            <TextBlock Text="Filter"
-                                                       Style="{ThemeResource BaseTextBlockStyle}"
-                                                       FontWeight="SemiBold"
-                                                       Margin="0,0,0,4"/>
-                                            <CheckBox x:Name="CheckHideComplete"
-                                                      Content="Hide 100% Complete"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed"/>
-                                            <CheckBox x:Name="CheckNoAchievements"
-                                                      Content="Hide games with no Achievements"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed"/>
-                                            <CheckBox x:Name="CheckUnstarted"
-                                                      Content="Hide unstarted games"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed"/>
-                                        </StackPanel>
-
-                                        <Rectangle Height="1"
-                                                   Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
-                                                   Margin="0,4"/>
-
-                                        <StackPanel Spacing="8">
-                                            <TextBlock Text="Sort by"
-                                                       Style="{ThemeResource BaseTextBlockStyle}"
-                                                       FontWeight="SemiBold"
-                                                       Margin="0,0,0,4"/>
-                                            <ComboBox x:Name="SortByComboBox"
-                                                      HorizontalAlignment="Stretch"
-                                                      SelectionChanged="Filter_Changed">
-                                                <ComboBoxItem Content="Name (A-Z)" Tag="Name"/>
-                                                <ComboBoxItem Content="Completion %" Tag="CompletionPct"/>
-                                                <ComboBoxItem Content="Total Achievements" Tag="TotalCount"/>
-                                                <ComboBoxItem Content="Unlocked Achievements" Tag="UnlockedCount"/>
-                                                <ComboBoxItem Content="Playtime" Tag="Playtime"/>
-                                                <ComboBoxItem Content="Recently Played" Tag="LastUpdated"/>
-                                                <ComboBoxItem Content="HLTB Story Time" Tag="HowLongToBeatMain"/>
-                                                <ComboBoxItem Content="HLTB 100% Time" Tag="HowLongToBeatCompletionist"/>
-                                            </ComboBox>
-                                            <CheckBox x:Name="CheckReverse"
-                                                      Content="Reverse order"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed"
-                                                      Margin="0,8,0,0"/>
-                                        </StackPanel>
-
-                                        <Rectangle Height="1"
-                                                   Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
-                                                   Margin="0,4"/>
-
-                                        <StackPanel Spacing="8">
-                                            <TextBlock Text="View"
-                                                       Style="{ThemeResource BaseTextBlockStyle}"
-                                                       FontWeight="SemiBold"
-                                                       Margin="0,0,0,4"/>
-                                            <ToggleSwitch x:Name="LayoutToggle"
-                                                          OffContent="Multi-Column View"
-                                                          OnContent="Single Column View"
-                                                          Toggled="ToggleLayout_Click"/>
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Flyout>
-                          </Button.Flyout>
-                        </Button>
-                    </StackPanel>
-
                     <controls:ProfileCard/>
 
                     <ListView x:Name="gameListView"
@@ -189,8 +98,8 @@
                     <ItemsRepeater x:Name="gameRepeater" ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    HorizontalAlignment="Stretch">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinRowSpacing="10" 
-                                             MinColumnSpacing="10" 
+                            <UniformGridLayout MinRowSpacing="10"
+                                             MinColumnSpacing="10"
                                              ItemsStretch="Fill"
                                              MinItemWidth="1"
                                              MinItemHeight="120"

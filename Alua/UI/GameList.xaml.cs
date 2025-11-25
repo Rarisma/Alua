@@ -17,6 +17,7 @@ public partial class GameList : Page
 {
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
     
     // Cache the multi-column layout to prevent recreation issues
     private UniformGridLayout? _multiColumnLayout;
@@ -25,15 +26,20 @@ public partial class GameList : Page
     public AsyncCommand SingleColumnCommand => new(async () => {
         _appVm.SingleColumnLayout = true;
         _settingsVM.SingleColumnLayout = true;
-        LayoutToggle.IsOn = true;
         UpdateItemsLayout();
         await _settingsVM.Save();
     });
 
     public AsyncCommand MultiColumnCommand => new(async () => {
+        if (_isPhone)
+        {
+            _appVm.SingleColumnLayout = true;
+            _settingsVM.SingleColumnLayout = true;
+            UpdateItemsLayout();
+            return;
+        }
         _appVm.SingleColumnLayout = false;
         _settingsVM.SingleColumnLayout = false;
-        LayoutToggle.IsOn = false;
         UpdateItemsLayout();
         await _settingsVM.Save();
     });
@@ -52,10 +58,18 @@ public partial class GameList : Page
             _appVm.HideUnstarted = _settingsVM.HideUnstarted;
             _appVm.Reverse = _settingsVM.Reverse;
             _appVm.OrderBy = _settingsVM.OrderBy;
-            _appVm.SingleColumnLayout = _settingsVM.SingleColumnLayout;
+            if (_isPhone)
+            {
+                _appVm.SingleColumnLayout = true;
+                _settingsVM.SingleColumnLayout = true;
+            }
+            else
+            {
+                _appVm.SingleColumnLayout = _settingsVM.SingleColumnLayout;
+            }
             
-            // Restore UI controls from VM state
-            RestoreFilterUIFromVM();
+            // Update layout based on current settings
+            UpdateItemsLayout();
             
             if (!_appVm.InitialLoadCompleted)
             {
@@ -82,7 +96,7 @@ public partial class GameList : Page
                 {
                     _appVm.FilteredGames.Add(game);
                 }
-                Filter_Changed(null,null);
+                ApplyFilters();
             }
         }
         catch (Exception ex)
@@ -91,29 +105,6 @@ public partial class GameList : Page
         }
     }
 
-    private void RestoreFilterUIFromVM()
-    {
-        // Restore checkbox states from VM
-        CheckHideComplete.IsChecked = _appVm.HideComplete;
-        CheckNoAchievements.IsChecked = _appVm.HideNoAchievements;
-        CheckUnstarted.IsChecked = _appVm.HideUnstarted;
-        CheckReverse.IsChecked = _appVm.Reverse;
-
-        // Restore ComboBox selection from VM
-        var orderByString = _appVm.OrderBy.ToString();
-        foreach (ComboBoxItem item in SortByComboBox.Items)
-        {
-            if (item.Tag?.ToString() == orderByString)
-            {
-                SortByComboBox.SelectedItem = item;
-                break;
-            }
-        }
-
-        // Layout toggle and repeater layout
-        LayoutToggle.IsOn = _appVm.SingleColumnLayout;
-        UpdateItemsLayout();
-    }
 
     /// <summary>
     /// Does a full scan of users library for each platform
@@ -150,20 +141,21 @@ public partial class GameList : Page
         {
             // Use a semaphore to limit concurrent requests to 5
             using var semaphore = new SemaphoreSlim(5, 5);
+            // Share a single HowLongToBeatService instance across all tasks
+            using var hltbService = new HowLongToBeatService();
             var completedCount = 0;
             var totalCount = gamesToFetch.Count;
-            
+
             var tasks = gamesToFetch.Select(async game =>
             {
                 await semaphore.WaitAsync();
                 try
                 {
-                    using var hltbService = new HowLongToBeatService();
                     await hltbService.FetchAndUpdateGameData(game);
-                    
+
                     var current = Interlocked.Increment(ref completedCount);
                     _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
-                    
+
                     _settingsVM.AddOrUpdateGame(game);
                 }
                 catch (Exception ex)
@@ -175,10 +167,10 @@ public partial class GameList : Page
                     semaphore.Release();
                 }
             });
-            
+
             await Task.WhenAll(tasks);
         }
-        
+
         //Save scan results
         await _settingsVM.Save();
         Log.Information("loaded {0} games, {1} achievements",
@@ -215,7 +207,7 @@ public partial class GameList : Page
             }
             
             _appVm.LoadingGamesSummary = "";
-            Filter_Changed(null, null);
+            ApplyFilters();
             return;
         }
         
@@ -244,23 +236,24 @@ public partial class GameList : Page
         {
             _appVm.LoadingGamesSummary = "Fetching HowLongToBeat data...";
             Log.Information("Fetching HLTB data for {Count} refreshed games", gamesToFetch.Count);
-            
+
             // Use a semaphore to limit concurrent requests to 5
             using var semaphore = new SemaphoreSlim(5, 5);
+            // Share a single HowLongToBeatService instance across all tasks
+            using var hltbService = new HowLongToBeatService();
             var completedCount = 0;
             var totalCount = gamesToFetch.Count;
-            
+
             var tasks = gamesToFetch.Select(async game =>
             {
                 await semaphore.WaitAsync();
                 try
                 {
-                    using var hltbService = new HowLongToBeatService();
                     await hltbService.FetchAndUpdateGameData(game);
-                    
+
                     var current = Interlocked.Increment(ref completedCount);
                     _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
-                    
+
                     _settingsVM.AddOrUpdateGame(game);
                 }
                 catch (Exception ex)
@@ -272,7 +265,7 @@ public partial class GameList : Page
                     semaphore.Release();
                 }
             });
-            
+
             await Task.WhenAll(tasks);
         }
 
@@ -287,31 +280,11 @@ public partial class GameList : Page
         }
         
         _appVm.LoadingGamesSummary = "";
-        Filter_Changed(null,null);
+        ApplyFilters();
     }
-    private async void Filter_Changed(object? sender, RoutedEventArgs? e)
+    // Public method to apply filters from MainPage
+    public void ApplyFilters()
     {
-        // read all four checkboxes
-        _appVm.HideComplete = CheckHideComplete.IsChecked == true;
-        _appVm.HideNoAchievements = CheckNoAchievements.IsChecked == true;
-        _appVm.HideUnstarted = CheckUnstarted.IsChecked == true;
-        _appVm.Reverse = CheckReverse.IsChecked == true;
-
-        // read which item is selected in the ComboBox
-        if (SortByComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string tag)
-        {
-            _appVm.OrderBy = Enum.Parse<OrderBy>(tag);
-        }
-
-        // Persist settings
-        _settingsVM.HideComplete = _appVm.HideComplete;
-        _settingsVM.HideNoAchievements = _appVm.HideNoAchievements;
-        _settingsVM.HideUnstarted = _appVm.HideUnstarted;
-        _settingsVM.Reverse = _appVm.Reverse;
-        _settingsVM.OrderBy = _appVm.OrderBy;
-
-        await _settingsVM.Save();
-
         RefreshFiltered();
     }
 
@@ -321,6 +294,12 @@ public partial class GameList : Page
             .Where(g => !_appVm.HideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
             .Where(g => !_appVm.HideNoAchievements || g.Value.HasAchievements)
             .Where(g => !_appVm.HideUnstarted || g.Value.UnlockedCount > 0);
+
+        // Apply text search filter
+        if (!string.IsNullOrWhiteSpace(_appVm.SearchText))
+        {
+            list = list.Where(g => g.Value.Name.Contains(_appVm.SearchText, StringComparison.OrdinalIgnoreCase));
+        }
 
         // Filter out games without HLTB data when sorting by HLTB
         if (_appVm.OrderBy == HowLongToBeatMain)
@@ -367,9 +346,22 @@ public partial class GameList : Page
         App.Frame?.Navigate(typeof(GamePage));
     }
 
+    // Public method to update layout from MainPage
+    public new void UpdateLayout()
+    {
+        UpdateItemsLayout();
+    }
+    
     // Method to update layout based on toggle state
     private void UpdateItemsLayout()
     {
+        if (_isPhone)
+        {
+            _appVm.SingleColumnLayout = true;
+            gameRepeater.Visibility = Visibility.Collapsed;
+            gameListView.Visibility = Visibility.Visible;
+            return;
+        }
         if (_appVm.SingleColumnLayout)
         {
             // Show ListView and hide repeater
@@ -400,15 +392,6 @@ public partial class GameList : Page
         }
     }
 
-    // Method to handle toggle button click
-    private async void ToggleLayout_Click(object sender, RoutedEventArgs e)
-    {
-        var toggle = (ToggleSwitch)sender;
-        _appVm.SingleColumnLayout = toggle.IsOn;
-        _settingsVM.SingleColumnLayout = toggle.IsOn;
-        UpdateItemsLayout();
-        await _settingsVM.Save();
-    }
 
     #region Async Commands
     private AsyncCommand? _refreshCommand;

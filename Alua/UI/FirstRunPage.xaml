@@ -11,24 +11,24 @@
         <!-- Account input fields -->
         <TextBox PlaceholderText="SteamID / Vanity URL Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
         <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind Frvm.RetroAchievementsUser, Mode=TwoWay}" />
-        
+
         <!-- Xbox Live Authentication -->
         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-            <Button Content="Sign in with Microsoft" 
-                    Click="{x:Bind Frvm.AuthenticateXbox}" 
-                    Visibility="{x:Bind Frvm.IsXboxAuthenticated, Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"
-                    IsEnabled="{x:Bind Frvm.IsAuthenticating, Converter={StaticResource BoolNegationConverter}, Mode=OneWay}"/>
-            
-            <StackPanel Orientation="Horizontal" Spacing="10" 
+            <Button Content="Sign in with Microsoft"
+                    Click="{x:Bind Frvm.AuthenticateXbox}"
+                    Visibility="{x:Bind Frvm.IsXboxAuthenticated,
+                    Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10"
                         Visibility="{x:Bind Frvm.IsXboxAuthenticated, Mode=OneWay}">
                 <TextBlock Text="Xbox:" VerticalAlignment="Center"/>
-                <TextBlock Text="{x:Bind Frvm.XboxGamertag, Mode=OneWay}" 
+                <TextBlock Text="{x:Bind Frvm.XboxGamertag, Mode=OneWay}"
                           FontWeight="Bold" VerticalAlignment="Center"/>
                 <Button Content="Sign Out" Click="{x:Bind Frvm.SignOutXbox}" />
             </StackPanel>
         </StackPanel>
-        
-        <ProgressRing IsActive="{x:Bind Frvm.IsAuthenticating, Mode=OneWay}" 
+
+        <ProgressRing IsActive="{x:Bind Frvm.IsAuthenticating, Mode=OneWay}"
                       HorizontalAlignment="Center"/>
 
         <!-- steam guide on how to find your steam ID -->

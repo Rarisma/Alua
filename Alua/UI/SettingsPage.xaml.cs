@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Alua.Services;
 using Alua.Services.Providers;
 using Alua.Services.ViewModels;
+using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
@@ -155,19 +156,60 @@ public sealed partial class SettingsPage : Page, INotifyPropertyChanged
         try
         {
             var appVm = Ioc.Default.GetService<AppVM>();
-            if (appVm != null)
+            if (appVm != null && appVm.RemoveProviderOfType<XboxService>())
             {
-                var existingXbox = appVm.Providers.FirstOrDefault(p => p is XboxService);
-                if (existingXbox != null)
-                {
-                    appVm.Providers.Remove(existingXbox);
-                    Log.Information("Removed Xbox provider after sign out");
-                }
+                Log.Information("Removed Xbox provider after sign out");
             }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to remove Xbox provider after sign out");
+        }
+    }
+
+    private async Task FullRescan()
+    {
+        try
+        {
+            var dialog = new ContentDialog
+            {
+                XamlRoot = this.XamlRoot,
+                Title = "Full Rescan",
+                Content = "This will rescan all configured platforms for games and achievements. This may take several minutes. Do you want to continue?",
+                PrimaryButtonText = "Yes",
+                SecondaryButtonText = "Cancel"
+            };
+
+            var result = await dialog.ShowAsync();
+            if (result == ContentDialogResult.Primary)
+            {
+                // Navigate to GameList page which will trigger the scan
+                App.Frame.Navigate(typeof(GameList));
+                
+                // Get the AppVM and trigger a full scan
+                var appVm = Ioc.Default.GetService<AppVM>();
+                if (appVm != null)
+                {
+                    // Clear games to force a full rescan
+                    _settingsVM.Games.Clear();
+                    await _settingsVM.Save();
+                    
+                    Log.Information("Full rescan initiated from settings");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error during full rescan");
+            
+            var errorDialog = new ContentDialog
+            {
+                XamlRoot = this.XamlRoot,
+                Title = "Error",
+                Content = $"An error occurred during the rescan: {ex.Message}",
+                PrimaryButtonText = "OK"
+            };
+            await errorDialog.ShowAsync();
         }
     }
 

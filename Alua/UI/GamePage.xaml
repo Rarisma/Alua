@@ -11,11 +11,8 @@
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
+        <controls1:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <controls1:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
-        <controls1:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
-        <controls1:PercentageRoundingConverter x:Key="PercentageRoundingConverter"/>
-        <controls1:HasAchievementsToVisibilityConverter x:Key="HasAchievementsToVisibilityConverter"/>
-        <controls1:PlaytimeToVisibilityConverter x:Key="PlaytimeToVisibilityConverter"/>
         <converters:HoursToTimeTextConverter x:Key="HoursToTimeTextConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
@@ -24,8 +21,9 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Border Width="50" Height="50" CornerRadius="5" Background="Transparent" Margin="0,0,10,0">
-                    <controls1:CachedImage Source="{x:Bind Icon}" Stretch="UniformToFill">
+                <Border Width="50" Height="50" CornerRadius="5" Background="Transparent"
+                        Margin="0,0,10,0">
+                    <controls1:CachedImage UriSource="{x:Bind Icon}" Stretch="UniformToFill">
                         <Image.Clip>
                             <RectangleGeometry Rect="0,0,50,50"/>
                         </Image.Clip>
@@ -38,12 +36,12 @@
 
                 <!-- Rarity Badge -->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="5"
-                           Visibility="{x:Bind RarityPercentage, Converter={StaticResource NullToVisibilityConverter}}">
+                           Visibility="{x:Bind RarityPercentage, Converter={StaticResource BoolToVisibility}}">
                     <!-- Percentage if available -->
                     <TextBlock HorizontalAlignment="Center"
                                FontSize="11"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}">
-                        <Run Text="{x:Bind RarityPercentage, Converter={StaticResource PercentageRoundingConverter}}"/><Run Text="%"/>
+                        <Run Text="{x:Bind RarityPercentage}"/><Run Text="%"/>
                     </TextBlock>
                 </StackPanel>
             </Grid>
@@ -73,7 +71,7 @@
             <Border Width="64" Height="64" Margin="10"
                     CornerRadius="{StaticResource ControlCornerRadius}"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                <controls1:CachedImage Source="{x:Bind AppVM.SelectedGame.Icon}" Stretch="Uniform"/>
+                <controls1:CachedImage UriSource="{x:Bind AppVM.SelectedGame.IconUri}" Stretch="Uniform"/>
             </Border>
 
             <Grid Grid.Column="1" VerticalAlignment="Center">
@@ -81,7 +79,7 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                
+
                 <!-- Left side content -->
                 <Grid Grid.Column="0">
                     <Grid.RowDefinitions>
@@ -105,8 +103,8 @@
                     </StackPanel>
 
                     <!-- Current Playtime -->
-                    <StackPanel Grid.Row="1" Orientation="Horizontal" 
-                                Visibility="{x:Bind AppVM.SelectedGame.PlaytimeMinutes, Converter={StaticResource PlaytimeToVisibilityConverter}}">
+                    <StackPanel Grid.Row="1" Orientation="Horizontal"
+                                Visibility="{x:Bind AppVM.SelectedGame.HasPlaytime, Converter={StaticResource BoolToVisibility}}">
                         <TextBlock Text="Playtime: " FontSize="14" TextWrapping="Wrap" />
                         <TextBlock Text="{x:Bind AppVM.SelectedGame.PlaytimeText}" FontSize="14" TextWrapping="Wrap" />
                     </StackPanel>
@@ -119,28 +117,28 @@
                     <ProgressBar Grid.Row="3" Minimum="0" HorizontalAlignment="Left" Margin="0,0,10,0"
                         Maximum="{x:Bind AppVM.SelectedGame.Achievements.Count}"  Width="150" Height="10"
                         VerticalAlignment="Center" Value="{x:Bind AppVM.SelectedGame.UnlockedCount}"
-                        Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource HasAchievementsToVisibilityConverter}}"/>
+                        Visibility="{x:Bind AppVM.SelectedGame.HasAchievements, Converter={StaticResource BoolToVisibility}}"/>
                 </Grid>
-                
+
                 <!-- Right side - HowLongToBeat Times -->
-                <Grid Grid.Column="1" Margin="20,0,0,0" 
-                      Visibility="{x:Bind AppVM.SelectedGame.HasHowLongToBeatData, Mode=OneWay, Converter={StaticResource HasAchievementsToVisibilityConverter}}">
+                <Grid Grid.Column="1" Margin="20,0,0,0"
+                      Visibility="{x:Bind AppVM.SelectedGame.HasHowLongToBeatData, Mode=OneWay, Converter={StaticResource BoolToVisibility}}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
-                    
+
                     <!-- Story Time -->
                     <TextBlock Grid.Row="0" Text="Story" FontWeight="Bold" FontSize="14" />
-                    <TextBlock Grid.Row="1" Text="{x:Bind AppVM.SelectedGame.HowLongToBeatMain, Mode=OneWay, Converter={StaticResource HoursToTimeTextConverter}}" 
-                               FontSize="14" Margin="0,0,0,10" />
-                    
+                    <TextBlock Grid.Row="1" Text="{x:Bind AppVM.SelectedGame.HowLongToBeatMain, Mode=OneWay,
+                         Converter={StaticResource HoursToTimeTextConverter}}" FontSize="14" Margin="0,0,0,10" />
+
                     <!-- 100% Time -->
                     <TextBlock Grid.Row="2" Text="100%" FontWeight="Bold" FontSize="14" />
-                    <TextBlock Grid.Row="3" Text="{x:Bind AppVM.SelectedGame.HowLongToBeatCompletionist, Mode=OneWay, Converter={StaticResource HoursToTimeTextConverter}}" 
-                               FontSize="14" />
+                    <TextBlock Grid.Row="3" Text="{x:Bind AppVM.SelectedGame.HowLongToBeatCompletionist,
+                        Mode=OneWay, Converter={StaticResource HoursToTimeTextConverter}}" FontSize="14" />
                 </Grid>
             </Grid>
         </Grid>

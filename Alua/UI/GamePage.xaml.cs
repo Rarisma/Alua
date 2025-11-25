@@ -53,17 +53,19 @@ public sealed partial class GamePage : Page
         try
         {
             //Resolve game provider
-            IAchievementProvider provider;
-            switch (AppVM.SelectedGame.Platform)
+            IAchievementProvider? provider = AppVM.SelectedGame.Platform switch
             {
-                case Platforms.Steam:
-                    provider = AppVM.Providers.OfType<SteamService>().First();
-                    break;
-                case Platforms.RetroAchievements:
-                    provider = AppVM.Providers.OfType<RetroAchievementsService>().First();
-                    break;
-                default:
-                    throw new NotImplementedException("Unimplemented platform" + AppVM.SelectedGame.Platform);
+                Platforms.Steam => AppVM.GetProvider<SteamService>(),
+                Platforms.RetroAchievements => AppVM.GetProvider<RetroAchievementsService>(),
+                Platforms.PlayStation => AppVM.GetProvider<PSNService>(),
+                Platforms.Xbox => AppVM.GetProvider<XboxService>(),
+                _ => null
+            };
+
+            if (provider == null)
+            {
+                Log.Warning("No provider available for platform {Platform}", AppVM.SelectedGame.Platform);
+                return;
             }
 
             //Update settings collection and this page's binding source.
@@ -76,8 +78,7 @@ public sealed partial class GamePage : Page
         }
         catch (Exception ex)
         {
-            Log.Error(ex, $"Cannot refresh game ID {AppVM.SelectedGame.Identifier}");
+            Log.Error(ex, "Cannot refresh game ID {GameId}", AppVM.SelectedGame.Identifier);
         }
-
     }
 }

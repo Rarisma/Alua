@@ -36,6 +36,7 @@
             Lottie;
             Hosting;
             Toolkit;
+            WebView;
             Logging;
             LoggingSerilog;
             Mvvm;
@@ -45,7 +46,6 @@
         </UnoFeatures>
     </PropertyGroup>
     <ItemGroup>
-      <PackageReference Include="SteamWebAPI2" />
       <PackageReference Include="AutoMapper" />
       <PackageReference Include="Codepotatoes.Scraper.HowLongToBeat" />
       <PackageReference Include="Microsoft.Identity.Client" />
@@ -90,6 +90,22 @@
       <UnoIcon Remove="Assets\Icons\icon.svg" />
       <Content Remove="Assets\Icons\icon.png" />
       <UnoIcon Include="Assets\Icons\icon.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <UnoSplashScreen Remove="Assets\Splash\splash_screen.svg" />
+      <Content Remove="Assets\Splash\icon.png" />
+      <UnoSplashScreen Include="Assets\Splash\icon.png" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Folder Include="UI\Converters\" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Reference Include="Uno.UI">
+        <HintPath>bin\Debug\net9.0-desktop\Uno.UI.dll</HintPath>
+      </Reference>
     </ItemGroup>
 
 </Project>

@@ -1,6 +1,8 @@
 using Microsoft.Identity.Client;
 using Serilog;
+using System.IO;
 using System.Text.Json;
+using Windows.Storage;
 
 namespace Alua.Services;
 
@@ -12,17 +14,18 @@ public class MicrosoftAuthService
     private const string ClientId = "d0779e70-74ed-419d-ac4e-b5cd96e664ca";
     private const string Authority = "https://login.microsoftonline.com/consumers";
     private const string RedirectUri = "http://localhost";
-    
+
     // Xbox Live scopes required for authentication
     private static readonly string[] Scopes = new[]
     {
         "XboxLive.signin",
         "XboxLive.offline_access"
     };
-    
+
     private readonly IPublicClientApplication _msalClient;
     private AuthenticationResult? _cachedResult;
-    
+    private static readonly object TokenCacheLock = new();
+
     public MicrosoftAuthService()
     {
         _msalClient = PublicClientApplicationBuilder
@@ -30,6 +33,8 @@ public class MicrosoftAuthService
             .WithAuthority(Authority)
             .WithRedirectUri(RedirectUri)
             .Build();
+
+        ConfigureTokenCache(_msalClient.UserTokenCache);
     }
     
     /// <summary>
@@ -256,7 +261,69 @@ public class MicrosoftAuthService
             return false;
         }
     }
-    
+
+    private static void ConfigureTokenCache(ITokenCache tokenCache)
+    {
+        tokenCache.SetBeforeAccess(OnBeforeAccessTokenCache);
+        tokenCache.SetAfterAccess(OnAfterAccessTokenCache);
+    }
+
+    private static void OnBeforeAccessTokenCache(TokenCacheNotificationArgs args)
+    {
+        lock (TokenCacheLock)
+        {
+            try
+            {
+                string cachePath = GetTokenCacheFilePath();
+                if (!File.Exists(cachePath))
+                {
+                    return;
+                }
+
+                byte[] data = File.ReadAllBytes(cachePath);
+                if (data.Length == 0)
+                {
+                    return;
+                }
+
+                args.TokenCache.DeserializeMsalV3(data, true);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to load Microsoft authentication token cache");
+                args.TokenCache.DeserializeMsalV3(Array.Empty<byte>(), true);
+            }
+        }
+    }
+
+    private static void OnAfterAccessTokenCache(TokenCacheNotificationArgs args)
+    {
+        if (!args.HasStateChanged)
+        {
+            return;
+        }
+
+        lock (TokenCacheLock)
+        {
+            try
+            {
+                string cachePath = GetTokenCacheFilePath();
+                byte[] data = args.TokenCache.SerializeMsalV3();
+                File.WriteAllBytes(cachePath, data);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to persist Microsoft authentication token cache");
+            }
+        }
+    }
+
+    private static string GetTokenCacheFilePath()
+    {
+        string folderPath = ApplicationData.Current.LocalFolder.Path;
+        return Path.Combine(folderPath, "msal_token_cache.bin");
+    }
+
     private class SerializedAuthData
     {
         public string? Username { get; set; }

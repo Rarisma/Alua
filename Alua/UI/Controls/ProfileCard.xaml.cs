@@ -21,23 +21,23 @@ namespace Alua.UI.Controls;
 
 public sealed partial class ProfileCard : UserControl
 {
-    private int Unlocked => (settingsVM.Games).Sum(g => g.Value.UnlockedCount);
-    private int Perfect => settingsVM.Games.Count(g =>
+    SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    private int Unlocked => _settingsVM.Games.Sum(g => g.Value.UnlockedCount);
+    private int Perfect => _settingsVM.Games.Count(g =>
         g.Value.Achievements.Count == g.Value.UnlockedCount && g.Value.HasAchievements);
     private int PercentComplete
     {
         get
         {
-            int total = settingsVM.Games.Sum(g => g.Value.Achievements.Count);
-            return total == 0 ? 0 : Unlocked * 100 / total;
+            int total = _settingsVM.Games.Sum(g => g.Value.Achievements.Count);
+            return  total == 0 ? 0 : Unlocked * 100 / total;
         }
     }
 
-    SettingsVM settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     public ProfileCard()
     {
         InitializeComponent();
-        settingsVM.PropertyChanged += SettingsVMOnPropertyChanged;
+        _settingsVM.PropertyChanged += SettingsVMOnPropertyChanged;
     }
 
     private void SettingsVMOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
