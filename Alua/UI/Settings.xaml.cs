@@ -11,7 +11,7 @@ using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
 namespace Alua.UI;
 
-public sealed partial class SettingsPage : Page, INotifyPropertyChanged
+public sealed partial class Settings : Page, INotifyPropertyChanged
 {
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     private MicrosoftAuthService _msAuthService;
@@ -40,7 +40,7 @@ public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     
     public event PropertyChangedEventHandler? PropertyChanged;
     
-    public SettingsPage()
+    public Settings()
     {
         InitializeComponent();
         _msAuthService = new MicrosoftAuthService();
@@ -184,7 +184,7 @@ public sealed partial class SettingsPage : Page, INotifyPropertyChanged
             if (result == ContentDialogResult.Primary)
             {
                 // Navigate to GameList page which will trigger the scan
-                App.Frame.Navigate(typeof(GameList));
+                App.Frame.Navigate(typeof(Library));
                 
                 // Get the AppVM and trigger a full scan
                 var appVm = Ioc.Default.GetService<AppVM>();
@@ -217,7 +217,7 @@ public sealed partial class SettingsPage : Page, INotifyPropertyChanged
     /// <summary>
     /// Shows set up page again.
     /// </summary>
-    private void ShowInitialPage() => App.Frame.Navigate(typeof(FirstRunPage));
+    private void ShowInitialPage() => App.Frame.Navigate(typeof(Initalize));
     
     /// <summary>
     /// Shows log for session in a dialog

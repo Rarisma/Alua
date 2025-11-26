@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using Alua.Helpers;
 using Alua.Models;
 using Alua.Services;
 using Alua.Services.Providers;
@@ -16,13 +17,16 @@ public partial class AppVM : ObservableRecipient
     private readonly object _filteredGamesLock = new();
 
     [ObservableProperty]
-    private ObservableCollection<Game> _filteredGames = new();
+    private BatchObservableCollection<Game> _filteredGames = new();
 
     [ObservableProperty]
     private Game _selectedGame = new();
 
     [ObservableProperty]
     private string _loadingGamesSummary = string.Empty;
+
+    [ObservableProperty]
+    private bool _isScanningOrRefreshing;
 
     [ObservableProperty]
     private bool _initialLoadCompleted;

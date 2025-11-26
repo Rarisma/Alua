@@ -178,7 +178,7 @@ public partial class FirstRunVM : ObservableObject
         _settingsVM.Initialised = true; // Mark first run as complete
         await _settingsVM.Save();
         
-        App.Frame.Navigate(typeof(GameList));
+        App.Frame.Navigate(typeof(Library));
     }
 
     partial void OnSteamIDChanged(string? value) => ClearErrorOnChange();

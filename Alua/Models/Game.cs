@@ -86,11 +86,27 @@ public class Game
     public DateTime? HowLongToBeatLastFetched { get; set; }
 
     #region UI Helpers
+
+    // Cache for computed properties
+    private int? _cachedUnlockedCount;
+
     /// <summary>
     /// How many achievements the user has unlocked
     /// </summary>
     [JsonIgnore]
-    public int UnlockedCount => Achievements.Count(x => x.IsUnlocked);
+    public int UnlockedCount
+    {
+        get
+        {
+            _cachedUnlockedCount ??= Achievements.Count(x => x.IsUnlocked);
+            return _cachedUnlockedCount.Value;
+        }
+    }
+
+    /// <summary>
+    /// Invalidates the cached UnlockedCount. Call when achievements change.
+    /// </summary>
+    public void InvalidateUnlockedCount() => _cachedUnlockedCount = null;
     
     /// <summary>
     /// Returns true if the user has unlocked any achievements

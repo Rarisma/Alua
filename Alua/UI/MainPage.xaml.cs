@@ -9,8 +9,9 @@ public sealed partial class MainPage : Page
 {
     AppVM _appVM = Ioc.Default.GetRequiredService<AppVM>();
     SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
-    private GameList? _currentGameList;
+    private Library? _currentGameList;
     private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
+    private CancellationTokenSource? _searchDebounce;
 
     public MainPage()
     {
@@ -36,12 +37,12 @@ public sealed partial class MainPage : Page
 
         if (_settingsVM.Initialised)
         {
-            App.Frame.Navigate(typeof(GameList));
+            App.Frame.Navigate(typeof(Library));
         }
         else
         {
             //Hide nav bar.
-            App.Frame.Navigate(typeof(FirstRunPage));
+            App.Frame.Navigate(typeof(Initalize));
             _appVM.CommandBarVisibility = Visibility.Collapsed;
         }
     }
@@ -60,11 +61,10 @@ public sealed partial class MainPage : Page
     {
         try
         {
-            GC.Collect();
             await _settingsVM.Save();
 
             // Show/hide game list controls based on current page
-            if (e.Content is GameList gameList)
+            if (e.Content is Library gameList)
             {
                 _currentGameList = gameList;
                 _appVM.GameListControlsVisibility = Visibility.Visible;
@@ -85,10 +85,10 @@ public sealed partial class MainPage : Page
     private void OpenSettings(object sender, RoutedEventArgs e)
     {
         _appVM.InitialLoadCompleted = false; //Will force reload al providers.
-        App.Frame.Navigate(typeof(SettingsPage));
+        App.Frame.Navigate(typeof(Settings));
     }
 
-    private void OpenGamesList(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(GameList));
+    private void OpenGamesList(object sender, RoutedEventArgs e) => App.Frame.Navigate(typeof(Library));
     private void Back(object sender, RoutedEventArgs e) => App.Frame.GoBack();
     
     private void Refresh_Click(object sender, RoutedEventArgs e)
@@ -96,11 +96,24 @@ public sealed partial class MainPage : Page
         _currentGameList?.RefreshCommand?.Execute(null);
     }
     
-    private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    private async void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
         var textBox = (TextBox)sender;
         _appVM.SearchText = textBox.Text;
-        _currentGameList?.ApplyFilters();
+
+        // Debounce search to avoid filtering on every keystroke
+        _searchDebounce?.Cancel();
+        _searchDebounce = new CancellationTokenSource();
+
+        try
+        {
+            await Task.Delay(250, _searchDebounce.Token);
+            _currentGameList?.ApplyFilters();
+        }
+        catch (TaskCanceledException)
+        {
+            // Expected when user types next character before delay completes
+        }
     }
     
     private async void Filter_Changed(object? sender, RoutedEventArgs? e)

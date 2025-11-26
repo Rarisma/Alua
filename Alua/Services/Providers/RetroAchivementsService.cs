@@ -25,8 +25,9 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// Creates a new instance of the RetroAchievements Service.
     /// </summary>
     /// <param name="username">Username</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Retro Achievements object.</returns>
-    public static Task<RetroAchievementsService> Create(string username)
+    public static Task<RetroAchievementsService> Create(string username, CancellationToken cancellationToken = default)
     {
         return Task.FromResult(new RetroAchievementsService
             {
@@ -40,7 +41,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// Scan games that have been completed by the user on RetroAchievements.
     /// </summary>
     /// <returns>list of Alua game objects</returns>
-    public async Task<Game[]> GetLibrary()
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_username))
         {
@@ -49,29 +50,37 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
 
         // Retrieve completed games using the legacy endpoint.
         var completedGames = await _apiClient.GetUserCompletionProgressAsync(_username);
-        var result = new List<Game>();
+        var appVm = Ioc.Default.GetRequiredService<ViewModels.AppVM>();
 
-        foreach (var completed in completedGames.Results)
-        {
-            Game game = new()
+        if (completedGames.Results.Count == 0)
+            return [];
+
+        // Use RateLimitedExecutor for parallel processing with concurrency limit of 4
+        using var executor = new RateLimitedExecutor(4, "RALibrary");
+
+        var games = await executor.ExecuteAllAsync(
+            completedGames.Results,
+            async (completed, ct) =>
             {
-                Name = completed.Title ?? "Unknown Game",
-                Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
-                Author = string.Empty,
-                Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
-                PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
-                Achievements = (await GetAchievements(completed.GameID)).ToObservableCollection(),
-                Identifier = "ra-"+completed.GameID,
-                LastUpdated = DateTime.UtcNow
-            };
+                ct.ThrowIfCancellationRequested();
 
-            // Add game to collection, update progress message
-            result.Add(game);
-            Ioc.Default.GetRequiredService<ViewModels.AppVM>().LoadingGamesSummary = $"Scanned {game.Name} ( {result.Count} / {completedGames.Results.Count})";
-        }
-        
+                return new Game
+                {
+                    Name = completed.Title ?? "Unknown Game",
+                    Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
+                    Author = string.Empty,
+                    Platform = Platforms.RetroAchievements,
+                    PlaytimeMinutes = -1,
+                    Achievements = (await GetAchievements(completed.GameID)).ToObservableCollection(),
+                    Identifier = "ra-" + completed.GameID,
+                    LastUpdated = DateTime.UtcNow
+                };
+            },
+            (current, total) => appVm.LoadingGamesSummary = $"Scanned RetroAchievements ({current}/{total})",
+            cancellationToken
+        );
 
-        return result.ToArray();
+        return games;
     }
 
     /// <summary>
@@ -79,46 +88,54 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// (quicker than full library scan).
     /// </summary>
     /// <returns></returns>
-    public async Task<Game[]> RefreshLibrary()
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5);
-        List<Game> result = new List<Game>();
-        
-        foreach (var game in response)
-        {
-            try
-            {
-                var aluaGame = new Game
-                {
-                    Name = game.Title ?? "Unknown Game",
-                    Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
-                    Author = string.Empty,
-                    Platform = Platforms.RetroAchievements, // Ensure your Platforms enum contains this value.
-                    PlaytimeMinutes = -1, // RetroAchievements does not provide playtime data.
-                    Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
-                    Identifier = "ra-"+game.GameID,
-                    LastUpdated = DateTime.UtcNow
-                };
-                
-                result.Add(aluaGame);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Cannot refresh game {GameId} in RetroAchievements", game.GameID);
-            }
 
-        }
-        
-        
-        return result.ToArray();
+        if (response.Count == 0)
+            return [];
+
+        // Use RateLimitedExecutor for parallel processing with concurrency limit of 4
+        using var executor = new RateLimitedExecutor(4, "RARefresh");
+
+        var games = await executor.ExecuteAllWithNullableAsync(
+            response,
+            async (game, ct) =>
+            {
+                ct.ThrowIfCancellationRequested();
+                try
+                {
+                    return new Game
+                    {
+                        Name = game.Title ?? "Unknown Game",
+                        Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
+                        Author = string.Empty,
+                        Platform = Platforms.RetroAchievements,
+                        PlaytimeMinutes = -1,
+                        Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
+                        Identifier = "ra-" + game.GameID,
+                        LastUpdated = DateTime.UtcNow
+                    };
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Cannot refresh game {GameId} in RetroAchievements", game.GameID);
+                    return null;
+                }
+            },
+            cancellationToken: cancellationToken
+        );
+
+        return games.Where(g => g != null).Cast<Game>().ToArray();
     }
 
     /// <summary>
     /// Refreshes the title and info for a specific game.
     /// </summary>
     /// <param name="identifier">RetroAchievements game ID.</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Game object with updated title, icon, and achievements.</returns>
-    public async Task<Game> RefreshTitle(string identifier)
+    public async Task<Game> RefreshTitle(string identifier, CancellationToken cancellationToken = default)
     {
         int gameId = int.Parse(identifier.Split("-")[1]);
         GameInfoExtended gameInfo = await _apiClient.GetGameExtendedAsync(gameId);

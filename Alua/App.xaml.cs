@@ -122,6 +122,7 @@ public partial class App : Application
                     var settings = SettingsVM.Load();
                     services.AddSingleton(settings);
                     services.AddSingleton<FirstRunVM>();
+                    services.AddSingleton<Services.AggregateStatisticsService>();
                 })
             );
 

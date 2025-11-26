@@ -1,6 +1,6 @@
 <Project Sdk="Uno.Sdk">
     <PropertyGroup>
-        <TargetFrameworks>net9.0-desktop;net9.0-android;</TargetFrameworks>
+        <TargetFrameworks>net10.0-desktop;net10.0-android;</TargetFrameworks>
         <OutputType>Exe</OutputType>
         <UnoSingleProject>true</UnoSingleProject>
 
@@ -10,7 +10,7 @@
         <ApplicationId>net.rarisma.gravity</ApplicationId>
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <AssemblyVersion>0.4.0</AssemblyVersion>
+        <AssemblyVersion>0.5.0</AssemblyVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <!-- Package Publisher -->
         <ApplicationPublisher>Rarisma</ApplicationPublisher>
@@ -48,12 +48,14 @@
     <ItemGroup>
       <PackageReference Include="AutoMapper" />
       <PackageReference Include="Codepotatoes.Scraper.HowLongToBeat" />
+      <PackageReference Include="Microsoft.Extensions.Caching.Abstractions" />
+      <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
       <PackageReference Include="Microsoft.Identity.Client" />
       <PackageReference Include="Uno.Fonts.Fluent" />
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Update="UI\GameList.xaml.cs">
+      <Compile Update="UI\Library.xaml.cs">
         <DependentUpon>GameList.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
@@ -61,7 +63,7 @@
         <DependentUpon>GamePage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
-      <Compile Update="UI\FirstRunPage.xaml.cs">
+      <Compile Update="UI\Initalize.xaml.cs">
         <DependentUpon>FirstRunPage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
@@ -69,7 +71,7 @@
         <DependentUpon>MainPage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
-      <Compile Update="UI\SettingsPage.xaml.cs">
+      <Compile Update="UI\Settings.xaml.cs">
         <DependentUpon>SettingsPage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
@@ -96,10 +98,6 @@
       <UnoSplashScreen Remove="Assets\Splash\splash_screen.svg" />
       <Content Remove="Assets\Splash\icon.png" />
       <UnoSplashScreen Include="Assets\Splash\icon.png" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="UI\Converters\" />
     </ItemGroup>
 
     <ItemGroup>

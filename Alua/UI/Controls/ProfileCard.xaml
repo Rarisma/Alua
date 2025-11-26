@@ -36,7 +36,7 @@
         </Grid.ColumnDefinitions>
 
         <StackPanel Grid.Column="0" VerticalAlignment="Center"  Margin="0,10,10,10">
-            <TextBlock Text="{x:Bind _settingsVM.Games.Count, Mode=OneWay}" Style="{StaticResource ValueTextStyle}"/>
+            <TextBlock Text="{x:Bind TotalGames, Mode=OneWay}" Style="{StaticResource ValueTextStyle}"/>
             <TextBlock Style="{StaticResource LabelTextStyle}">
                 Games
                 <LineBreak/>

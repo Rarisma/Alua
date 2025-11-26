@@ -21,8 +21,9 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// Creates a new instance of the Xbox Service
     /// </summary>
     /// <param name="microsoftAccessToken">Microsoft OAuth access token with Xbox Live scopes</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>XboxService</returns>
-    public static async Task<XboxService> Create(string microsoftAccessToken)
+    public static async Task<XboxService> Create(string microsoftAccessToken, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -84,7 +85,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// Gets a users whole library
     /// </summary>
     /// <returns>Game array</returns>
-    public async Task<Game[]> GetLibrary()
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -149,7 +150,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// Gets recently played games in a users library
     /// </summary>
     /// <returns>Game Array</returns>
-    public async Task<Game[]> RefreshLibrary()
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -207,8 +208,9 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// Updates/Gets data for a title in a users library
     /// </summary>
     /// <param name="identifier"></param>
-/// <returns>Game Object</returns>
-    public async Task<Game> RefreshTitle(string identifier)
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Game Object</returns>
+    public async Task<Game> RefreshTitle(string identifier, CancellationToken cancellationToken = default)
     {
         try
         {

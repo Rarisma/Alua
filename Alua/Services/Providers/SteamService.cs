@@ -23,8 +23,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// Creates a new instance of the Steam Service
     /// </summary>
     /// <param name="steamIdOrVanityUrl">Steam ID or Vanity URL</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>SteamService</returns>
-    public static async Task<SteamService> Create(string steamIdOrVanityUrl)
+    public static async Task<SteamService> Create(string steamIdOrVanityUrl, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -62,7 +63,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// Gets a users whole library including family shared games with achievements
     /// </summary>
     /// <returns>Game array</returns>
-    public async Task<Game[]> GetLibrary()
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -128,7 +129,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             // Combine owned and family shared games
             var allGames = owned.response.games.Concat(familySharedGames).ToList();
 
-            return await ConvertToAluaAsync(allGames);
+            return await ConvertToAluaAsync(allGames, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -141,7 +142,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// Gets recently played games in a users library
     /// </summary>
     /// <returns>Game Array</returns>
-    public async Task<Game[]> RefreshLibrary()
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -166,7 +167,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 .ToHashSet(StringComparer.Ordinal);
 
             recent.response.games.Remove(g => skip.Contains(g.appid.ToString()));
-            return await ConvertToAluaAsync(recent.response.games);
+            return await ConvertToAluaAsync(recent.response.games, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -180,8 +181,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// Updates/Gets data for a title in a users library
     /// </summary>
     /// <param name="identifier"></param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Game Object</returns>
-    public async Task<Game> RefreshTitle(string identifier)
+    public async Task<Game> RefreshTitle(string identifier, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -292,34 +294,44 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     }
 
     /// <summary>
-    /// Bridges sachya data to alua.
+    /// Bridges sachya data to alua. Parallelized with rate limiting.
     /// </summary>
-    /// <param name="src"></param>
-    /// <returns></returns>
-    private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src)
+    /// <param name="src">Source games from Steam API</param>
+    /// <param name="cancellationToken">Cancellation token</param>
+    /// <returns>Converted games array</returns>
+    private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src, CancellationToken cancellationToken = default)
     {
-        List<Game> result = new();
-        
-        foreach  (var g in src)
-        {
-            var game = new Game
+        if (src.Count == 0) return [];
+
+        // Use RateLimitedExecutor for parallel processing with concurrency limit of 5
+        using var executor = new RateLimitedExecutor(5, "SteamConvert");
+        var totalCount = src.Count;
+
+        var games = await executor.ExecuteAllAsync(
+            src,
+            async (g, ct) =>
             {
-                Name            = g.name,
-                Icon            = $"https://media.steampowered.com/steamcommunity/public/images/apps/{g.appid}/{g.img_icon_url}.jpg",
-                Author          = string.Empty,
-                Platform        = Platforms.Steam,
-                PlaytimeMinutes = g.playtime_forever,
-                Identifier      = "steam-"+g.appid,
-                Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection(),
-                LastUpdated     = DateTime.UtcNow
-            };
-            
-            result.Add(game);
+                ct.ThrowIfCancellationRequested();
 
-            _appVm.LoadingGamesSummary = $"Scanned {g.name} ({src.IndexOf(g)}/{src.Count})";
-        }
+                var game = new Game
+                {
+                    Name            = g.name,
+                    Icon            = $"https://media.steampowered.com/steamcommunity/public/images/apps/{g.appid}/{g.img_icon_url}.jpg",
+                    Author          = string.Empty,
+                    Platform        = Platforms.Steam,
+                    PlaytimeMinutes = g.playtime_forever,
+                    Identifier      = "steam-"+g.appid,
+                    Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection(),
+                    LastUpdated     = DateTime.UtcNow
+                };
 
-        return result.ToArray();
+                return game;
+            },
+            (current, total) => _appVm.LoadingGamesSummary = $"Scanned Steam games ({current}/{total})",
+            cancellationToken
+        );
+
+        return games;
     }
 
     [GeneratedRegex(@"^\d{17}$")]

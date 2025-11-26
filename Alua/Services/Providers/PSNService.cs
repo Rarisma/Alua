@@ -22,8 +22,9 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Creates a new instance of the PSN Service using PSN SSO token
     /// </summary>
     /// <param name="npssoToken">PSN SSO token</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>PSNService</returns>
-    public static async Task<PSNService> Create(string npssoToken)
+    public static async Task<PSNService> Create(string npssoToken, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -97,18 +98,16 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Gets the users whole PSN library
     /// </summary>
     /// <returns>Array of Games</returns>
-    public async Task<Game[]> GetLibrary()
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
     {
         try
         {
             Log.Information("Getting PSN library for user");
-            
-            var trophyTitles = await _apiClient.GetUserTrophyTitlesAsync( "me");
-            List<Game> games = new();
-            foreach (var game in trophyTitles.TrophyTitles) { games.Add(ConvertToAluaGame(game)); }
-            
-            
-            return games.ToArray();
+
+            var trophyTitles = await _apiClient.GetUserTrophyTitlesAsync("me");
+            var games = trophyTitles.TrophyTitles.Select(ConvertToAluaGame).ToArray();
+
+            return games;
         }
         catch (Exception ex)
         {
@@ -121,38 +120,41 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Refreshes the users library and returns recently updated games with trophy data
     /// </summary>
     /// <returns>Array of games with trophy information</returns>
-    public async Task<Game[]> RefreshLibrary()
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
     {
         try
         {
             Log.Information("Refreshing PSN library for user with trophy data");
-            
+
             // Get recent trophy titles (limit to 10 most recent)
             var recentTrophies = await _apiClient.GetUserTrophyTitlesAsync("me", limit: 10);
-            
-            var gamesWithTrophies = new List<Game>();
-            
-            // For each recent game, fetch detailed trophy information
-            foreach (var title in recentTrophies.TrophyTitles)
-            {
-                try
+
+            if (recentTrophies.TrophyTitles.Count == 0)
+                return [];
+
+            // Use RateLimitedExecutor with concurrency of 3 for PSN (more conservative due to stricter rate limits)
+            using var executor = new RateLimitedExecutor(3, "PSNRefresh");
+
+            var games = await executor.ExecuteAllWithNullableAsync(
+                recentTrophies.TrophyTitles,
+                async (title, ct) =>
                 {
-                    var gameWithTrophies = await GetGameWithTrophyData(title);
-                    gamesWithTrophies.Add(gameWithTrophies);
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning(ex, "Failed to get trophy data for {GameName}, adding basic info only", title.TrophyTitleName);
-                    // Fallback to basic game info if trophy data fetch fails
-                    gamesWithTrophies.Add(ConvertToAluaGame(title));
-                }
-                
-                // Small delay to avoid hitting rate limits
-                await Task.Delay(100);
-            }
-            
-            
-            return gamesWithTrophies.ToArray();
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        return await GetGameWithTrophyData(title);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to get trophy data for {GameName}, adding basic info only", title.TrophyTitleName);
+                        return ConvertToAluaGame(title);
+                    }
+                },
+                (current, total) => _appVm.LoadingGamesSummary = $"Refreshing PSN ({current}/{total})",
+                cancellationToken
+            );
+
+            return games.Where(g => g != null).Cast<Game>().ToArray();
         }
         catch (Exception ex)
         {
@@ -165,8 +167,9 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Updates data for a single title with full trophy information
     /// </summary>
     /// <param name="identifier">Game Identifier (NPCommunicationID)</param>
+    /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Game Object with trophy data</returns>
-    public async Task<Game> RefreshTitle(string identifier)
+    public async Task<Game> RefreshTitle(string identifier, CancellationToken cancellationToken = default)
     {
         try
         {

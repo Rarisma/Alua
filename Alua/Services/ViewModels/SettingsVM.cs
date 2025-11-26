@@ -10,6 +10,11 @@ namespace Alua.Services.ViewModels;
 public partial class SettingsVM  : ObservableObject
 {
     private readonly object _gamesLock = new object();
+
+    // Batch update support
+    private int _batchUpdateDepth;
+    private bool _gamesPendingNotification;
+    private bool _hasUnsavedChanges;
     
     #region Build info
     /// <summary>
@@ -96,11 +101,36 @@ public partial class SettingsVM  : ObservableObject
 
     [ObservableProperty, JsonPropertyName("FilterSingleColumnLayout")]
     private bool _singleColumnLayout;
+
+    /// <summary>
+    /// Number of games to load per page (for infinite scroll pagination)
+    /// </summary>
+    [ObservableProperty, JsonPropertyName("PageSize")]
+    private int _pageSize = 100;
     #endregion
 
     public SettingsVM()
     {
         _games = new();
+    }
+
+    /// <summary>
+    /// Begins a batch update scope. Notifications are deferred until all scopes complete.
+    /// </summary>
+    public IDisposable BeginBatchUpdate()
+    {
+        _batchUpdateDepth++;
+        return new BatchUpdateScope(this);
+    }
+
+    private void EndBatchUpdate()
+    {
+        _batchUpdateDepth--;
+        if (_batchUpdateDepth == 0 && _gamesPendingNotification)
+        {
+            _gamesPendingNotification = false;
+            OnPropertyChanged(nameof(Games));
+        }
     }
 
     /// <summary>
@@ -113,15 +143,63 @@ public partial class SettingsVM  : ObservableObject
         {
             Games[game.Identifier] = game;
         }
-        OnPropertyChanged(nameof(Games));
+        _hasUnsavedChanges = true;
+
+        if (_batchUpdateDepth > 0)
+            _gamesPendingNotification = true;
+        else
+            OnPropertyChanged(nameof(Games));
+    }
+
+    /// <summary>
+    /// Adds multiple games efficiently with a single notification.
+    /// </summary>
+    public void AddOrUpdateGames(IEnumerable<Game> games)
+    {
+        using (BeginBatchUpdate())
+        {
+            lock (_gamesLock)
+            {
+                foreach (var game in games)
+                {
+                    Games[game.Identifier] = game;
+                }
+            }
+            _gamesPendingNotification = true;
+            _hasUnsavedChanges = true;
+        }
+    }
+
+    private sealed class BatchUpdateScope : IDisposable
+    {
+        private readonly SettingsVM _vm;
+        private bool _disposed;
+
+        public BatchUpdateScope(SettingsVM vm) => _vm = vm;
+
+        public void Dispose()
+        {
+            if (!_disposed)
+            {
+                _disposed = true;
+                _vm.EndBatchUpdate();
+            }
+        }
     }
 
 
     /// <summary>
-    /// Saves settings to disk
+    /// Saves settings to disk. Only writes if there are unsaved changes.
     /// </summary>
-    public async Task Save()
+    /// <param name="force">If true, saves even if no changes detected.</param>
+    public async Task Save(bool force = false)
     {
+        if (!force && !_hasUnsavedChanges)
+        {
+            Log.Debug("Skipping save - no unsaved changes detected.");
+            return;
+        }
+
         try
         {
             //Get folder
@@ -153,12 +231,14 @@ public partial class SettingsVM  : ObservableObject
                 _hideUnstarted = _hideUnstarted,
                 _reverse = _reverse,
                 _orderBy = _orderBy,
-                _singleColumnLayout = _singleColumnLayout
+                _singleColumnLayout = _singleColumnLayout,
+                _pageSize = _pageSize
             };
             
             string json = JsonSerializer.Serialize(settingsCopy);
             await File.WriteAllTextAsync(settings.Path, json);
-            
+            _hasUnsavedChanges = false;
+
             Log.Information("Saved settings.");
         }
         catch (Exception e)
