@@ -215,10 +215,9 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             
             return ConvertSingleToAluaGame(title, earnedTrophies, titleTrophies);
         }
-        catch (PSNApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            Log.Warning($"Trophy data not found for {title.TrophyTitleName}");
-            // Return basic game info if trophy data isn't available (user hasn't played)
+            Log.Warning("Trophy data not found for {GameName}", title.TrophyTitleName);
             return ConvertToAluaGame(title);
         }
         catch (Exception ex)
@@ -239,7 +238,8 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             Name = title.TrophyTitleName,
             Author = "PlayStation Network", // Use as provider
             Icon = title.TrophyTitleIconUrl,
-            LastUpdated = title.LastUpdatedDateTime.DateTime,
+            LastUpdated = DateTime.UtcNow,
+            LastPlayed = title.LastUpdatedDateTime.DateTime,
             Identifier = title.NpCommunicationId,
             Platform = Platforms.PlayStation,
             PlaytimeMinutes = -1, //Playtime is not available in PSN API

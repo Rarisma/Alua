@@ -64,16 +64,18 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             {
                 ct.ThrowIfCancellationRequested();
 
+                var (achievements, playtime) = await GetAchievements(completed.GameID);
                 return new Game
                 {
                     Name = completed.Title ?? "Unknown Game",
                     Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
                     Author = string.Empty,
                     Platform = Platforms.RetroAchievements,
-                    PlaytimeMinutes = -1,
-                    Achievements = (await GetAchievements(completed.GameID)).ToObservableCollection(),
+                    PlaytimeMinutes = playtime,
+                    Achievements = achievements.ToObservableCollection(),
                     Identifier = "ra-" + completed.GameID,
-                    LastUpdated = DateTime.UtcNow
+                    LastUpdated = DateTime.UtcNow,
+                    LastPlayed = completed.MostRecentAwardedDate?.UtcDateTime
                 };
             },
             (current, total) => appVm.LoadingGamesSummary = $"Scanned RetroAchievements ({current}/{total})",
@@ -105,16 +107,18 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 ct.ThrowIfCancellationRequested();
                 try
                 {
+                    var (achievements, playtime) = await GetAchievements(game.GameID);
                     return new Game
                     {
                         Name = game.Title ?? "Unknown Game",
                         Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
                         Author = string.Empty,
                         Platform = Platforms.RetroAchievements,
-                        PlaytimeMinutes = -1,
-                        Achievements = (await GetAchievements(game.GameID)).ToObservableCollection(),
+                        PlaytimeMinutes = playtime,
+                        Achievements = achievements.ToObservableCollection(),
                         Identifier = "ra-" + game.GameID,
-                        LastUpdated = DateTime.UtcNow
+                        LastUpdated = DateTime.UtcNow,
+                        LastPlayed = game.LastPlayed
                     };
                 }
                 catch (Exception ex)
@@ -139,29 +143,59 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     {
         int gameId = int.Parse(identifier.Split("-")[1]);
         GameInfoExtended gameInfo = await _apiClient.GetGameExtendedAsync(gameId);
+        var (achievementsList, playtime) = await GetAchievements(gameId);
+        var achievements = achievementsList.ToObservableCollection();
+
+        // Try to get actual LastPlayed from the recently played endpoint
+        DateTime? lastPlayed = null;
+        try
+        {
+            var recentlyPlayed = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, count: 50);
+            lastPlayed = recentlyPlayed.FirstOrDefault(g => g.GameID == gameId)?.LastPlayed;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to fetch recently played games for LastPlayed date");
+        }
+
+        // Fall back to most recent achievement unlock date
+        if (lastPlayed == null || lastPlayed == DateTime.MinValue)
+        {
+            var maxUnlock = achievements
+                .Where(a => a.UnlockedOn.HasValue)
+                .Select(a => a.UnlockedOn!.Value)
+                .DefaultIfEmpty()
+                .Max();
+            if (maxUnlock != DateTime.MinValue)
+                lastPlayed = maxUnlock;
+        }
+
         var game = new Game
         {
             Name = gameInfo.Title ?? "Unknown Game",
             Icon = "https://i.retroachievements.org/" + (gameInfo.ImageIcon ?? ""),
             Author = string.Empty,
             Platform = Platforms.RetroAchievements,
-            PlaytimeMinutes = -1,
-            Achievements = (await GetAchievements(gameId)).ToObservableCollection(),
+            PlaytimeMinutes = playtime,
+            Achievements = achievements,
             Identifier = "ra-"+gameId,
-            LastUpdated = DateTime.UtcNow
+            LastUpdated = DateTime.UtcNow,
+            LastPlayed = lastPlayed
         };
-        
+
         return game;
     }
 
-    private async Task<List<Achievement>> GetAchievements(int gameID)
+    private async Task<(List<Achievement> Achievements, int PlaytimeMinutes)> GetAchievements(int gameID)
     {
         List<Achievement> achievements = new();
+        int playtimeMinutes = -1;
 
         try
         {
             // Get detailed user progress (including achievements) for this game.
             var progress = await _apiClient.GetGameInfoAndUserProgressAsync(_username, gameID, includeAwardMetadata: true);
+            playtimeMinutes = progress.UserTotalPlaytime ?? -1;
 
             // Get game extended data for unlock statistics in batch
             var gameExtended = await _apiClient.GetGameExtendedAsync(gameID);
@@ -178,6 +212,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     Title = kvp.Value.Title ?? "Achievement Name Unavailable",
                     Description = kvp.Value.Description ?? "Achievement Description Unavailable",
                     IsUnlocked = kvp.Value.DateEarned.HasValue,
+                    UnlockedOn = kvp.Value.DateEarned,
                     Id = kvp.Key,
                     Icon = iconUrl
                 };
@@ -201,7 +236,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             achievements = new();
         }
 
-        return achievements;
+        return (achievements, playtimeMinutes);
     }
 
     /// <summary>

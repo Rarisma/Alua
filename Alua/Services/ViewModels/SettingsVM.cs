@@ -28,7 +28,7 @@ public partial class SettingsVM  : ObservableObject
     /// Generally a reference to a song.
     /// </summary>
     [JsonIgnore]
-    public string BuildString = "Too Sweet";
+    public string BuildString = "SPKOTHDVL";
 
     /// <summary>
     /// Rescan forced if opening a settings.json below this version.
@@ -134,6 +134,32 @@ public partial class SettingsVM  : ObservableObject
     }
 
     /// <summary>
+    /// Ensures LastPlayed is populated, falling back to the most recent achievement unlock
+    /// or preserving the existing value when the provider doesn't supply one.
+    /// </summary>
+    private void ResolveLastPlayed(Game game)
+    {
+        if (game.LastPlayed == null && game.Achievements.Count > 0)
+        {
+            game.LastPlayed = game.Achievements
+                .Where(a => a.UnlockedOn.HasValue)
+                .Select(a => a.UnlockedOn!.Value)
+                .DefaultIfEmpty()
+                .Max();
+
+            // DefaultIfEmpty returns DateTime.MinValue when empty; treat as null
+            if (game.LastPlayed == DateTime.MinValue)
+                game.LastPlayed = null;
+        }
+
+        // Preserve existing LastPlayed if the new data doesn't have one
+        if (game.LastPlayed == null && Games.TryGetValue(game.Identifier, out var existing))
+        {
+            game.LastPlayed = existing.LastPlayed;
+        }
+    }
+
+    /// <summary>
     /// Adds or updates a game in the collection and notifies listeners.
     /// </summary>
     /// <param name="game">Game to add or update.</param>
@@ -141,6 +167,7 @@ public partial class SettingsVM  : ObservableObject
     {
         lock (_gamesLock)
         {
+            ResolveLastPlayed(game);
             Games[game.Identifier] = game;
         }
         _hasUnsavedChanges = true;
@@ -162,6 +189,7 @@ public partial class SettingsVM  : ObservableObject
             {
                 foreach (var game in games)
                 {
+                    ResolveLastPlayed(game);
                     Games[game.Identifier] = game;
                 }
             }
@@ -190,6 +218,7 @@ public partial class SettingsVM  : ObservableObject
 
     /// <summary>
     /// Saves settings to disk. Only writes if there are unsaved changes.
+    /// Uses stream-based serialization with atomic write (temp file + move) to reduce memory usage.
     /// </summary>
     /// <param name="force">If true, saves even if no changes detected.</param>
     public async Task Save(bool force = false)
@@ -202,20 +231,19 @@ public partial class SettingsVM  : ObservableObject
 
         try
         {
-            //Get folder
-            StorageFile settings = await ApplicationData.Current.LocalFolder.CreateFileAsync("Settings.json",
-                CreationCollisionOption.ReplaceExisting);
+            var folderPath = ApplicationData.Current.LocalFolder.Path;
+            var filePath = Path.Combine(folderPath, "Settings.json");
+            var tempPath = filePath + ".tmp";
 
-            //Write to disk.
-            Log.Information($"Saving settings to {settings.Path}");
-            
+            Log.Information($"Saving settings to {filePath}");
+
             // Create a copy of the Games dictionary to avoid collection modification during serialization
             Dictionary<string, Game> gamesCopy;
             lock (_gamesLock)
             {
                 gamesCopy = new Dictionary<string, Game>(Games);
             }
-            
+
             // Create a copy of the settings object for serialization instead of swapping the dictionary
             var settingsCopy = new SettingsVM
             {
@@ -234,9 +262,15 @@ public partial class SettingsVM  : ObservableObject
                 _singleColumnLayout = _singleColumnLayout,
                 _pageSize = _pageSize
             };
-            
-            string json = JsonSerializer.Serialize(settingsCopy);
-            await File.WriteAllTextAsync(settings.Path, json);
+
+            // Stream-based serialization to temp file to avoid materializing full JSON string
+            await using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, useAsync: true))
+            {
+                await JsonSerializer.SerializeAsync(stream, settingsCopy);
+            }
+
+            // Atomic move to prevent corruption on crash
+            File.Move(tempPath, filePath, overwrite: true);
             _hasUnsavedChanges = false;
 
             Log.Information("Saved settings.");
@@ -248,45 +282,48 @@ public partial class SettingsVM  : ObservableObject
     }
 
     ///<summary>
-    /// Reads settings from disk
+    /// Reads settings from disk using stream-based deserialization to reduce memory usage.
     /// </summary>
-    public static SettingsVM Load()
+    public static async Task<SettingsVM> LoadAsync()
     {
         try
         {
             string path = Path.Combine(ApplicationData.Current.LocalFolder.Path, "Settings.json");
-            //Read from disk.
             Log.Information("Loading settings from path");
             if (File.Exists(path))
             {
-                string content = File.ReadAllText(path);
-                if (string.IsNullOrEmpty(content))
+                await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 8192, useAsync: true);
+                if (stream.Length == 0)
                 {
                     Log.Warning("Settings file exists but is empty, returning default settings.");
                     return new SettingsVM();
                 }
-                else
+
+                SettingsVM Model = (await JsonSerializer.DeserializeAsync<SettingsVM>(stream))!;
+                if (MinimumVersion > Model.Version)
                 {
-                    SettingsVM Model = JsonSerializer.Deserialize<SettingsVM>(content)!;
-                    if (MinimumVersion > Model.Version)
-                    {
-                        //Alua needs to rescan users library.
-                        Log.Warning("Minimum version check failed; deleting game data.");
-                        Model.Games = [];
-                    }
-                    else {Log.Information($"Loaded settings file from version {Model.Version.ToString()}");}
-                    return Model;
+                    Log.Warning("Minimum version check failed; deleting game data.");
+                    Model.Games = [];
                 }
+                else {Log.Information($"Loaded settings file from version {Model.Version.ToString()}");}
+                return Model;
             }
-            
-            //File doesn't exist.
+
             Log.Information("Settings file not found.");
             return new SettingsVM();
         }
-        catch (Exception ex) //Loading error.
+        catch (Exception ex)
         {
             Log.Error(ex, "Could not load existing settings file");
             return new SettingsVM();
         }
+    }
+
+    ///<summary>
+    /// Reads settings from disk (synchronous wrapper for backwards compatibility).
+    /// </summary>
+    public static SettingsVM Load()
+    {
+        return Task.Run(() => LoadAsync()).GetAwaiter().GetResult();
     }
 }

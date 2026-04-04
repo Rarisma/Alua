@@ -35,6 +35,13 @@ public class Game
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// Last time the game was actually played, sourced from provider data.
+    /// Null if the provider doesn't report this or the game has never been played.
+    /// </summary>
+    [JsonInclude, JsonPropertyName("LastPlayed")]
+    public DateTime? LastPlayed { get; set; }
+
+    /// <summary>
     /// Total playtime in minutes
     /// </summary>
     [JsonInclude, JsonPropertyName("PlaytimeMinutes")]

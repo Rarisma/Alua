@@ -1,11 +1,12 @@
-using System.Collections.ObjectModel;
+using Alua.Helpers;
 using Alua.Services.Providers;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
+using Microsoft.UI.Xaml.Input;
 using AppVM = Alua.Services.ViewModels.AppVM;
 
-//And guess what? It's not the pizza guy! 
+//And guess what? It's not the pizza guy!
 namespace Alua.UI;
 
 public sealed partial class GamePage : Page
@@ -13,14 +14,22 @@ public sealed partial class GamePage : Page
     AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
     SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
 
-    private ObservableCollection<Achievement> _filteredAchievements = new();
-    public ObservableCollection<Achievement> FilteredAchievements => _filteredAchievements;
+    private readonly BatchObservableCollection<Achievement> _filteredAchievements = new();
+    public BatchObservableCollection<Achievement> FilteredAchievements => _filteredAchievements;
 
     private bool _showUnlocked = true, _showLocked = true, _hideHidden = true;
+
+    private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
 
     public GamePage()
     {
         InitializeComponent();
+
+        // Override scroll handling for faster trackpad scrolling on desktop
+        if (!_isPhone)
+            achievementsScrollViewer.AddHandler(UIElement.PointerWheelChangedEvent,
+                new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
+
         RefreshFiltered();
     }
 
@@ -33,17 +42,32 @@ public sealed partial class GamePage : Page
     }
 
     private void Close(object sender, RoutedEventArgs e) => App.Frame.GoBack();
-    private void RefreshFiltered()
+    private async void RefreshFiltered()
     {
-        var list = (AppVM.SelectedGame?.Achievements ?? Enumerable.Empty<Achievement>())
-            .Where(a => (_showUnlocked || !a.IsUnlocked)) // remove unlocked if showUnlocked is false
-            .Where(a => (_showLocked || a.IsUnlocked))    // remove locked if showLocked is false
-            .Where(a => !_hideHidden || !a.IsHidden || a.IsUnlocked) // hide hidden items unless unlocked
-            .ToList();
-        _filteredAchievements = new ObservableCollection<Achievement>(list);
-        Bindings.Update();
+        var achievements = AppVM.SelectedGame?.Achievements ?? new();
+        var showUnlocked = _showUnlocked;
+        var showLocked = _showLocked;
+        var hideHidden = _hideHidden;
+
+        var filtered = await Task.Run(() =>
+            achievements
+                .Where(a => showUnlocked || !a.IsUnlocked)
+                .Where(a => showLocked || a.IsUnlocked)
+                .Where(a => !hideHidden || !a.IsHidden || a.IsUnlocked)
+                .ToList()
+        );
+
+        _filteredAchievements.ReplaceAll(filtered);
     }
     
+    private void OnScrollViewerPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        var sv = (ScrollViewer)sender;
+        var delta = e.GetCurrentPoint(sv).Properties.MouseWheelDelta;
+        sv.ChangeView(null, sv.VerticalOffset - delta, null, true);
+        e.Handled = true;
+    }
+
     /// <summary>
     /// Refreshes game data for this game
     /// </summary>

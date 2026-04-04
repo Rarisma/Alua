@@ -96,7 +96,7 @@
                                             <ComboBoxItem Content="Total Achievements" Tag="TotalCount"/>
                                             <ComboBoxItem Content="Unlocked Achievements" Tag="UnlockedCount"/>
                                             <ComboBoxItem Content="Playtime" Tag="Playtime"/>
-                                            <ComboBoxItem Content="Recently Played" Tag="LastUpdated"/>
+                                            <ComboBoxItem Content="Recently Played" Tag="LastPlayed"/>
                                             <ComboBoxItem Content="HLTB Story Time" Tag="HowLongToBeatMain"/>
                                             <ComboBoxItem Content="HLTB 100% Time" Tag="HowLongToBeatCompletionist"/>
                                         </ComboBox>

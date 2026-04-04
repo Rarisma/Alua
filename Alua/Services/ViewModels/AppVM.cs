@@ -450,4 +450,4 @@ public partial class AppVM : ObservableRecipient
     
 }
 
-public enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime, LastUpdated, HowLongToBeatMain, HowLongToBeatCompletionist }
+public enum OrderBy { Name, CompletionPct, TotalCount, UnlockedCount, Playtime, LastPlayed, HowLongToBeatMain, HowLongToBeatCompletionist }

@@ -119,8 +119,7 @@ public partial class App : Application
                 .ConfigureServices(void (_, services) =>
                 {
                     services.AddSingleton<AppVM>();
-                    var settings = SettingsVM.Load();
-                    services.AddSingleton(settings);
+                    services.AddSingleton(_ => Task.Run(() => SettingsVM.LoadAsync()).GetAwaiter().GetResult());
                     services.AddSingleton<FirstRunVM>();
                     services.AddSingleton<Services.AggregateStatisticsService>();
                 })

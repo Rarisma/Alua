@@ -167,7 +167,13 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 .ToHashSet(StringComparer.Ordinal);
 
             recent.response.games.Remove(g => skip.Contains(g.appid.ToString()));
-            return await ConvertToAluaAsync(recent.response.games, cancellationToken);
+
+            if (recent.response.games.Count == 0) return [];
+
+            // Re-fetch via GetOwnedGamesAsync to get rtime_last_played
+            var appIds = recent.response.games.Select(g => g.appid).ToArray();
+            var owned = await _apiClient.GetOwnedGamesAsync(_steamId, includeAppInfo: true, includePlayedFreeGames: true, appIds);
+            return await ConvertToAluaAsync(owned.response.games, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -189,8 +195,6 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
         {
             int appId = int.Parse(identifier.Split("steam-").Last());
 
-            // game schema gives us its name + achievement defs 
-            await _apiClient.GetSchemaForGameAsync(appId);
             var data = (await _apiClient.GetOwnedGamesAsync(steamid: _steamId, includeAppInfo: true,
                 includePlayedFreeGames: true, [appId])).response.games[0];
             string iconHash = data.img_icon_url;
@@ -207,7 +211,10 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 Platform         = Platforms.Steam,
                 PlaytimeMinutes  = data.playtime_forever,
                 Achievements     = (await GetAchievementDataAsync(appId.ToString())).ToObservableCollection(),
-                LastUpdated      = DateTime.UtcNow
+                LastUpdated      = DateTime.UtcNow,
+                LastPlayed       = data.rtime_last_played > 0
+                    ? DateTimeOffset.FromUnixTimeSeconds(data.rtime_last_played).UtcDateTime
+                    : null
             };
             
             return game;
@@ -227,7 +234,15 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
         try
         {
             int appId = int.Parse(identifier);
-            GameSchemaResult schema = await _apiClient.GetSchemaForGameAsync(appId);
+
+            // Fire all three independent API requests concurrently
+            var schemaTask = _apiClient.GetSchemaForGameAsync(appId);
+            var progressTask = _apiClient.GetPlayerAchievementsAsync(_steamId, appId, language: "english");
+            var globalStatsTask = _apiClient.GetGlobalAchievementPercentagesForAppAsync(appId);
+
+            await Task.WhenAll(schemaTask, progressTask, globalStatsTask);
+
+            GameSchemaResult schema = schemaTask.Result;
 
             //Null Check/ Check we actually have achievements to get data for
             if (schema.game.availableGameStats?.achievements == null)
@@ -238,10 +253,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             var defs = schema.game.availableGameStats.achievements
                 .ToDictionary(a => a.name);
 
-            var progress = await _apiClient.GetPlayerAchievementsAsync(_steamId, appId, language: "english");
-             
-            // Get global achievement percentages for rarity calculation
-            var globalStats = await _apiClient.GetGlobalAchievementPercentagesForAppAsync(appId);
+            var progress = progressTask.Result;
+
+            var globalStats = globalStatsTask.Result;
             var rarityData = globalStats.achievementpercentages?.achievements
                 ?.ToDictionary(a => a.name, a => (double)a.percent) ?? new Dictionary<string, double>();
 
@@ -322,7 +336,10 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                     PlaytimeMinutes = g.playtime_forever,
                     Identifier      = "steam-"+g.appid,
                     Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection(),
-                    LastUpdated     = DateTime.UtcNow
+                    LastUpdated     = DateTime.UtcNow,
+                    LastPlayed      = g.rtime_last_played > 0
+                        ? DateTimeOffset.FromUnixTimeSeconds(g.rtime_last_played).UtcDateTime
+                        : null
                 };
 
                 return game;

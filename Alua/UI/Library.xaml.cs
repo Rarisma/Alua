@@ -4,6 +4,8 @@ using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Input;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 using static Alua.Services.ViewModels.OrderBy;
@@ -19,13 +21,7 @@ public partial class Library : Page
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
 
-    // Windowed virtualization state
-    private int _windowStartIndex;  // Index into _allFilteredGames of first displayed item
-    private int _windowEndIndex;    // Index into _allFilteredGames of last displayed item (exclusive)
     private List<Game> _allFilteredGames = new();
-    private bool _isLoadingMore;
-    private double _lastScrollOffset;
-    private const int WindowBuffer = 100;  // Items to keep above/below visible area
 
     // Layouts for ItemsRepeater - swappable for single/multi column
     private readonly StackLayout _listLayout = new()
@@ -77,6 +73,11 @@ public partial class Library : Page
     {
         try
         {
+            // Override scroll handling for faster trackpad scrolling on desktop
+            if (!_isPhone)
+                gamesScrollViewer.AddHandler(UIElement.PointerWheelChangedEvent,
+                    new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
+
             Log.Information("Initialised games list");
             _appVm.CommandBarVisibility = Visibility.Visible;
 
@@ -389,291 +390,82 @@ public partial class Library : Page
         RefreshFiltered();
     }
 
-    private void RefreshFiltered()
+    private int _filterVersion;
+
+    private async void RefreshFiltered()
     {
-        var list = (_settingsVM.Games ?? new ())
-            .Where(g => !_appVm.HideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
-            .Where(g => !_appVm.HideNoAchievements || g.Value.HasAchievements)
-            .Where(g => !_appVm.HideUnstarted || g.Value.UnlockedCount > 0);
+        // Capture filter/sort parameters as locals (safe for background thread access)
+        var games = _settingsVM.Games ?? new();
+        var hideComplete = _appVm.HideComplete;
+        var hideNoAchievements = _appVm.HideNoAchievements;
+        var hideUnstarted = _appVm.HideUnstarted;
+        var searchText = _appVm.SearchText;
+        var orderBy = _appVm.OrderBy;
+        var reverse = _appVm.Reverse;
 
-        // Apply text search filter
-        if (!string.IsNullOrWhiteSpace(_appVm.SearchText))
+        var version = ++_filterVersion;
+
+        var filtered = await Task.Run(() =>
         {
-            list = list.Where(g => g.Value.Name.Contains(_appVm.SearchText, StringComparison.OrdinalIgnoreCase));
-        }
+            var list = games
+                .Where(g => !hideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
+                .Where(g => !hideNoAchievements || g.Value.HasAchievements)
+                .Where(g => !hideUnstarted || g.Value.UnlockedCount > 0);
 
-        // Filter out games without HLTB data when sorting by HLTB
-        if (_appVm.OrderBy == HowLongToBeatMain)
-        {
-            list = list.Where(g => g.Value.HowLongToBeatMain.HasValue);
-        }
-        else if (_appVm.OrderBy == HowLongToBeatCompletionist)
-        {
-            list = list.Where(g => g.Value.HowLongToBeatCompletionist.HasValue);
-        }
+            // Apply text search filter
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                list = list.Where(g => g.Value.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+            }
 
-        list = _appVm.OrderBy switch
-        {
-            OrderBy.Name => list.OrderBy(g => g.Value.Name),
-            CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
-            TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
-            UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
-            Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
-            LastUpdated => list.OrderByDescending(g => g.Value.LastUpdated),
-            HowLongToBeatMain => list.OrderBy(g => g.Value.HowLongToBeatMain.Value),
-            HowLongToBeatCompletionist => list.OrderBy(g => g.Value.HowLongToBeatCompletionist.Value),
-            _ => list
-        };
+            // Filter out games without HLTB data when sorting by HLTB
+            if (orderBy == HowLongToBeatMain)
+            {
+                list = list.Where(g => g.Value.HowLongToBeatMain.HasValue);
+            }
+            else if (orderBy == HowLongToBeatCompletionist)
+            {
+                list = list.Where(g => g.Value.HowLongToBeatCompletionist.HasValue);
+            }
 
-        if (_appVm.Reverse) { list = list.Reverse(); }
+            list = orderBy switch
+            {
+                OrderBy.Name => list.OrderBy(g => g.Value.Name),
+                CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
+                TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
+                UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
+                Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
+                LastPlayed => list.OrderByDescending(g => g.Value.LastPlayed ?? DateTime.MinValue),
+                HowLongToBeatMain => list.OrderBy(g => g.Value.HowLongToBeatMain.Value),
+                HowLongToBeatCompletionist => list.OrderBy(g => g.Value.HowLongToBeatCompletionist.Value),
+                _ => list
+            };
 
-        // Store all filtered games for windowed virtualization
-        _allFilteredGames = list.Select(g => g.Value).ToList();
-        _windowStartIndex = 0;
-        _windowEndIndex = 0;
-        _lastScrollOffset = 0;
+            if (reverse) { list = list.Reverse(); }
 
-        // Load initial window
-        LoadInitialWindow();
+            return list.Select(g => g.Value).ToList();
+        });
+
+        // Discard stale results if a newer filter was triggered
+        if (_filterVersion != version)
+            return;
+
+        // Back on UI thread — give ItemsRepeater the full list, it virtualizes natively
+        _allFilteredGames = filtered;
+        _appVm.FilteredGames.ReplaceAll(filtered);
 
         // Ensure layout settings are maintained after filtering
         UpdateItemsLayout();
     }
 
-    /// <summary>
-    /// Loads the initial window of items
-    /// </summary>
-    private void LoadInitialWindow()
-    {
-        var pageSize = _settingsVM.PageSize > 0 ? _settingsVM.PageSize : 100;
-        var initialCount = Math.Min(pageSize, _allFilteredGames.Count);
-
-        _windowStartIndex = 0;
-        _windowEndIndex = initialCount;
-
-        var initialItems = _allFilteredGames.Take(initialCount).ToList();
-        _appVm.FilteredGames.ReplaceAll(initialItems);
-
-        Log.Debug("Loaded initial window: 0-{End} of {Total}", _windowEndIndex, _allFilteredGames.Count);
-    }
-
-    /// <summary>
-    /// Extends the window forward (when scrolling down)
-    /// </summary>
-    private void ExtendWindowForward()
-    {
-        if (_isLoadingMore || _windowEndIndex >= _allFilteredGames.Count)
-            return;
-
-        _isLoadingMore = true;
-
-        try
-        {
-            var pageSize = _settingsVM.PageSize > 0 ? _settingsVM.PageSize : 100;
-            var itemsToAdd = _allFilteredGames
-                .Skip(_windowEndIndex)
-                .Take(pageSize)
-                .ToList();
-
-            foreach (var item in itemsToAdd)
-            {
-                _appVm.FilteredGames.Add(item);
-            }
-
-            _windowEndIndex += itemsToAdd.Count;
-            Log.Debug("Extended window forward: {Start}-{End} of {Total}",
-                _windowStartIndex, _windowEndIndex, _allFilteredGames.Count);
-        }
-        finally
-        {
-            _isLoadingMore = false;
-        }
-    }
-
-    /// <summary>
-    /// Trims items from the beginning of the window (when scrolling down)
-    /// </summary>
-    private void TrimWindowStart(int itemsToRemove)
-    {
-        if (_isLoadingMore || itemsToRemove <= 0 || _windowStartIndex + itemsToRemove >= _windowEndIndex)
-            return;
-
-        _isLoadingMore = true;
-
-        try
-        {
-            // Remove items from the beginning
-            for (int i = 0; i < itemsToRemove && _appVm.FilteredGames.Count > 0; i++)
-            {
-                _appVm.FilteredGames.RemoveAt(0);
-            }
-
-            _windowStartIndex += itemsToRemove;
-            Log.Debug("Trimmed window start: {Start}-{End} of {Total}",
-                _windowStartIndex, _windowEndIndex, _allFilteredGames.Count);
-        }
-        finally
-        {
-            _isLoadingMore = false;
-        }
-    }
-
-    /// <summary>
-    /// Extends the window backward (when scrolling up)
-    /// </summary>
-    private void ExtendWindowBackward()
-    {
-        if (_isLoadingMore || _windowStartIndex <= 0)
-            return;
-
-        _isLoadingMore = true;
-
-        try
-        {
-            var pageSize = _settingsVM.PageSize > 0 ? _settingsVM.PageSize : 100;
-            var itemsToLoad = Math.Min(pageSize, _windowStartIndex);
-            var newStartIndex = _windowStartIndex - itemsToLoad;
-
-            var itemsToAdd = _allFilteredGames
-                .Skip(newStartIndex)
-                .Take(itemsToLoad)
-                .ToList();
-
-            // Insert items at the beginning
-            for (int i = itemsToAdd.Count - 1; i >= 0; i--)
-            {
-                _appVm.FilteredGames.Insert(0, itemsToAdd[i]);
-            }
-
-            _windowStartIndex = newStartIndex;
-            Log.Debug("Extended window backward: {Start}-{End} of {Total}",
-                _windowStartIndex, _windowEndIndex, _allFilteredGames.Count);
-        }
-        finally
-        {
-            _isLoadingMore = false;
-        }
-    }
-
-    /// <summary>
-    /// Trims items from the end of the window (when scrolling up)
-    /// </summary>
-    private void TrimWindowEnd(int itemsToRemove)
-    {
-        if (_isLoadingMore || itemsToRemove <= 0 || _windowEndIndex - itemsToRemove <= _windowStartIndex)
-            return;
-
-        _isLoadingMore = true;
-
-        try
-        {
-            // Remove items from the end
-            for (int i = 0; i < itemsToRemove && _appVm.FilteredGames.Count > 0; i++)
-            {
-                _appVm.FilteredGames.RemoveAt(_appVm.FilteredGames.Count - 1);
-            }
-
-            _windowEndIndex -= itemsToRemove;
-            Log.Debug("Trimmed window end: {Start}-{End} of {Total}",
-                _windowStartIndex, _windowEndIndex, _allFilteredGames.Count);
-        }
-        finally
-        {
-            _isLoadingMore = false;
-        }
-    }
-
-    /// <summary>
-    /// Handles scroll events for windowed virtualization
-    /// </summary>
-    private void OnScrollViewerViewChanged(object sender, ScrollViewerViewChangedEventArgs e)
-    {
-        if (_isLoadingMore || sender is not ScrollViewer scrollViewer)
-            return;
-
-        var scrollableHeight = scrollViewer.ScrollableHeight;
-        var verticalOffset = scrollViewer.VerticalOffset;
-        var viewportHeight = scrollViewer.ViewportHeight;
-
-        if (scrollableHeight <= 0)
-            return;
-
-        var scrollingDown = verticalOffset > _lastScrollOffset;
-        _lastScrollOffset = verticalOffset;
-
-        var pageSize = _settingsVM.PageSize > 0 ? _settingsVM.PageSize : 100;
-
-        if (scrollingDown)
-        {
-            // Scrolling down - check if we need to load more at the bottom
-            var scrollPercentage = verticalOffset / scrollableHeight;
-            if (scrollPercentage >= 0.8 && _windowEndIndex < _allFilteredGames.Count)
-            {
-                ExtendWindowForward();
-
-                // After loading more at the bottom, check if we should unload from the top
-                // Keep at least WindowBuffer items above the current scroll position
-                var currentWindowSize = _windowEndIndex - _windowStartIndex;
-                var maxWindowSize = pageSize * 3;  // Keep up to 3 pages in memory
-
-                if (currentWindowSize > maxWindowSize)
-                {
-                    // Estimate how many items are above the viewport
-                    var estimatedItemHeight = scrollableHeight / Math.Max(1, _appVm.FilteredGames.Count);
-                    var itemsAboveViewport = estimatedItemHeight > 0
-                        ? (int)(verticalOffset / estimatedItemHeight)
-                        : 0;
-
-                    // Only trim if we have enough items above the visible area
-                    var safeToTrim = Math.Max(0, itemsAboveViewport - WindowBuffer);
-                    if (safeToTrim > 0)
-                    {
-                        TrimWindowStart(Math.Min(safeToTrim, pageSize));
-
-                        // Adjust scroll position to compensate for removed items
-                        var removedHeight = safeToTrim * estimatedItemHeight;
-                        scrollViewer.ChangeView(null, Math.Max(0, verticalOffset - removedHeight), null, true);
-                    }
-                }
-            }
-        }
-        else
-        {
-            // Scrolling up - check if we need to load more at the top
-            var scrollFromTop = verticalOffset / viewportHeight;
-            if (scrollFromTop <= 0.2 && _windowStartIndex > 0)
-            {
-                ExtendWindowBackward();
-
-                // After loading at the top, check if we should unload from the bottom
-                var currentWindowSize = _windowEndIndex - _windowStartIndex;
-                var maxWindowSize = pageSize * 3;
-
-                if (currentWindowSize > maxWindowSize)
-                {
-                    // Estimate how many items are below the viewport
-                    var estimatedItemHeight = scrollableHeight / Math.Max(1, _appVm.FilteredGames.Count);
-                    var itemsBelowViewport = estimatedItemHeight > 0
-                        ? (int)((scrollableHeight - verticalOffset - viewportHeight) / estimatedItemHeight)
-                        : 0;
-
-                    // Only trim if we have enough items below the visible area
-                    var safeToTrim = Math.Max(0, itemsBelowViewport - WindowBuffer);
-                    if (safeToTrim > 0)
-                    {
-                        TrimWindowEnd(Math.Min(safeToTrim, pageSize));
-                    }
-                }
-            }
-        }
-    }
+    // Windowing removed — ItemsRepeater handles virtualization natively
 
     /// <summary>
     /// Open Game Page
     /// </summary>
-    private void OpenGame(object sender, RoutedEventArgs e)
+    private void OpenGame(object sender, TappedRoutedEventArgs e)
     {
-        Game game = (Game)((Button)sender).DataContext;
+        Game game = (Game)((FrameworkElement)sender).DataContext;
         _appVm.SelectedGame = game;
         App.Frame?.Navigate(typeof(GamePage));
     }
@@ -697,6 +489,14 @@ public partial class Library : Page
         gameRepeater.Layout = _appVm.SingleColumnLayout ? _listLayout : _gridLayout;
     }
 
+
+    private void OnScrollViewerPointerWheelChanged(object sender, PointerRoutedEventArgs e)
+    {
+        var sv = (ScrollViewer)sender;
+        var delta = e.GetCurrentPoint(sv).Properties.MouseWheelDelta;
+        sv.ChangeView(null, sv.VerticalOffset - delta, null, true);
+        e.Handled = true;
+    }
 
     #region Async Commands
     private AsyncCommand? _refreshCommand;

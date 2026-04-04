@@ -248,7 +248,8 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 Platform = Platforms.Xbox,
                 PlaytimeMinutes = 0,
                 Achievements = achievements.ToObservableCollection(),
-                LastUpdated = DateTime.UtcNow
+                LastUpdated = DateTime.UtcNow,
+                LastPlayed = title.Details?.LastTimePlayed
             };
             
             Log.Information("RefreshTitle completed successfully for {TitleName}", title.Name);
@@ -640,15 +641,16 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 PlaytimeMinutes = 0,
                 Identifier = $"xbox-{title.TitleId}",
                 Achievements = achievements.ToObservableCollection(),
-                LastUpdated = DateTime.UtcNow
+                LastUpdated = DateTime.UtcNow,
+                LastPlayed = title.Details?.LastTimePlayed
             };
-            
+
             result.Add(game);
 
             _appVm.LoadingGamesSummary = $"Scanned {title.Name} ({index + 1}/{gamesWithAchievements.Count})";
             Log.Verbose("Updated loading summary: {Summary}", _appVm.LoadingGamesSummary);
         }
-        
+
         Log.Information("ConvertToAluaAsync completed. Converted {Count} games", result.Count);
         return result.ToArray();
     }
@@ -719,9 +721,10 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 PlaytimeMinutes = 0,
                 Identifier = $"xbox-{title.TitleId}",
                 Achievements = achievements.ToObservableCollection(),
-                LastUpdated = DateTime.UtcNow
+                LastUpdated = DateTime.UtcNow,
+                LastPlayed = title.TitleHistory?.LastTimePlayed
             };
-            
+
             result.Add(game);
 
             _appVm.LoadingGamesSummary = $"Scanned {title.Name} ({index + 1}/{gamesWithAchievements.Count})";

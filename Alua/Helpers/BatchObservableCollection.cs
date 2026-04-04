@@ -44,6 +44,39 @@ public class BatchObservableCollection<T> : ObservableCollection<T>
     }
 
     /// <summary>
+    /// Inserts multiple items at the specified index with a single Reset notification.
+    /// </summary>
+    public void InsertRange(int index, IEnumerable<T> items)
+    {
+        _suppressNotifications = true;
+
+        var i = index;
+        foreach (var item in items)
+        {
+            Items.Insert(i++, item);
+        }
+
+        _suppressNotifications = false;
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
+    /// Removes a range of items starting at the specified index with a single Reset notification.
+    /// </summary>
+    public void RemoveRange(int index, int count)
+    {
+        _suppressNotifications = true;
+
+        for (var i = 0; i < count && Items.Count > index; i++)
+        {
+            Items.RemoveAt(index);
+        }
+
+        _suppressNotifications = false;
+        OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+    }
+
+    /// <summary>
     /// Clears all items and adds new items with a single Reset notification.
     /// </summary>
     public void Reset(IEnumerable<T> items)

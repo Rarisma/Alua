@@ -10,7 +10,7 @@
         <ApplicationId>net.rarisma.gravity</ApplicationId>
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <AssemblyVersion>0.5.0</AssemblyVersion>
+        <AssemblyVersion>0.6.0</AssemblyVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <!-- Package Publisher -->
         <ApplicationPublisher>Rarisma</ApplicationPublisher>
@@ -33,17 +33,31 @@
           https://aka.platform.uno/singleproject-features
         -->
         <UnoFeatures>
-            Lottie;
             Hosting;
             Toolkit;
             WebView;
             Logging;
             LoggingSerilog;
             Mvvm;
-            Svg;
             Configuration;
             SkiaRenderer;
         </UnoFeatures>
+    </PropertyGroup>
+
+    <!-- Android Release: AOT, trimming, LLVM for faster startup and smaller APK -->
+    <PropertyGroup Condition="'$(Configuration)' == 'Release' AND $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <AndroidEnableMarshalMethods>true</AndroidEnableMarshalMethods>
+        <EnableLLVM>true</EnableLLVM>
+        <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+        <PublishTrimmed>true</PublishTrimmed>
+        <TrimMode>full</TrimMode>
+        <RunAOTCompilation>true</RunAOTCompilation>
+    </PropertyGroup>
+
+    <!-- Desktop Release: trimming for smaller binary and faster startup -->
+    <PropertyGroup Condition="'$(Configuration)' == 'Release' AND $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'desktop'">
+        <PublishTrimmed>true</PublishTrimmed>
+        <TrimMode>full</TrimMode>
     </PropertyGroup>
     <ItemGroup>
       <PackageReference Include="AutoMapper" />
@@ -100,10 +114,5 @@
       <UnoSplashScreen Include="Assets\Splash\icon.png" />
     </ItemGroup>
 
-    <ItemGroup>
-      <Reference Include="Uno.UI">
-        <HintPath>bin\Debug\net9.0-desktop\Uno.UI.dll</HintPath>
-      </Reference>
-    </ItemGroup>
 
 </Project>

@@ -1,6 +1,6 @@
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
-
+//Yo, you are now tuned into Jeleel Live!
 namespace Alua.UI;
 
 /// <summary>

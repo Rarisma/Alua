@@ -56,6 +56,10 @@ public class Achievement
     [JsonInclude, JsonPropertyName("RarityPercentage")]
     public double? RarityPercentage { get; set; }
 
+    [JsonIgnore]
+    public Uri? IconUri => string.IsNullOrWhiteSpace(Icon) ? null
+        : Uri.TryCreate(Icon, UriKind.Absolute, out var uri) ? uri : null;
+
     /// <summary>
     /// Progress of achievement (if applicable)
     /// </summary>

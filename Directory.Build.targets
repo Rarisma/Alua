@@ -1,6 +1,6 @@
 ﻿<Project>
   <!-- Fix for Uno.Fonts.Fluent font files not being found in macOS app bundle -->
-  <Target Name="CopyUnoFontsToMacOSBundle" AfterTargets="Publish" Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$(TargetFramework)' == 'net9.0-desktop'">
+  <Target Name="CopyUnoFontsToMacOSBundle" AfterTargets="Publish" Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$(TargetFramework)' == 'net10.0-desktop'">
     <ItemGroup>
       <UnoFluentFonts Include="$(PublishDir)Uno.Fonts.Fluent/**/*.ttf" />
     </ItemGroup>

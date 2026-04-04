@@ -12,7 +12,7 @@ public sealed class CachedImage : Image
 {
     private const string CachePrefix = "imgcache_";
     private const long MaxCacheSizeBytes = 1L * 1024 * 1024 * 1024; // 1GB
-    private const int MemoryCacheLimit = 500;
+    private static readonly int MemoryCacheLimit = OperatingSystem.IsAndroid() ? 200 : 500;
     private const int DefaultDecodeSize = 128;
 
     #region Dependency Properties
@@ -78,7 +78,8 @@ public sealed class CachedImage : Image
 
     private static readonly ConcurrentDictionary<string, Task<string?>> _activeDownloads = new();
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
-    private static readonly SemaphoreSlim _downloadThrottle = new(4); // Max concurrent downloads
+    private static readonly SemaphoreSlim _downloadThrottle = new(OperatingSystem.IsAndroid() ? 2 : 4);
+    private static int _cacheEnforcementScheduled;
 
     #endregion
 
@@ -292,8 +293,16 @@ public sealed class CachedImage : Image
             // Atomic move
             File.Move(tempPath, localPath, overwrite: true);
 
-            // Evict old files if over limit (fire and forget)
-            _ = Task.Run(() => EnforceCacheLimitAsync(ApplicationData.Current.LocalFolder.Path), CancellationToken.None);
+            // Debounced cache limit enforcement — runs at most once per 5 seconds
+            if (Interlocked.CompareExchange(ref _cacheEnforcementScheduled, 1, 0) == 0)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(5000);
+                    try { await EnforceCacheLimitAsync(ApplicationData.Current.LocalFolder.Path); }
+                    finally { Interlocked.Exchange(ref _cacheEnforcementScheduled, 0); }
+                });
+            }
 
             return localPath;
         }
@@ -306,10 +315,15 @@ public sealed class CachedImage : Image
 
     private static void TouchFileAsync(string path)
     {
-        // Fire and forget - don't block on this
         Task.Run(() =>
         {
-            try { File.SetLastAccessTimeUtc(path, DateTime.UtcNow); }
+            try
+            {
+                // Only update if access time is older than 1 hour to reduce syscalls
+                var info = new FileInfo(path);
+                if ((DateTime.UtcNow - info.LastAccessTimeUtc).TotalHours >= 1)
+                    File.SetLastAccessTimeUtc(path, DateTime.UtcNow);
+            }
             catch { }
         });
     }
@@ -341,23 +355,13 @@ public sealed class CachedImage : Image
     }
 
     /// <summary>
-    /// Heuristic to detect provider icons (Steam, GOG, Epic, etc.)
-    /// These are cached permanently in memory since there are only a few.
+    /// Detects provider icons by scheme. All provider icons are local ms-appx assets;
+    /// all game icons use https. This avoids false positives from Steam game icon URLs
+    /// that contain "steam" in the path, which previously caused them to be permanently cached.
     /// </summary>
     private static bool IsProviderIcon(Uri uri)
     {
-        var path = uri.AbsolutePath.ToLowerInvariant();
-        return path.Contains("provider") ||
-               path.Contains("steam") ||
-               path.Contains("gog") ||
-               path.Contains("epic") ||
-               path.Contains("xbox") ||
-               path.Contains("playstation") ||
-               path.Contains("origin") ||
-               path.Contains("ubisoft") ||
-               path.Contains("ea") ||
-               path.Contains("battlenet") ||
-               path.Contains("itch");
+        return uri.Scheme == "ms-appx";
     }
 
     private static string GetExtension(Uri uri)
@@ -402,6 +406,11 @@ public sealed class CachedImage : Image
         _memoryCache.Compact(1.0);
         // Keep provider cache - it's small and constantly needed
     }
+
+    /// <summary>
+    /// Call from Android OnTrimMemory to release cached images under memory pressure.
+    /// </summary>
+    public static void OnLowMemory() => ClearMemoryCache();
 
     /// <summary>
     /// Preloads images into cache. Useful for prefetching visible items.

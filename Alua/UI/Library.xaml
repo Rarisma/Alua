@@ -15,60 +15,53 @@
     <Page.Resources>
         <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
-            <!--
-            Button acts as the clickable card container.
-            Using ThemeResources for background/border for theme adaptability.
-            Padding provides internal spacing.
-            HorizontalContentAlignment=Stretch ensures the Grid inside fills the Button.
-            -->
-            <Button Click="OpenGame" HorizontalAlignment="Stretch"
-                    HorizontalContentAlignment="Stretch" Padding="12" BorderThickness="1"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                    CornerRadius="4"
-                    MinHeight="120" MinWidth="300">
-                <Grid HorizontalAlignment="Stretch">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <!-- Left: Game Icon + Provider Icon -->
-                    <StackPanel Grid.Column="0" VerticalAlignment="Top"
-                                HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
-                        <Border Width="64" Height="64"
-                                CornerRadius="4"
-                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                            <controls:CachedImage UriSource="{x:Bind IconUri}"
-                                                  DecodePixelWidth="64"
-                                                  DecodePixelHeight="64"
-                                                  Stretch="Uniform"/>
-                        </Border>
-                        <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
-                                               Height="20"
-                                               Stretch="Uniform"
-                                               HorizontalAlignment="Center"/>
-                    </StackPanel>
-                    <!-- Right: Content -->
-                    <StackPanel Grid.Column="1" Spacing="4">
-                        <TextBlock Text="{x:Bind Name}"
-                                   TextWrapping="Wrap"/>
-                        <TextBlock Text="{x:Bind StatusText}"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <TextBlock Text="{x:Bind PlaytimeText}"
-                                   Style="{StaticResource CaptionTextBlockStyle}"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   Visibility="{x:Bind HasPlaytime,
-                                   Converter={StaticResource BoolToVisibility}}"/>
-                        <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
-                                     Value="{x:Bind UnlockedCount}"
-                                     HorizontalAlignment="Stretch"
-                                     Margin="0,4,0,0"
-                                     Visibility="{x:Bind HasAchievements,
-                                     Converter={StaticResource BoolToVisibility}}"/>
-                    </StackPanel>
-                </Grid>
-            </Button>
+            <Grid Tapped="OpenGame" HorizontalAlignment="Stretch"
+                  Padding="12" BorderThickness="1"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  CornerRadius="4"
+                  MinHeight="120" MinWidth="300">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <!-- Left: Game Icon + Provider Icon -->
+                <StackPanel Grid.Column="0" VerticalAlignment="Top"
+                            HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
+                    <Border Width="64" Height="64"
+                            CornerRadius="4"
+                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                        <controls:CachedImage UriSource="{x:Bind IconUri}"
+                                              DecodePixelWidth="64"
+                                              DecodePixelHeight="64"
+                                              Stretch="Uniform"/>
+                    </Border>
+                    <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
+                                           Height="20"
+                                           Stretch="Uniform"
+                                           HorizontalAlignment="Center"/>
+                </StackPanel>
+                <!-- Right: Content -->
+                <StackPanel Grid.Column="1" Spacing="4">
+                    <TextBlock Text="{x:Bind Name}"
+                               TextWrapping="Wrap"
+                               MaxLines="2" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{x:Bind StatusText}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="{x:Bind PlaytimeText}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="{x:Bind HasPlaytime,
+                               Converter={StaticResource BoolToVisibility}}"/>
+                    <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
+                                 Value="{x:Bind UnlockedCount}"
+                                 HorizontalAlignment="Stretch"
+                                 Margin="0,4,0,0"
+                                 Visibility="{x:Bind HasAchievements,
+                                 Converter={StaticResource BoolToVisibility}}"/>
+                </StackPanel>
+            </Grid>
         </DataTemplate>
     </Page.Resources>
 
@@ -108,8 +101,7 @@
                 <ScrollViewer x:Name="gamesScrollViewer"
                               Grid.Row="1"
                               HorizontalScrollBarVisibility="Disabled"
-                              HorizontalScrollMode="Disabled"
-                              ViewChanged="OnScrollViewerViewChanged">
+                              HorizontalScrollMode="Disabled">
                     <ItemsRepeater Name="gameRepeater"
                                    ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    ItemTemplate="{StaticResource GameTemplate}"

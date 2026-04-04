@@ -1,5 +1,7 @@
 using Alua;
+using Alua.UI.Controls;
 using Android.App;
+using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Views;
@@ -18,6 +20,14 @@ public class MainActivity : Microsoft.UI.Xaml.ApplicationActivity
         global::AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
 
         base.OnCreate(savedInstanceState);
+    }
+
+    public override void OnTrimMemory(TrimMemory level)
+    {
+        base.OnTrimMemory(level);
+
+        if (level >= TrimMemory.RunningModerate)
+            CachedImage.OnLowMemory();
     }
 
     public override void OnBackPressed()
