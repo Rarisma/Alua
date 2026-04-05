@@ -1,21 +1,46 @@
 name: Build & Release
 
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "**/*.{png,jpg,jpeg,svg,gif}"
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "**/*.{png,jpg,jpeg,svg,gif}"
   workflow_dispatch:
     inputs:
       version:
-        description: 'Tag / version (e.g. v1.2.3)'
+        description: "Tag / version (e.g. v1.2.3)"
         required: true
         type: string
+      skip_release:
+        description: "Skip creating a release (build only)"
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
+concurrency:
+  group: alua-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  # ---------- BUILD ----------
   build:
     runs-on: ${{ matrix.os }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag_version: ${{ steps.version.outputs.tag_version }}
     env:
+      DOTNET_NOLOGO: true
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
       DOTNET_RESTORE_LOCKED_MODE: false
     strategy:
       fail-fast: false
@@ -23,32 +48,32 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            fw: net9.0-desktop
+            fw: net10.0-desktop
             art: win-x64
             binary_name: Alua.exe
           - os: macos-latest
             rid: osx-arm64
-            fw: net9.0-desktop
+            fw: net10.0-desktop
             art: osx-arm64
             binary_name: Alua.app
           - os: ubuntu-latest
             rid: linux-x64
-            fw: net9.0-desktop
+            fw: net10.0-desktop
             art: linux-x64
             binary_name: Alua
           - os: ubuntu-latest
             rid: android-arm64
-            fw: net9.0-android
+            fw: net10.0-android
             art: android-arm64
             binary_name: net.rarisma.gravity-Signed.apk
 
     steps:
       # 1 ─ Checkout repositories
-      - name: Checkout AluaAchievements
+      - name: Checkout Alua
         uses: actions/checkout@v4
         with:
-          repository: Rarisma/AluaAchievements
-          path: AluaAchievements
+          path: Alua
+          fetch-depth: 1
 
       - name: Checkout SACHYA
         uses: actions/checkout@v4
@@ -56,20 +81,23 @@ jobs:
           repository: rarisma/sachya
           path: SACHYA
 
-      - name: Checkout Alua
-        uses: actions/checkout@v4
-        with:
-          path: Alua
-
       # 2 ─ Install the .NET SDK
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '9.0.x'
+          dotnet-version: "10.0.x"
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
 
       # 3 ─ Install required workloads
       - name: Install .NET workloads
         run: dotnet workload install android
+
+      - name: Install Uno macOS workload
+        if: matrix.os == 'macos-latest'
+        run: dotnet workload install macos
 
       # 4 ─ Update appsettings.json with content from secret
       - name: Update appsettings.json with content from secret
@@ -77,25 +105,30 @@ jobs:
         run: |
           echo '${{ secrets.ENVCONTENT }}' > Alua/Alua/appsettings.json
 
-      # 5 ─ Extract version from input
-      - name: Extract version number
-        id: extract_version
-        run: echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+      # 5 ─ Generate version
+      - name: Generate version
+        id: version
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            if [ "${{ github.event.inputs.skip_release }}" = "false" ]; then
+              v="${{ github.event.inputs.version }}"
+              v="${v#v}"
+            else
+              v="0.0.${{ github.run_number }}"
+            fi
+          else
+            v="0.0.${{ github.run_number }}"
+          fi
+          echo "version=$v" >> $GITHUB_OUTPUT
+          echo "tag_version=$v" >> $GITHUB_OUTPUT
+          echo "Generated version: $v"
 
       # 6 ─ Restore dependencies
       - name: Restore dependencies
         run: dotnet restore Alua/Alua.sln
 
-      # 7 ─ Clean publish directory
-      - name: Clean publish directory (macOS/Linux)
-        if: matrix.os != 'windows-latest'
-        run: rm -rf publish
-
-      - name: Clean publish directory (Windows)
-        if: matrix.os == 'windows-latest'
-        run: Remove-Item -Path publish -Recurse -Force -ErrorAction SilentlyContinue
-
-      # 8 ─ Build and publish
+      # 7 ─ Build and publish
       - name: Publish (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -119,7 +152,7 @@ jobs:
             -o publish
 
       - name: Publish (Linux)
-        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
+        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net10.0-desktop'
         run: |
           dotnet publish Alua/Alua/Alua.csproj \
             -c Release \
@@ -130,7 +163,7 @@ jobs:
             -o publish
 
       - name: Publish (Android)
-        if: matrix.fw == 'net9.0-android'
+        if: matrix.fw == 'net10.0-android'
         run: |
           dotnet publish Alua/Alua/Alua.csproj \
             -c Release \
@@ -138,53 +171,16 @@ jobs:
             -r ${{ matrix.rid }} \
             -o publish
 
-      # Apply font fix for macOS
-      - name: Apply font fix for macOS
+      # 8 ─ Create macOS PKG
+      - name: Create macOS PKG
         if: matrix.os == 'macos-latest'
         run: |
-          # Create the complete App bundle structure
-          mkdir -p publish/Alua.app/Contents/MacOS
-          mkdir -p publish/Alua.app/Contents/Resources
-
-          # Copy all application files to MacOS directory
-          cp -R publish/* publish/Alua.app/Contents/MacOS/ 2>/dev/null || true
-
-          # Copy resources (fonts, etc.) into the bundle Resources directory
-          if [ -d publish/Resources ]; then
-            cp -R publish/Resources/* publish/Alua.app/Contents/Resources/
-          fi
-
-          # Ensure Uno.Fonts.Fluent fonts are copied to the expected location
-          if [ -d publish/Uno.Fonts.Fluent/Fonts ]; then
-            mkdir -p publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts
-            cp publish/Uno.Fonts.Fluent/Fonts/* publish/Alua.app/Contents/MacOS/Uno.Fonts.Fluent/Fonts/
-          fi
-
-          # Remove the app bundle from itself (avoid recursion)
-          rm -rf publish/Alua.app/Contents/MacOS/Alua.app
-
-          # Verify the font file exists where the app expects it
-          echo "Font file verification:"
-          find publish/Alua.app/Contents/MacOS -name "*uno-fluentui-assets.ttf*" -ls
-
-          # Verify the structure was created
-          echo "App bundle structure:"
-          ls -la publish/Alua.app/Contents/
-          echo "MacOS contents:"
-          ls -la publish/Alua.app/Contents/MacOS/ | head -10
-
-      # Create custom PKG with font fix
-      - name: Create macOS PKG with font fix
-        if: matrix.os == 'macos-latest'
-        run: |
-          # Create package build structure
           mkdir -p pkg-build/Applications
           cp -R publish/Alua.app pkg-build/Applications/
 
-          # Create the PKG installer
           pkgbuild --root pkg-build \
             --identifier net.rarisma.gravity \
-            --version ${{ steps.extract_version.outputs.version }} \
+            --version ${{ steps.version.outputs.version }} \
             --install-location / \
             alua-${{ matrix.art }}.pkg
 
@@ -196,13 +192,13 @@ jobs:
           Compress-Archive -Path * -DestinationPath ../alua-${{ matrix.art }}.zip
 
       - name: Package Linux artifact
-        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
+        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net10.0-desktop'
         run: |
           cd publish
           tar -czf ../alua-${{ matrix.art }}.tar.gz *
 
       - name: Package Android artifact
-        if: matrix.fw == 'net9.0-android'
+        if: matrix.fw == 'net10.0-android'
         run: |
           cd publish
           cp *.apk ../alua-${{ matrix.art }}.apk
@@ -214,6 +210,7 @@ jobs:
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.zip
+          if-no-files-found: error
 
       - name: Upload build artifacts (macOS)
         if: matrix.os == 'macos-latest'
@@ -221,24 +218,28 @@ jobs:
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.pkg
+          if-no-files-found: error
 
       - name: Upload build artifacts (Linux)
-        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net9.0-desktop'
+        if: matrix.os == 'ubuntu-latest' && matrix.fw == 'net10.0-desktop'
         uses: actions/upload-artifact@v4
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.tar.gz
+          if-no-files-found: error
 
       - name: Upload build artifacts (Android)
-        if: matrix.fw == 'net9.0-android'
+        if: matrix.fw == 'net10.0-android'
         uses: actions/upload-artifact@v4
         with:
           name: alua-${{ matrix.art }}
           path: alua-${{ matrix.art }}.apk
+          if-no-files-found: error
 
   # ---------- RELEASE ----------
   release:
     needs: build
+    if: github.event_name == 'workflow_dispatch' && !inputs.skip_release
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -249,8 +250,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.inputs.version }}
-          name: Release ${{ github.event.inputs.version }}
+          tag_name: ${{ needs.build.outputs.tag_version }}
+          name: Release ${{ needs.build.outputs.tag_version }}
           files: |
             alua-win-x64/alua-win-x64.zip
             alua-osx-arm64/alua-osx-arm64.pkg
