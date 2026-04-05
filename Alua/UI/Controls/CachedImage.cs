@@ -171,29 +171,35 @@ public sealed class CachedImage : Image
 
         ct.ThrowIfCancellationRequested();
 
-        // 3. Get or download file
+        // 3. For ms-appx: URIs (local app resources), load directly via BitmapImage
+        if (IsProviderIcon(uri))
+        {
+            var bitmap = new BitmapImage(uri)
+            {
+                DecodePixelWidth = decodeWidth,
+                DecodePixelHeight = decodeHeight,
+                DecodePixelType = DecodePixelType.Logical
+            };
+            _providerCache.TryAdd(cacheKey, bitmap);
+            return bitmap;
+        }
+
+        // 4. Get or download file
         var localPath = await GetOrDownloadAsync(uri, cacheKey, ct);
         if (localPath is null)
             return null;
 
         ct.ThrowIfCancellationRequested();
 
-        // 4. Load bitmap from stream with decode sizing
-        var bitmap = await LoadBitmapFromFileAsync(localPath, decodeWidth, decodeHeight, ct);
-        if (bitmap is null)
+        // 5. Load bitmap from stream with decode sizing
+        var bitmap2 = await LoadBitmapFromFileAsync(localPath, decodeWidth, decodeHeight, ct);
+        if (bitmap2 is null)
             return null;
 
-        // 5. Cache appropriately
-        if (IsProviderIcon(uri))
-        {
-            _providerCache.TryAdd(cacheKey, bitmap);
-        }
-        else
-        {
-            _memoryCache.Set(cacheKey, bitmap, new MemoryCacheEntryOptions { Size = 1 });
-        }
+        // 6. Cache in memory
+        _memoryCache.Set(cacheKey, bitmap2, new MemoryCacheEntryOptions { Size = 1 });
 
-        return bitmap;
+        return bitmap2;
     }
 
     private static async Task<BitmapImage?> LoadBitmapFromFileAsync(

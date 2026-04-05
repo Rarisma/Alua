@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
@@ -7,11 +8,15 @@ using Sachya.Clients;
 using Sachya.Definitions.Steam;
 using Serilog;
 using Game = Alua.Models.Game;
-// We never lost control 
+// We never lost control
 namespace Alua.Services.Providers;
 
 public sealed partial class SteamService : IAchievementProvider<SteamService>
 {
+    private static readonly TimeSpan BlacklistCacheTtl = TimeSpan.FromDays(7);
+    private static HashSet<uint>? _nonGameBlacklist;
+    private static readonly SemaphoreSlim _blacklistLock = new(1, 1);
+
     private SteamWebApiClient _apiClient = null!;
     private ViewModels.AppVM _appVm = null!;
     private ViewModels.SettingsVM _settingsVm = null!;
@@ -197,10 +202,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
             var data = (await _apiClient.GetOwnedGamesAsync(steamid: _steamId, includeAppInfo: true,
                 includePlayedFreeGames: true, [appId])).response.games[0];
-            string iconHash = data.img_icon_url;
-            string iconUrl  = string.IsNullOrEmpty(iconHash)
-                ? string.Empty
-                : $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{iconHash}.jpg";
+            string iconUrl = $"https://cdn.akamai.steamstatic.com/steam/apps/{appId}/header.jpg";
 
             var game = new Game
             {
@@ -308,21 +310,116 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     }
 
     /// <summary>
-    /// Bridges sachya data to alua. Parallelized with rate limiting.
+    /// Gets or refreshes the non-game blacklist. Uses a JSON cache file with a 7-day TTL.
+    /// The blacklist is derived from IStoreService/GetAppList: all app IDs minus game-only app IDs.
     /// </summary>
-    /// <param name="src">Source games from Steam API</param>
-    /// <param name="cancellationToken">Cancellation token</param>
-    /// <returns>Converted games array</returns>
+    private async Task<HashSet<uint>> GetNonGameBlacklistAsync()
+    {
+        if (_nonGameBlacklist != null)
+            return _nonGameBlacklist;
+
+        await _blacklistLock.WaitAsync();
+        try
+        {
+            if (_nonGameBlacklist != null)
+                return _nonGameBlacklist;
+
+            var cachePath = Path.Combine(
+                Windows.Storage.ApplicationData.Current.LocalFolder.Path,
+                "steam_nongame_blacklist.json");
+
+            // Try loading from cache
+            if (File.Exists(cachePath))
+            {
+                try
+                {
+                    var cacheJson = await File.ReadAllTextAsync(cachePath);
+                    using var doc = JsonDocument.Parse(cacheJson);
+                    var generated = doc.RootElement.GetProperty("generated").GetDateTimeOffset();
+
+                    if (DateTimeOffset.UtcNow - generated < BlacklistCacheTtl)
+                    {
+                        var cached = new HashSet<uint>();
+                        foreach (var item in doc.RootElement.GetProperty("appids").EnumerateArray())
+                            cached.Add(item.GetUInt32());
+                        _nonGameBlacklist = cached;
+                        Log.Information("Loaded Steam non-game blacklist from cache ({Count} entries)", cached.Count);
+                        return _nonGameBlacklist;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Failed to read blacklist cache, will regenerate");
+                }
+            }
+
+            // Build blacklist: all apps minus game-only apps
+            Log.Information("Building Steam non-game blacklist from IStoreService/GetAppList...");
+            var allTask = _apiClient.GetAppListAsync(
+                includeGames: true, includeDlc: true, includeSoftware: true,
+                includeVideos: true, includeHardware: true);
+            var gamesTask = _apiClient.GetAppListAsync(
+                includeGames: true, includeDlc: false, includeSoftware: false,
+                includeVideos: false, includeHardware: false);
+
+            await Task.WhenAll(allTask, gamesTask);
+
+            var allIds = allTask.Result;
+            var gameIds = new HashSet<uint>(gamesTask.Result);
+            var blacklist = new HashSet<uint>(allIds.Where(id => !gameIds.Contains(id)));
+
+            Log.Information("Built non-game blacklist: {AllCount} total apps, {GameCount} games, {BlacklistCount} blacklisted",
+                allIds.Count, gameIds.Count, blacklist.Count);
+
+            // Write to cache
+            try
+            {
+                using var stream = File.Create(cachePath);
+                using var writer = new Utf8JsonWriter(stream);
+                writer.WriteStartObject();
+                writer.WriteString("generated", DateTimeOffset.UtcNow);
+                writer.WriteStartArray("appids");
+                foreach (var id in blacklist)
+                    writer.WriteNumberValue(id);
+                writer.WriteEndArray();
+                writer.WriteEndObject();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to write blacklist cache");
+            }
+
+            _nonGameBlacklist = blacklist;
+            return _nonGameBlacklist;
+        }
+        finally
+        {
+            _blacklistLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// Bridges sachya data to alua. Parallelized with rate limiting.
+    /// Filters out non-game apps (software, DLC, etc.) using the blacklist.
+    /// </summary>
     private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src, CancellationToken cancellationToken = default)
     {
         if (src.Count == 0) return [];
 
+        // Load blacklist before processing so it's ready for filtering
+        var blacklist = await GetNonGameBlacklistAsync();
+        var filtered = src.Where(g => !blacklist.Contains((uint)g.appid)).ToList();
+        var skipped = src.Count - filtered.Count;
+        if (skipped > 0)
+            Log.Information("Filtered out {Count} non-game apps from Steam library", skipped);
+
+        if (filtered.Count == 0) return [];
+
         // Use RateLimitedExecutor for parallel processing with concurrency limit of 5
         using var executor = new RateLimitedExecutor(5, "SteamConvert");
-        var totalCount = src.Count;
 
         var games = await executor.ExecuteAllAsync(
-            src,
+            filtered,
             async (g, ct) =>
             {
                 ct.ThrowIfCancellationRequested();
@@ -330,7 +427,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 var game = new Game
                 {
                     Name            = g.name,
-                    Icon            = $"https://media.steampowered.com/steamcommunity/public/images/apps/{g.appid}/{g.img_icon_url}.jpg",
+                    Icon            = $"https://cdn.akamai.steamstatic.com/steam/apps/{g.appid}/header.jpg",
                     Author          = string.Empty,
                     Platform        = Platforms.Steam,
                     PlaytimeMinutes = g.playtime_forever,

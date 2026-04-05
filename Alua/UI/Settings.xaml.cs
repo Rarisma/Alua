@@ -69,12 +69,8 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
             {
                 // Store the auth data
                 _settingsVM.MicrosoftAuthData = await _msAuthService.SerializeAuthDataAsync();
-                _settingsVM.XboxGamertag = result.Account?.Username?.Split('@')[0]; // Extract gamertag
                 IsXboxAuthenticated = true;
-                
-                await _settingsVM.Save();
-                Log.Information("Xbox authentication successful for {Gamertag}", _settingsVM.XboxGamertag);
-                
+
                 // Initialize Xbox provider immediately with the current access token
                 try
                 {
@@ -85,8 +81,13 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
                         var providerConfigured = await appVm.ConfigureXboxProviderWithToken(result.AccessToken, _msAuthService);
                         if (providerConfigured)
                         {
-                            Log.Information("Xbox provider successfully initialized");
-                            
+                            // Get the real gamertag from the Xbox service
+                            var xboxService = appVm.GetProvider<XboxService>();
+                            _settingsVM.XboxGamertag = xboxService?.Gamertag
+                                ?? result.Account?.Username?.Split('@')[0];
+
+                            Log.Information("Xbox provider initialized. Gamertag: {Gamertag}", _settingsVM.XboxGamertag);
+
                             // Show success message
                             var dialog = new ContentDialog
                             {
@@ -99,14 +100,19 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
                         }
                         else
                         {
-                            Log.Warning("Xbox provider initialization failed");
+                            _settingsVM.XboxGamertag = result.Account?.Username?.Split('@')[0];
+                            Log.Warning("Xbox provider initialization failed, using email fallback for gamertag");
                         }
                     }
                 }
                 catch (Exception providerEx)
                 {
                     Log.Error(providerEx, "Failed to initialize Xbox provider after authentication");
+                    _settingsVM.XboxGamertag = result.Account?.Username?.Split('@')[0];
                 }
+
+                await _settingsVM.Save();
+                Log.Information("Xbox authentication successful for {Gamertag}", _settingsVM.XboxGamertag);
             }
             else
             {

@@ -410,6 +410,13 @@ public partial class AppVM : ObservableRecipient
                             }
 
                             AddProvider(xbox);
+
+                            // Update gamertag from Xbox service if available
+                            if (!string.IsNullOrEmpty(xbox.Gamertag))
+                            {
+                                svm.XboxGamertag = xbox.Gamertag;
+                            }
+
                             Log.Information("Successfully configured Xbox Live achievements with gamertag: {Gamertag}", svm.XboxGamertag);
                         }
                         catch (Exception ex)

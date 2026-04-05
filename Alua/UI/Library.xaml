@@ -14,56 +14,64 @@
 
     <Page.Resources>
         <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
-        <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
-            <Grid Tapped="OpenGame" HorizontalAlignment="Stretch"
-                  Padding="12" BorderThickness="1"
-                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                  CornerRadius="4"
-                  MinHeight="120" MinWidth="300">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <!-- Left: Game Icon + Provider Icon -->
-                <StackPanel Grid.Column="0" VerticalAlignment="Top"
-                            HorizontalAlignment="Center" Margin="0,0,12,0" Spacing="6">
-                    <Border Width="64" Height="64"
-                            CornerRadius="4"
-                            Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                        <controls:CachedImage UriSource="{x:Bind IconUri}"
-                                              DecodePixelWidth="64"
-                                              DecodePixelHeight="64"
-                                              Stretch="Uniform"/>
-                    </Border>
-                    <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
-                                           Height="20"
-                                           Stretch="Uniform"
-                                           HorizontalAlignment="Center"/>
-                </StackPanel>
-                <!-- Right: Content -->
-                <StackPanel Grid.Column="1" Spacing="4">
-                    <TextBlock Text="{x:Bind Name}"
-                               TextWrapping="Wrap"
-                               MaxLines="2" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{x:Bind StatusText}"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                    <TextBlock Text="{x:Bind PlaytimeText}"
-                               Style="{StaticResource CaptionTextBlockStyle}"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               Visibility="{x:Bind HasPlaytime,
-                               Converter={StaticResource BoolToVisibility}}"/>
-                    <ProgressBar Minimum="0" Maximum="{x:Bind Achievements.Count}"
-                                 Value="{x:Bind UnlockedCount}"
-                                 HorizontalAlignment="Stretch"
-                                 Margin="0,4,0,0"
-                                 Visibility="{x:Bind HasAchievements,
-                                 Converter={StaticResource BoolToVisibility}}"/>
-                </StackPanel>
-            </Grid>
-        </DataTemplate>
-    </Page.Resources>
+<DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
+    <Grid Tapped="OpenGame" HorizontalAlignment="Stretch"
+          Padding="12" BorderThickness="1"
+          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+          CornerRadius="8"
+          MinHeight="120" MinWidth="300"
+          ColumnSpacing="12" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Game icon with provider badge -->
+        <Grid HorizontalAlignment="Left" VerticalAlignment="Center">
+            <Border CornerRadius="6">
+                <controls:CachedImage UriSource="{x:Bind IconUri}" Stretch="Uniform"
+                                      MaxWidth="140" MaxHeight="80"/>
+            </Border>
+            <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
+                                  Width="16" Height="16"
+                                  Stretch="Uniform"
+                                  Opacity="0.6"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Bottom"
+                                  Margin="0,0,2,2"/>
+        </Grid>
+
+        <!-- Game info -->
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+            <TextBlock Text="{x:Bind Name}"
+                       TextWrapping="Wrap" TextAlignment="Left"
+                       MaxLines="2" TextTrimming="CharacterEllipsis"
+                       FontWeight="SemiBold"
+                       FontSize="14"/>
+            <TextBlock Text="{x:Bind StatusText}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <TextBlock Text="{x:Bind PlaytimeText}"
+                       Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Visibility="{x:Bind HasPlaytime,
+                       Converter={StaticResource BoolToVisibility}}"/>
+        </StackPanel>
+
+        <!-- Achievement progress -->
+        <ProgressBar Grid.Row="1" Grid.ColumnSpan="2"
+                     Minimum="0" Maximum="{x:Bind Achievements.Count}"
+                     Value="{x:Bind UnlockedCount}"
+                     CornerRadius="2"
+                     Visibility="{x:Bind HasAchievements,
+                     Converter={StaticResource BoolToVisibility}}"/>
+    </Grid>
+</DataTemplate>    </Page.Resources>
 
     <utu:LoadingView>
         <!-- Triggers for loading -->

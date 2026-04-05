@@ -142,20 +142,15 @@ public class Game
             {
                 return "No Achievements";
             }
-
-            if (UnlockedCount == Achievements.Count) //100%
-            {
-                return $"100% Complete ({Achievements.Count} Achievements)";
-            }
             
-            if (UnlockedCount > 0) // In progress
+            if (UnlockedCount > 0) // In progress / Started
             {
-                return $"{UnlockedCount} / {Achievements.Count} " +
-                       $"({Math.Floor((double)UnlockedCount / Achievements.Count * 100)}%)";
+                // 10% (10 / 100)
+                return $"{Math.Floor((double)UnlockedCount / Achievements.Count * 100)}% {UnlockedCount} / {Achievements.Count} ";
             }
 
             // Has achievements, but none unlocked
-            return $"Not Started ({Achievements.Count} Achievements)";
+            return $"Not played (0 / {Achievements.Count})";
         }
     }
 
@@ -169,10 +164,10 @@ public class Game
         {
             return Platform switch
             {
-                Platforms.Steam => "ms-appx:///Assets/Icons/Steam.png",
+                Platforms.Steam => "ms-appx:///Assets/Icons/steam.png",
                 Platforms.RetroAchievements => "ms-appx:///Assets/Icons/RetroAchievements.png",
                 Platforms.PlayStation => "ms-appx:///Assets/Icons/PSN.png",
-                Platforms.Xbox => "ms-appx:///Assets/Icons/Xbox.png",
+                Platforms.Xbox => "ms-appx:///Assets/Icons/xbox.png",
                 _ => "ms-appx:///Assets/Icons/UnknownProvider.png"
             };
         }

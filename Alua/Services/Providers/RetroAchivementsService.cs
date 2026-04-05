@@ -195,7 +195,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
         {
             // Get detailed user progress (including achievements) for this game.
             var progress = await _apiClient.GetGameInfoAndUserProgressAsync(_username, gameID, includeAwardMetadata: true);
-            playtimeMinutes = progress.UserTotalPlaytime ?? -1;
+            playtimeMinutes = progress.UserTotalPlaytime.HasValue ? progress.UserTotalPlaytime.Value / 60 : -1;
 
             // Get game extended data for unlock statistics in batch
             var gameExtended = await _apiClient.GetGameExtendedAsync(gameID);

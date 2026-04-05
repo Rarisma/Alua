@@ -47,11 +47,7 @@ public partial class FirstRunVM : ObservableObject
                 if (restored)
                 {
                     IsXboxAuthenticated = true;
-                    var account = await _msAuthService.GetCurrentAccountAsync();
-                    if (account != null)
-                    {
-                        XboxGamertag = account.Username?.Split('@')[0]; // Extract gamertag from email
-                    }
+                    XboxGamertag = _settingsVM.XboxGamertag;
                 }
             }
         });
@@ -75,12 +71,8 @@ public partial class FirstRunVM : ObservableObject
             {
                 // Store the auth data
                 _settingsVM.MicrosoftAuthData = await _msAuthService.SerializeAuthDataAsync();
-                _settingsVM.XboxGamertag = result.Account?.Username?.Split('@')[0]; // Extract gamertag
-                XboxGamertag = _settingsVM.XboxGamertag;
                 IsXboxAuthenticated = true;
-                
-                Log.Information("Xbox authentication successful for {Gamertag}", XboxGamertag);
-                
+
                 // Initialize Xbox provider immediately with the current access token
                 try
                 {
@@ -91,19 +83,29 @@ public partial class FirstRunVM : ObservableObject
                         var providerConfigured = await appVm.ConfigureXboxProviderWithToken(result.AccessToken, _msAuthService);
                         if (providerConfigured)
                         {
-                            Log.Information("Xbox provider successfully initialized");
+                            // Get the real gamertag from the Xbox service
+                            var xboxService = appVm.GetProvider<Providers.XboxService>();
+                            _settingsVM.XboxGamertag = xboxService?.Gamertag
+                                ?? result.Account?.Username?.Split('@')[0];
+                            XboxGamertag = _settingsVM.XboxGamertag;
+                            Log.Information("Xbox provider initialized. Gamertag: {Gamertag}", XboxGamertag);
                         }
                         else
                         {
-                            Log.Warning("Xbox provider initialization failed");
+                            _settingsVM.XboxGamertag = result.Account?.Username?.Split('@')[0];
+                            XboxGamertag = _settingsVM.XboxGamertag;
+                            Log.Warning("Xbox provider initialization failed, using email fallback for gamertag");
                         }
                     }
                 }
                 catch (Exception providerEx)
                 {
                     Log.Error(providerEx, "Failed to initialize Xbox provider after authentication");
-                    // Don't fail the whole authentication if provider init fails
+                    _settingsVM.XboxGamertag = result.Account?.Username?.Split('@')[0];
+                    XboxGamertag = _settingsVM.XboxGamertag;
                 }
+
+                Log.Information("Xbox authentication successful for {Gamertag}", XboxGamertag);
             }
             else
             {
@@ -142,12 +144,8 @@ public partial class FirstRunVM : ObservableObject
             var appVm = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<AppVM>();
             if (appVm != null)
             {
-                var existingXbox = appVm.Providers.FirstOrDefault(p => p is Providers.XboxService);
-                if (existingXbox != null)
-                {
-                    appVm.Providers.Remove(existingXbox);
-                    Log.Information("Removed Xbox provider after sign out");
-                }
+                appVm.RemoveProviderOfType<Providers.XboxService>();
+                Log.Information("Removed Xbox provider after sign out");
             }
         }
         catch (Exception ex)
