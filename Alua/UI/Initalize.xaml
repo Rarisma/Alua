@@ -12,6 +12,24 @@
         <TextBox PlaceholderText="SteamID / Vanity URL Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
         <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind Frvm.RetroAchievementsUser, Mode=TwoWay}" />
 
+        <!-- PlayStation Network Authentication -->
+        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
+            <Button Content="Sign in with PlayStation"
+                    Click="{x:Bind Frvm.AuthenticatePsn}"
+                    Visibility="{x:Bind Frvm.IsPsnAuthenticated,
+                    Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+
+            <StackPanel Orientation="Horizontal" Spacing="10"
+                        Visibility="{x:Bind Frvm.IsPsnAuthenticated, Mode=OneWay}">
+                <TextBlock Text="PSN:" VerticalAlignment="Center"/>
+                <TextBlock Text="Connected" FontWeight="Bold" VerticalAlignment="Center"/>
+                <Button Content="Sign Out" Click="{x:Bind Frvm.SignOutPsn}"/>
+            </StackPanel>
+        </StackPanel>
+
+        <ProgressRing IsActive="{x:Bind Frvm.IsPsnAuthenticating, Mode=OneWay}"
+                      HorizontalAlignment="Center"/>
+
         <!-- Xbox Live Authentication -->
         <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
             <Button Content="Sign in with Microsoft"

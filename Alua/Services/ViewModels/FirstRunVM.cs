@@ -1,3 +1,4 @@
+using Alua.Services.Providers;
 using Alua.UI;
 using Microsoft.Identity.Client;
 using Serilog;
@@ -8,6 +9,7 @@ public partial class FirstRunVM : ObservableObject
 {
     private readonly SettingsVM _settingsVM;
     private readonly MicrosoftAuthService _msAuthService;
+    private readonly PSNAuthService _psnAuthService;
 
     [ObservableProperty]
     private string? _steamID;
@@ -17,16 +19,22 @@ public partial class FirstRunVM : ObservableObject
 
     [ObservableProperty]
     private string? _xboxGamertag;
-    
+
     [ObservableProperty]
     private bool _isXboxAuthenticated;
+
+    [ObservableProperty]
+    private bool _isPsnAuthenticated;
+
+    [ObservableProperty]
+    private bool _isPsnAuthenticating;
 
     [ObservableProperty]
     private string? _errorMessage;
 
     [ObservableProperty]
     private bool _hasError;
-    
+
     [ObservableProperty]
     private bool _isAuthenticating;
     
@@ -34,12 +42,14 @@ public partial class FirstRunVM : ObservableObject
     {
         _settingsVM = settingsVM;
         _msAuthService = new MicrosoftAuthService();
+        _psnAuthService = new PSNAuthService();
         SteamID = _settingsVM.SteamID;
         RetroAchievementsUser = _settingsVM.RetroAchievementsUsername;
         XboxGamertag = _settingsVM.XboxGamertag;
-        
-        // Check if we have stored auth data
-        Task.Run(async () => 
+        IsPsnAuthenticated = !string.IsNullOrWhiteSpace(_settingsVM.PsnSSO);
+
+        // Check if we have stored Xbox auth data
+        Task.Run(async () =>
         {
             if (!string.IsNullOrEmpty(_settingsVM.MicrosoftAuthData))
             {
@@ -127,6 +137,88 @@ public partial class FirstRunVM : ObservableObject
     }
     
     /// <summary>
+    /// Authenticate with PlayStation Network via WebView
+    /// </summary>
+    public async Task AuthenticatePsn()
+    {
+        try
+        {
+            IsPsnAuthenticating = true;
+            HasError = false;
+            ErrorMessage = null;
+
+            Log.Information("Starting PSN authentication");
+            var npsso = await _psnAuthService.AuthenticateAsync();
+
+            if (!string.IsNullOrEmpty(npsso))
+            {
+                _settingsVM.PsnSSO = npsso;
+                IsPsnAuthenticated = true;
+
+                // Initialize PSN provider immediately
+                try
+                {
+                    var appVm = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<AppVM>();
+                    if (appVm != null)
+                    {
+                        Log.Information("Initializing PSN provider after authentication");
+                        var psn = await PSNService.Create(npsso);
+                        appVm.AddProvider(psn);
+                        Log.Information("PSN provider initialized successfully");
+                    }
+                }
+                catch (Exception providerEx)
+                {
+                    Log.Error(providerEx, "Failed to initialize PSN provider after authentication");
+                }
+
+                Log.Information("PSN authentication successful");
+            }
+            else
+            {
+                ErrorMessage = "PSN authentication was cancelled or failed. Please try again.";
+                HasError = true;
+                Log.Warning("PSN authentication cancelled or failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error during PSN authentication");
+            ErrorMessage = $"PSN authentication error: {ex.Message}";
+            HasError = true;
+        }
+        finally
+        {
+            IsPsnAuthenticating = false;
+        }
+    }
+
+    /// <summary>
+    /// Sign out from PlayStation Network
+    /// </summary>
+    public async Task SignOutPsn()
+    {
+        _settingsVM.PsnSSO = null;
+        IsPsnAuthenticated = false;
+        Log.Information("Signed out from PlayStation Network");
+
+        // Remove PSN provider
+        try
+        {
+            var appVm = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<AppVM>();
+            if (appVm != null)
+            {
+                appVm.RemoveProviderOfType<PSNService>();
+                Log.Information("Removed PSN provider after sign out");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to remove PSN provider after sign out");
+        }
+    }
+
+    /// <summary>
     /// Sign out from Xbox Live
     /// </summary>
     public async Task SignOutXbox()
@@ -159,8 +251,9 @@ public partial class FirstRunVM : ObservableObject
     /// </summary>
     public async Task Continue()
     {
-        if (string.IsNullOrWhiteSpace(SteamID) && 
-            string.IsNullOrWhiteSpace(RetroAchievementsUser) && 
+        if (string.IsNullOrWhiteSpace(SteamID) &&
+            string.IsNullOrWhiteSpace(RetroAchievementsUser) &&
+            !IsPsnAuthenticated &&
             !IsXboxAuthenticated)
         {
             ErrorMessage = "Please configure at least one platform.";
@@ -182,6 +275,7 @@ public partial class FirstRunVM : ObservableObject
     partial void OnSteamIDChanged(string? value) => ClearErrorOnChange();
     partial void OnRetroAchievementsUserChanged(string? value) => ClearErrorOnChange();
     partial void OnXboxGamertagChanged(string? value) => ClearErrorOnChange();
+    partial void OnIsPsnAuthenticatedChanged(bool value) => ClearErrorOnChange();
     
     /// <summary>
     /// Resets error messages when a field is changed.

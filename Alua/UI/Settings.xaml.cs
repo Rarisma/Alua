@@ -2,8 +2,6 @@ using System.ComponentModel;
 using Alua.Services;
 using Alua.Services.Providers;
 using Alua.Services.ViewModels;
-using Alua.UI.Controls;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Serilog;
@@ -15,8 +13,11 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
 {
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     private MicrosoftAuthService _msAuthService;
+    private PSNAuthService _psnAuthService;
     private bool _isXboxAuthenticated;
     private bool _isAuthenticating;
+    private bool _isPsnConnected;
+    private bool _isPsnAuthenticating;
     
     public bool IsXboxAuthenticated
     {
@@ -37,16 +38,40 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAuthenticating)));
         }
     }
-    
+
+    public bool IsPsnConnected
+    {
+        get => _isPsnConnected;
+        set
+        {
+            _isPsnConnected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPsnConnected)));
+        }
+    }
+
+    public bool IsPsnAuthenticating
+    {
+        get => _isPsnAuthenticating;
+        set
+        {
+            _isPsnAuthenticating = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsPsnAuthenticating)));
+        }
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
     
     public Settings()
     {
         InitializeComponent();
         _msAuthService = new MicrosoftAuthService();
-        
-        // Check if we have stored auth data
-        Task.Run(async () => 
+        _psnAuthService = new PSNAuthService();
+
+        // Check PSN connection state
+        IsPsnConnected = !string.IsNullOrWhiteSpace(_settingsVM.PsnSSO);
+
+        // Check if we have stored Xbox auth data
+        Task.Run(async () =>
         {
             if (!string.IsNullOrEmpty(_settingsVM.MicrosoftAuthData))
             {
@@ -170,6 +195,98 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to remove Xbox provider after sign out");
+        }
+    }
+
+    private async Task AuthenticatePsn()
+    {
+        try
+        {
+            IsPsnAuthenticating = true;
+
+            Log.Information("Starting PSN authentication from settings");
+            var npsso = await _psnAuthService.AuthenticateAsync();
+
+            if (!string.IsNullOrEmpty(npsso))
+            {
+                // Store the NPSSO token
+                _settingsVM.PsnSSO = npsso;
+
+                // Initialize PSN provider immediately
+                try
+                {
+                    var appVm = Ioc.Default.GetService<AppVM>();
+                    if (appVm != null)
+                    {
+                        Log.Information("Initializing PSN provider after authentication from settings");
+                        appVm.RemoveProviderOfType<PSNService>();
+                        var psn = await PSNService.Create(npsso);
+                        appVm.AddProvider(psn);
+
+                        Log.Information("PSN provider initialized successfully");
+
+                        var dialog = new ContentDialog
+                        {
+                            XamlRoot = this.XamlRoot,
+                            Title = "PlayStation Connected",
+                            Content = "Successfully connected to PlayStation Network. Your PSN games will appear in the game list.",
+                            PrimaryButtonText = "OK"
+                        };
+                        await dialog.ShowAsync();
+                    }
+                }
+                catch (Exception providerEx)
+                {
+                    Log.Error(providerEx, "Failed to initialize PSN provider after authentication");
+                }
+
+                IsPsnConnected = true;
+                await _settingsVM.Save();
+                Log.Information("PSN authentication successful");
+            }
+            else
+            {
+                Log.Warning("PSN authentication cancelled or failed");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error during PSN authentication");
+
+            var dialog = new ContentDialog
+            {
+                XamlRoot = this.XamlRoot,
+                Title = "Error",
+                Content = $"An error occurred during PSN authentication: {ex.Message}",
+                PrimaryButtonText = "OK"
+            };
+            await dialog.ShowAsync();
+        }
+        finally
+        {
+            IsPsnAuthenticating = false;
+        }
+    }
+
+    private async Task SignOutPsn()
+    {
+        _settingsVM.PsnSSO = null;
+        IsPsnConnected = false;
+        await _settingsVM.Save();
+        Log.Information("Signed out from PlayStation Network");
+
+        // Remove PSN provider
+        try
+        {
+            var appVm = Ioc.Default.GetService<AppVM>();
+            if (appVm != null && appVm.RemoveProviderOfType<PSNService>())
+            {
+                Log.Information("Removed PSN provider after sign out");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to remove PSN provider after sign out");
         }
     }
 

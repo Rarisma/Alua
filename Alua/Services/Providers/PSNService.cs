@@ -1,7 +1,5 @@
 using System.Collections.ObjectModel;
 using System.Net;
-using System.Text.Json;
-using System.Web;
 using Alua.Services;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
@@ -15,6 +13,8 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     private PSNClient _apiClient = null!;
     private AppVM _appVm = null!;
     private SettingsVM _settingsVm = null!;
+    private string _npssoToken = null!;
+    private bool _hasRetriedAuth;
 
     private PSNService() {}
 
@@ -30,18 +30,19 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         {
             Log.Information("Creating PSN service with SSO token");
             var settingsVm = Ioc.Default.GetRequiredService<SettingsVM>();
-            
+
             if (string.IsNullOrEmpty(npssoToken))
             {
                 Log.Warning("No PSN SSO token provided. User needs to provide NPSSO token.");
                 throw new InvalidOperationException("PSN SSO token required. Please provide a valid NPSSO token.");
             }
-            
+
             PSNService psn = new()
             {
                 _apiClient = await PSNClient.CreateFromNpsso(npssoToken),
                 _appVm = Ioc.Default.GetRequiredService<AppVM>(),
-                _settingsVm = settingsVm
+                _settingsVm = settingsVm,
+                _npssoToken = npssoToken
             };
 
             Log.Information("Successfully created PSN service using SSO token");
@@ -55,47 +56,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     }
 
     /// <summary>
-    /// Creates a new instance of the PSN Service using username and password
-    /// </summary>
-    /// <param name="username">PlayStation account email/username</param>
-    /// <param name="password">PlayStation account password</param>
-    /// <returns>PSNService</returns>
-    public static async Task<PSNService> CreateFromCredentials(string username, string password)
-    {
-        try
-        {
-            Log.Information("Creating PSN service with username and password");
-            var settingsVm = Ioc.Default.GetRequiredService<SettingsVM>();
-            
-            if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(password))
-            {
-                Log.Warning("Username or password not provided.");
-                throw new InvalidOperationException("Username and password are required.");
-            }
-            
-            // Get NPSSO token from credentials
-            var npssoToken = await PSNClient.GetNpssoFromCredentials(username, password);
-            Log.Information("Successfully obtained NPSSO token from credentials");
-            
-            PSNService psn = new()
-            {
-                _apiClient = await PSNClient.CreateFromNpsso(npssoToken),
-                _appVm = Ioc.Default.GetRequiredService<AppVM>(),
-                _settingsVm = settingsVm
-            };
-
-            Log.Information("Successfully created PSN service using credentials");
-            return psn;
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to create PSN service with credentials");
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Gets the users whole PSN library
+    /// Gets the users whole PSN library with trophy data
     /// </summary>
     /// <returns>Array of Games</returns>
     public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
@@ -105,9 +66,42 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             Log.Information("Getting PSN library for user");
 
             var trophyTitles = await _apiClient.GetUserTrophyTitlesAsync("me");
-            var games = trophyTitles.TrophyTitles.Select(ConvertToAluaGame).ToArray();
 
-            return games;
+            if (trophyTitles.TrophyTitles.Count == 0)
+                return [];
+
+            // Fetch trophy data for all games (matching Steam's GetLibrary pattern)
+            using var executor = new RateLimitedExecutor(3, "PSNLibrary");
+
+            var games = await executor.ExecuteAllWithNullableAsync(
+                trophyTitles.TrophyTitles,
+                async (title, ct) =>
+                {
+                    ct.ThrowIfCancellationRequested();
+                    try
+                    {
+                        return await GetGameWithTrophyData(title);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Warning(ex, "Failed to get trophy data for {GameName}, adding basic info only", title.TrophyTitleName);
+                        return ConvertToAluaGame(title);
+                    }
+                },
+                (current, total) => _appVm.LoadingGamesSummary = $"Scanning PSN ({current}/{total})",
+                cancellationToken
+            );
+
+            return games.Where(g => g != null).Cast<Game>().ToArray();
+        }
+        catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            Log.Warning("PSN access token expired, attempting re-authentication from stored NPSSO");
+            if (await TryRecreateClient())
+                return await GetLibrary(cancellationToken);
+
+            _appVm.SetError("PlayStation: Session expired. Please sign in again in Settings.");
+            return [];
         }
         catch (Exception ex)
         {
@@ -156,6 +150,15 @@ public sealed class PSNService : IAchievementProvider<PSNService>
 
             return games.Where(g => g != null).Cast<Game>().ToArray();
         }
+        catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            Log.Warning("PSN access token expired, attempting re-authentication from stored NPSSO");
+            if (await TryRecreateClient())
+                return await RefreshLibrary(cancellationToken);
+
+            _appVm.SetError("PlayStation: Session expired. Please sign in again in Settings.");
+            return [];
+        }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to refresh PSN library for user");
@@ -174,12 +177,12 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         try
         {
             Log.Information("Refreshing PSN title {Identifier} for user with trophy data", identifier);
-            
+
             // Get trophy titles to find the specific game
             var trophyTitles = await _apiClient.GetUserTrophyTitlesAsync("me");
             var targetTitle = trophyTitles.TrophyTitles
                 .FirstOrDefault(t => t.NpCommunicationId == identifier);
-            
+
             if (targetTitle == null)
             {
                 throw new InvalidOperationException($"Game with identifier {identifier} not found in user's library");
@@ -188,10 +191,48 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             // Get detailed trophy information for this title
             return await GetGameWithTrophyData(targetTitle);
         }
+        catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            Log.Warning("PSN access token expired during RefreshTitle, attempting re-authentication from stored NPSSO");
+            if (await TryRecreateClient())
+                return await RefreshTitle(identifier, cancellationToken);
+
+            _appVm.SetError("PlayStation: Session expired. Please sign in again in Settings.");
+            throw;
+        }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to refresh PSN title {Identifier} for user", identifier);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to re-create the PSN client from the stored NPSSO token.
+    /// Returns true if successful, false if the NPSSO itself has expired.
+    /// </summary>
+    private async Task<bool> TryRecreateClient()
+    {
+        if (_hasRetriedAuth)
+        {
+            Log.Warning("Already retried PSN re-authentication, NPSSO token likely expired");
+            return false;
+        }
+
+        _hasRetriedAuth = true;
+        try
+        {
+            Log.Information("Re-creating PSN client from stored NPSSO token");
+            _apiClient.Dispose();
+            _apiClient = await PSNClient.CreateFromNpsso(_npssoToken);
+            _hasRetriedAuth = false;
+            Log.Information("Successfully re-created PSN client");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to re-create PSN client from stored NPSSO — token likely expired");
+            return false;
         }
     }
 
@@ -206,16 +247,16 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         {
             // Determine platform from the trophy title platform field
             var platform = GetPlatformCode(title.TrophyTitlePlatform);
-            
+
             // Get earned trophies for this title
             var earnedTrophies = await _apiClient.GetUserEarnedTrophiesAsync(title.NpCommunicationId, platform, "me");
-            
+
             // Get title trophies (definitions)
             var titleTrophies = await _apiClient.GetTitleTrophiesAsync(title.NpCommunicationId, platform);
-            
+
             return ConvertSingleToAluaGame(title, earnedTrophies, titleTrophies);
         }
-        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
             Log.Warning("Trophy data not found for {GameName}", title.TrophyTitleName);
             return ConvertToAluaGame(title);
@@ -253,15 +294,15 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     private Game ConvertSingleToAluaGame(TrophyTitle title, UserEarnedTrophiesResponse earnedTrophies, TitleTrophiesResponse titleTrophies)
     {
         var achievements = new ObservableCollection<Achievement>();
-        
+
         // Create a lookup for earned trophies
         var earnedLookup = earnedTrophies.Trophies.ToDictionary(t => t.TrophyId, t => t);
-        
+
         // Convert trophies to achievements
         foreach (var trophy in titleTrophies.Trophies)
         {
             var earnedTrophy = earnedLookup.GetValueOrDefault(trophy.TrophyId);
-            
+
             var achievement = new Achievement
             {
                 Id = trophy.TrophyId.ToString(),
@@ -273,13 +314,13 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                 IsHidden = trophy.TrophyHidden,
                 RarityPercentage = Math.Round(double.TryParse(earnedTrophy?.TrophyEarnedRate, out var rate) ? rate : -1,2),
             };
-            
+
             achievements.Add(achievement);
         }
 
         var game = ConvertToAluaGame(title);
         game.Achievements = achievements;
-        
+
         return game;
     }
 
@@ -290,11 +331,11 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     {
         if (string.IsNullOrEmpty(platformDisplay))
             return "PS4";
-            
+
         return platformDisplay.ToUpper() switch
         {
             var p when p.Contains("PS5") => "PS5",
-            var p when p.Contains("PS4") => "PS4", 
+            var p when p.Contains("PS4") => "PS4",
             var p when p.Contains("PS3") => "PS3",
             var p when p.Contains("VITA") => "PSVITA",
             _ => "PS4" // Default fallback
