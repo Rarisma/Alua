@@ -78,7 +78,7 @@ public sealed class CachedImage : Image
 
     private static readonly ConcurrentDictionary<string, Task<string?>> _activeDownloads = new();
     private static readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(30) };
-    private static readonly SemaphoreSlim _downloadThrottle = new(OperatingSystem.IsAndroid() ? 2 : 4);
+    private static readonly SemaphoreSlim _downloadThrottle = new(OperatingSystem.IsAndroid() ? 2 : 3);
     private static int _cacheEnforcementScheduled;
 
     #endregion
@@ -96,6 +96,9 @@ public sealed class CachedImage : Image
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
+        // Release the bitmap so offscreen images can be GC'd
+        Source = null;
+        _currentCacheKey = null;
     }
 
     private static void OnSourcePropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

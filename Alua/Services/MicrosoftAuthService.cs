@@ -34,7 +34,10 @@ public class MicrosoftAuthService
             .WithRedirectUri(RedirectUri)
             .Build();
 
-        ConfigureTokenCache(_msalClient.UserTokenCache);
+        // MSAL handles token caching internally on mobile platforms;
+        // custom file-based cache is only for desktop.
+        if (!OperatingSystem.IsAndroid() && !OperatingSystem.IsIOS())
+            ConfigureTokenCache(_msalClient.UserTokenCache);
     }
     
     /// <summary>

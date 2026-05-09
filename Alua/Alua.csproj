@@ -52,7 +52,14 @@
         <PublishTrimmed>true</PublishTrimmed>
         <TrimMode>full</TrimMode>
         <RunAOTCompilation>true</RunAOTCompilation>
+        <!-- Sachya uses reflection-based System.Text.Json; keep it available -->
+        <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     </PropertyGroup>
+
+    <!-- Preserve Sachya types from trimming (needed for JSON deserialization on Android) -->
+    <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+        <TrimmerRootAssembly Include="Sachya" RootMode="All" />
+    </ItemGroup>
 
     <!-- Desktop Release: trimming for smaller binary and faster startup -->
     <PropertyGroup Condition="'$(Configuration)' == 'Release' AND $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'desktop'">
@@ -66,6 +73,7 @@
       <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
       <PackageReference Include="Microsoft.Identity.Client" />
       <PackageReference Include="Uno.Fonts.Fluent" />
+      <PackageReference Include="Tmds.DBus.Protocol" />
     </ItemGroup>
 
     <ItemGroup>

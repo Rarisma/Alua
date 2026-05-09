@@ -188,7 +188,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
 
     private async Task<(List<Achievement> Achievements, int PlaytimeMinutes)> GetAchievements(int gameID)
     {
-        List<Achievement> achievements = new();
+        List<Achievement> achievements = new(64);
         int playtimeMinutes = -1;
 
         try

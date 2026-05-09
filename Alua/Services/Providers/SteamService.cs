@@ -252,14 +252,19 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 return [];
             }
 
-            var defs = schema.game.availableGameStats.achievements
-                .ToDictionary(a => a.name);
+            var schemaAchievements = schema.game.availableGameStats.achievements;
+            var defs = schemaAchievements.ToDictionary(a => a.name);
 
             var progress = progressTask.Result;
 
             var globalStats = globalStatsTask.Result;
-            var rarityData = globalStats.achievementpercentages?.achievements
-                ?.ToDictionary(a => a.name, a => (double)a.percent) ?? new Dictionary<string, double>();
+            var rarityAchievements = globalStats.achievementpercentages?.achievements;
+            var rarityData = rarityAchievements != null
+                ? new Dictionary<string, double>(rarityAchievements.Count)
+                : new Dictionary<string, double>();
+            if (rarityAchievements != null)
+                foreach (var a in rarityAchievements)
+                    rarityData[a.name] = (double)a.percent;
 
             var list = new List<Achievement>(progress.playerstats.achievements.Count);
             foreach (var ach in progress.playerstats.achievements)

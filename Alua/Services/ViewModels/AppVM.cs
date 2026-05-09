@@ -14,7 +14,6 @@ namespace Alua.Services.ViewModels;
 public partial class AppVM : ObservableRecipient
 {
     private readonly object _providersLock = new();
-    private readonly object _filteredGamesLock = new();
 
     [ObservableProperty]
     private BatchObservableCollection<Game> _filteredGames = new();

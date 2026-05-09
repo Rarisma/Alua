@@ -35,7 +35,8 @@
         <Grid HorizontalAlignment="Left" VerticalAlignment="Center">
             <Border CornerRadius="6">
                 <controls:CachedImage UriSource="{x:Bind IconUri}" Stretch="Uniform"
-                                      MaxWidth="140" MaxHeight="80"/>
+                                      MaxWidth="140" MaxHeight="80"
+                                      DecodePixelWidth="140" DecodePixelHeight="80"/>
             </Border>
             <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
                                   Width="16" Height="16"

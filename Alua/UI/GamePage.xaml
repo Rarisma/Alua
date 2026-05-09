@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:android="http://uno.ui/android"
     xmlns:controls1="clr-namespace:Alua.UI.Controls"
-    xmlns:converters="clr-namespace:Alua.UI.Converters"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:data="clr-namespace:Alua.Models"
     mc:Ignorable="android"
@@ -13,7 +12,7 @@
     <Page.Resources>
         <controls1:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <controls1:BoolToOpacityConverter x:Key="BoolToOpacityConverter"/>
-        <converters:HoursToTimeTextConverter x:Key="HoursToTimeTextConverter"/>
+        <controls1:HoursToTimeTextConverter x:Key="HoursToTimeTextConverter"/>
         <DataTemplate x:Key="AchievementTemplate" x:DataType="data:Achievement">
             <Grid Margin="10" Opacity="{x:Bind IsUnlocked, Converter={StaticResource BoolToOpacityConverter}}">
                 <Grid.ColumnDefinitions>

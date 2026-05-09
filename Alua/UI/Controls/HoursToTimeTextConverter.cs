@@ -1,7 +1,6 @@
 using Microsoft.UI.Xaml.Data;
-using System;
 
-namespace Alua.UI.Converters;
+namespace Alua.UI.Controls;
 
 public class HoursToTimeTextConverter : IValueConverter
 {
