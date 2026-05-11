@@ -3,9 +3,7 @@ using Alua.Services.ViewModels;
 using Alua.UI.Controls;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Input;
 using AppVM = Alua.Services.ViewModels.AppVM;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 using static Alua.Services.ViewModels.OrderBy;
@@ -20,8 +18,7 @@ public partial class Library : Page
     private AppVM _appVm = Ioc.Default.GetRequiredService<AppVM>();
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
-
-    private List<Game> _allFilteredGames = new();
+    public LibraryVM LibraryVM = Ioc.Default.GetRequiredService<LibraryVM>();
 
     // Layouts for ItemsRepeater - swappable for single/multi column
     private readonly StackLayout _listLayout = new()
@@ -75,7 +72,7 @@ public partial class Library : Page
         {
             // Override scroll handling for faster trackpad scrolling on desktop
             if (!_isPhone)
-                gamesScrollViewer.AddHandler(UIElement.PointerWheelChangedEvent,
+                gamesScrollViewer.AddHandler(PointerWheelChangedEvent,
                     new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
 
             Log.Information("Initialised games list");
@@ -350,7 +347,7 @@ public partial class Library : Page
                 await Task.WhenAll(tasks);
             }
 
-            // Save and repopulate FilteredGames with ALL games from memory
+            // Save and repopulate FilteredGames with all games from memory
             await _settingsVM.Save();
 
             // Load ALL games from memory with single notification
@@ -401,7 +398,6 @@ public partial class Library : Page
         var hideUnstarted = _appVm.HideUnstarted;
         var searchText = _appVm.SearchText;
         var orderBy = _appVm.OrderBy;
-        var reverse = _appVm.Reverse;
 
         var version = ++_filterVersion;
 
@@ -431,7 +427,8 @@ public partial class Library : Page
             list = orderBy switch
             {
                 OrderBy.Name => list.OrderBy(g => g.Value.Name),
-                CompletionPct => list.OrderBy(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
+                NameReverse => list.OrderByDescending(g => g.Value.Name),
+                CompletionPct => list.OrderByDescending(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
                 TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
                 UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
                 Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
@@ -440,9 +437,20 @@ public partial class Library : Page
                 HowLongToBeatCompletionist => list.OrderBy(g => g.Value.HowLongToBeatCompletionist.Value),
                 _ => list
             };
-
-            if (reverse) { list = list.Reverse(); }
-
+            
+            
+            //per platform filtering
+            Dictionary<Platforms, bool> Enabled = new()
+            {
+                { Platforms.Steam, LibraryVM.SteamFilter },
+                { Platforms.RetroAchievements, LibraryVM.RAFilter },
+                { Platforms.PlayStation, LibraryVM.PSNFilter },
+                { Platforms.Xbox, LibraryVM.XBFilter },
+            };
+            
+            list = list.Select(g => g)
+                .Where(g => Enabled[g.Value.Platform]);
+                
             return list.Select(g => g.Value).ToList();
         });
 
@@ -504,6 +512,7 @@ public partial class Library : Page
     private AsyncCommand? _scanCommand;
     public AsyncCommand ScanCommand => _scanCommand ??= new AsyncCommand(Scan);
     private AsyncCommand? _cancelCommand;
+    private List<Game> _allFilteredGames;
     public AsyncCommand CancelCommand => _cancelCommand ??= new AsyncCommand(CancelCurrentOperation);
     #endregion
 }

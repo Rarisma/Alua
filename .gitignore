@@ -411,3 +411,4 @@ Alua/.env
 .env
 .DS_Store
 Alua/appsettings.json
+/Alua/.idea

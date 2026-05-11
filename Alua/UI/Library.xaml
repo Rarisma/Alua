@@ -92,7 +92,8 @@
                 <Button Content="Cancel"
                         Command="{x:Bind CancelCommand}"
                         HorizontalAlignment="Center"
-                        Visibility="{x:Bind _appVm.IsScanningOrRefreshing, Mode=OneWay, Converter={StaticResource BoolToVisibility}}"/>
+                        Visibility="{x:Bind _appVm.IsScanningOrRefreshing, Mode=OneWay,
+                        Converter={StaticResource BoolToVisibility}}"/>
             </StackPanel>
         </utu:LoadingView.LoadingContent>
 

@@ -121,6 +121,7 @@ public partial class App : Application
                     services.AddSingleton<AppVM>();
                     services.AddSingleton(_ => Task.Run(() => SettingsVM.LoadAsync()).GetAwaiter().GetResult());
                     services.AddSingleton<FirstRunVM>();
+                    services.AddSingleton<LibraryVM>();
                     services.AddSingleton<Services.AggregateStatisticsService>();
                 })
             );

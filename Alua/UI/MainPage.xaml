@@ -2,12 +2,7 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:utu="using:Uno.Toolkit.UI"
-      xmlns:controls="using:Alua.UI.Controls"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-
-    <Page.Resources>
-        <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
-    </Page.Resources>
 
     <utu:SafeArea Insets="Top,Bottom" Mode="Padding">
         <Grid HorizontalAlignment="Stretch">
@@ -92,6 +87,7 @@
                                                   HorizontalAlignment="Stretch"
                                                   SelectionChanged="Filter_Changed">
                                             <ComboBoxItem Content="Name (A-Z)" Tag="Name"/>
+                                            <ComboBoxItem Content="Name (Z-A)" Tag="NameReverse"/>
                                             <ComboBoxItem Content="Completion %" Tag="CompletionPct"/>
                                             <ComboBoxItem Content="Total Achievements" Tag="TotalCount"/>
                                             <ComboBoxItem Content="Unlocked Achievements" Tag="UnlockedCount"/>
@@ -100,11 +96,6 @@
                                             <ComboBoxItem Content="HLTB Story Time" Tag="HowLongToBeatMain"/>
                                             <ComboBoxItem Content="HLTB 100% Time" Tag="HowLongToBeatCompletionist"/>
                                         </ComboBox>
-                                        <CheckBox x:Name="CheckReverse"
-                                                  Content="Reverse order"
-                                                  Checked="Filter_Changed"
-                                                  Unchecked="Filter_Changed"
-                                                  Margin="0,8,0,0"/>
                                     </StackPanel>
 
                                     <Rectangle Height="1"
@@ -121,6 +112,50 @@
                                                       OnContent="Single Column View"
                                                       Toggled="ToggleLayout_Click"/>
                                     </StackPanel>
+
+                                    <Rectangle Height="1"
+                                               Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
+                                               Margin="0,4"/>
+
+                                    <Grid Grid.HorizontalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <ToggleButton Height="40" Width="40"
+                                                      Grid.Column="0"
+                                                      IsChecked="{x:Bind _libraryVM.SteamFilter, Mode=TwoWay}"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed">
+                                            <Image Source="/Assets/Icons/steam.png"
+                                                   Stretch="Uniform"/>
+                                        </ToggleButton>
+                                        <ToggleButton Height="40" Width="40"  Grid.Column="1"
+                                                      IsChecked="{x:Bind _libraryVM.RAFilter, Mode=TwoWay}"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed">
+                                            <Image Source="/Assets/Icons/RetroAchievements.png"
+                                                   Stretch="Uniform"/>
+                                        </ToggleButton>
+                                        <ToggleButton Height="40" Width="40"  Grid.Column="2"
+                                                      IsChecked="{x:Bind _libraryVM.PSNFilter, Mode=TwoWay}"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed">
+                                            <Image Source="/Assets/Icons/PSN.png"
+                                                   Stretch="Uniform"/>
+                                        </ToggleButton>
+                                        <ToggleButton Height="40" Width="40"  Grid.Column="3"
+                                                      IsChecked="{x:Bind _libraryVM.XBFilter, Mode=TwoWay}"
+                                                      Checked="Filter_Changed"
+                                                      Unchecked="Filter_Changed">
+                                            <Image Source="/Assets/Icons/xbox.png"
+                                                   Stretch="Uniform"/>
+                                        </ToggleButton>
+                                    </Grid>
+
                                 </StackPanel>
                             </Flyout>
                         </AppBarButton.Flyout>

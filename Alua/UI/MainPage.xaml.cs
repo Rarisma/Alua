@@ -1,12 +1,12 @@
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using Microsoft.UI.Xaml.Controls;
-using static Alua.Services.ViewModels.OrderBy;
+
 //FHN walked so Alua could run.
 namespace Alua.UI;
 
 public sealed partial class MainPage : Page
 {
+    LibraryVM _libraryVM = Ioc.Default.GetRequiredService<LibraryVM>();
     AppVM _appVM = Ioc.Default.GetRequiredService<AppVM>();
     SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     private Library? _currentGameList;
@@ -124,7 +124,6 @@ public sealed partial class MainPage : Page
             _appVM.HideComplete = CheckHideComplete.IsChecked == true;
             _appVM.HideNoAchievements = CheckNoAchievements.IsChecked == true;
             _appVM.HideUnstarted = CheckUnstarted.IsChecked == true;
-            _appVM.Reverse = CheckReverse.IsChecked == true;
 
             // Read which item is selected in the ComboBox
             if (SortByComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is string tag)
@@ -183,8 +182,7 @@ public sealed partial class MainPage : Page
         CheckHideComplete.IsChecked = _appVM.HideComplete;
         CheckNoAchievements.IsChecked = _appVM.HideNoAchievements;
         CheckUnstarted.IsChecked = _appVM.HideUnstarted;
-        CheckReverse.IsChecked = _appVM.Reverse;
-
+        
         // Restore ComboBox selection from VM
         var orderByString = _appVM.OrderBy.ToString();
         foreach (ComboBoxItem item in SortByComboBox.Items)
