@@ -94,8 +94,11 @@ public partial class Library : Page
                 _appVm.SingleColumnLayout = _settingsVM.SingleColumnLayout;
             }
 
+            _appVm.FillBackgroundProgress = _settingsVM.FillBackgroundProgress;
+
             // Update layout based on current settings
             UpdateItemsLayout();
+            UpdateFillMode();
             
             if (!_appVm.InitialLoadCompleted)
             {
@@ -495,6 +498,16 @@ public partial class Library : Page
         }
 
         gameRepeater.Layout = _appVm.SingleColumnLayout ? _listLayout : _gridLayout;
+    }
+
+    // Public method to swap the game card template when fill-background toggle changes
+    public void UpdateFillMode()
+    {
+        var key = _appVm.FillBackgroundProgress ? "GameFillTemplate" : "GameTemplate";
+        if (Resources[key] is DataTemplate template)
+        {
+            gameRepeater.ItemTemplate = template;
+        }
     }
 
 

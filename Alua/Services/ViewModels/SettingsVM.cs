@@ -102,6 +102,9 @@ public partial class SettingsVM  : ObservableObject
     [ObservableProperty, JsonPropertyName("FilterSingleColumnLayout")]
     private bool _singleColumnLayout;
 
+    [ObservableProperty, JsonPropertyName("FilterFillBackgroundProgress")]
+    private bool _fillBackgroundProgress;
+
     /// <summary>
     /// Number of games to load per page (for infinite scroll pagination)
     /// </summary>
@@ -260,6 +263,7 @@ public partial class SettingsVM  : ObservableObject
                 _reverse = _reverse,
                 _orderBy = _orderBy,
                 _singleColumnLayout = _singleColumnLayout,
+                _fillBackgroundProgress = _fillBackgroundProgress,
                 _pageSize = _pageSize
             };
 

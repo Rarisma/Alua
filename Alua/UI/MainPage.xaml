@@ -111,50 +111,94 @@
                                                       OffContent="Multi-Column View"
                                                       OnContent="Single Column View"
                                                       Toggled="ToggleLayout_Click"/>
+                                        <ToggleSwitch x:Name="FillBackgroundToggle"
+                                                      OffContent="Progress Bar"
+                                                      OnContent="Filled Background"
+                                                      Toggled="ToggleFillBackground_Click"/>
                                     </StackPanel>
 
                                     <Rectangle Height="1"
                                                Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
                                                Margin="0,4"/>
 
-                                    <Grid Grid.HorizontalAlignment="Stretch">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="Auto"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <ToggleButton Height="40" Width="40"
-                                                      Grid.Column="0"
-                                                      IsChecked="{x:Bind _libraryVM.SteamFilter, Mode=TwoWay}"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed">
-                                            <Image Source="/Assets/Icons/steam.png"
-                                                   Stretch="Uniform"/>
-                                        </ToggleButton>
-                                        <ToggleButton Height="40" Width="40"  Grid.Column="1"
-                                                      IsChecked="{x:Bind _libraryVM.RAFilter, Mode=TwoWay}"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed">
-                                            <Image Source="/Assets/Icons/RetroAchievements.png"
-                                                   Stretch="Uniform"/>
-                                        </ToggleButton>
-                                        <ToggleButton Height="40" Width="40"  Grid.Column="2"
-                                                      IsChecked="{x:Bind _libraryVM.PSNFilter, Mode=TwoWay}"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed">
-                                            <Image Source="/Assets/Icons/PSN.png"
-                                                   Stretch="Uniform"/>
-                                        </ToggleButton>
-                                        <ToggleButton Height="40" Width="40"  Grid.Column="3"
-                                                      IsChecked="{x:Bind _libraryVM.XBFilter, Mode=TwoWay}"
-                                                      Checked="Filter_Changed"
-                                                      Unchecked="Filter_Changed">
-                                            <Image Source="/Assets/Icons/xbox.png"
-                                                   Stretch="Uniform"/>
-                                        </ToggleButton>
-                                    </Grid>
+                                    <StackPanel Spacing="8">
+                                        <TextBlock Text="Platforms"
+                                                   Style="{ThemeResource BaseTextBlockStyle}"
+                                                   FontWeight="SemiBold"
+                                                   Margin="0,0,0,4"/>
+                                        <Grid HorizontalAlignment="Stretch">
+                                            <Grid.Resources>
+                                                <SolidColorBrush x:Key="ToggleButtonBackground" Color="#CC3B30"/>
+                                                <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#D94A3F"/>
+                                                <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#B32E25"/>
+                                                <SolidColorBrush x:Key="ToggleButtonBorderBrush" Color="#A02822"/>
+                                                <SolidColorBrush x:Key="ToggleButtonBorderBrushPointerOver" Color="#A02822"/>
+                                                <SolidColorBrush x:Key="ToggleButtonBorderBrushPressed" Color="#A02822"/>
+                                            </Grid.Resources>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <ToggleButton Grid.Column="0"
+                                                          Height="48"
+                                                          Margin="0,0,4,0"
+                                                          Padding="8"
+                                                          HorizontalAlignment="Stretch"
+                                                          HorizontalContentAlignment="Center"
+                                                          ToolTipService.ToolTip="Steam"
+                                                          IsChecked="{x:Bind _libraryVM.SteamFilter, Mode=TwoWay}"
+                                                          Checked="Filter_Changed"
+                                                          Unchecked="Filter_Changed">
+                                                <Image Source="/Assets/Icons/steam.png"
+                                                       Width="24" Height="24"
+                                                       Stretch="Uniform"/>
+                                            </ToggleButton>
+                                            <ToggleButton Grid.Column="1"
+                                                          Height="48"
+                                                          Margin="4,0"
+                                                          Padding="8"
+                                                          HorizontalAlignment="Stretch"
+                                                          HorizontalContentAlignment="Center"
+                                                          ToolTipService.ToolTip="RetroAchievements"
+                                                          IsChecked="{x:Bind _libraryVM.RAFilter, Mode=TwoWay}"
+                                                          Checked="Filter_Changed"
+                                                          Unchecked="Filter_Changed">
+                                                <Image Source="/Assets/Icons/RetroAchievements.png"
+                                                       Width="24" Height="24"
+                                                       Stretch="Uniform"/>
+                                            </ToggleButton>
+                                            <ToggleButton Grid.Column="2"
+                                                          Height="48"
+                                                          Margin="4,0"
+                                                          Padding="8"
+                                                          HorizontalAlignment="Stretch"
+                                                          HorizontalContentAlignment="Center"
+                                                          ToolTipService.ToolTip="PlayStation Network"
+                                                          IsChecked="{x:Bind _libraryVM.PSNFilter, Mode=TwoWay}"
+                                                          Checked="Filter_Changed"
+                                                          Unchecked="Filter_Changed">
+                                                <Image Source="/Assets/Icons/PSN.png"
+                                                       Width="24" Height="24"
+                                                       Stretch="Uniform"/>
+                                            </ToggleButton>
+                                            <ToggleButton Grid.Column="3"
+                                                          Height="48"
+                                                          Margin="4,0,0,0"
+                                                          Padding="8"
+                                                          HorizontalAlignment="Stretch"
+                                                          HorizontalContentAlignment="Center"
+                                                          ToolTipService.ToolTip="Xbox"
+                                                          IsChecked="{x:Bind _libraryVM.XBFilter, Mode=TwoWay}"
+                                                          Checked="Filter_Changed"
+                                                          Unchecked="Filter_Changed">
+                                                <Image Source="/Assets/Icons/xbox.png"
+                                                       Width="24" Height="24"
+                                                       Stretch="Uniform"/>
+                                            </ToggleButton>
+                                        </Grid>
+                                    </StackPanel>
 
                                 </StackPanel>
                             </Flyout>

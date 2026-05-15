@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
+using Microsoft.UI.Xaml;
 using Windows.Foundation.Metadata;
 
 //GARY HIT EM WITH THE
@@ -170,6 +171,37 @@ public class Game
                 Platforms.Xbox => "ms-appx:///Assets/Icons/xbox.png",
                 _ => "ms-appx:///Assets/Icons/UnknownProvider.png"
             };
+        }
+    }
+
+    /// <summary>
+    /// Star-based width for the "unlocked" portion of the filled-background progress indicator.
+    /// </summary>
+    [JsonIgnore]
+    public GridLength UnlockedColumnWidth
+    {
+        get
+        {
+            if (!HasAchievements || UnlockedCount == 0)
+                return new GridLength(0);
+            return new GridLength(UnlockedCount, GridUnitType.Star);
+        }
+    }
+
+    /// <summary>
+    /// Star-based width for the "locked" remainder of the filled-background progress indicator.
+    /// </summary>
+    [JsonIgnore]
+    public GridLength LockedColumnWidth
+    {
+        get
+        {
+            if (!HasAchievements)
+                return new GridLength(1, GridUnitType.Star);
+            var locked = Achievements.Count - UnlockedCount;
+            if (locked <= 0)
+                return new GridLength(0);
+            return new GridLength(locked, GridUnitType.Star);
         }
     }
 

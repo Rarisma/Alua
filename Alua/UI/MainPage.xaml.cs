@@ -175,6 +175,22 @@ public sealed partial class MainPage : Page
             Serilog.Log.Error(ex, "Error toggling layout");
         }
     }
+
+    private async void ToggleFillBackground_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var toggle = (ToggleSwitch)sender;
+            _appVM.FillBackgroundProgress = toggle.IsOn;
+            _settingsVM.FillBackgroundProgress = toggle.IsOn;
+            _currentGameList?.UpdateFillMode();
+            await _settingsVM.Save();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Error toggling fill background");
+        }
+    }
     
     private void RestoreFilterUIFromVM()
     {
@@ -207,7 +223,10 @@ public sealed partial class MainPage : Page
             LayoutToggle.IsEnabled = true;
             LayoutToggle.IsOn = _appVM.SingleColumnLayout;
         }
-        
+
+        // Fill-background toggle
+        FillBackgroundToggle.IsOn = _appVM.FillBackgroundProgress;
+
         // Search box
         SearchBox.Text = _appVM.SearchText ?? string.Empty;
         

@@ -50,6 +50,9 @@ public partial class AppVM : ObservableRecipient
     private bool _singleColumnLayout;
 
     [ObservableProperty]
+    private bool _fillBackgroundProgress;
+
+    [ObservableProperty]
     private string _searchText = string.Empty;
 
     [ObservableProperty]
