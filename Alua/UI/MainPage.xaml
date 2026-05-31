@@ -148,6 +148,7 @@
                                                           HorizontalAlignment="Stretch"
                                                           HorizontalContentAlignment="Center"
                                                           ToolTipService.ToolTip="Steam"
+                                                          AutomationProperties.Name="Steam"
                                                           IsChecked="{x:Bind _libraryVM.SteamFilter, Mode=TwoWay}"
                                                           Checked="Filter_Changed"
                                                           Unchecked="Filter_Changed">
@@ -162,6 +163,7 @@
                                                           HorizontalAlignment="Stretch"
                                                           HorizontalContentAlignment="Center"
                                                           ToolTipService.ToolTip="RetroAchievements"
+                                                          AutomationProperties.Name="RetroAchievements"
                                                           IsChecked="{x:Bind _libraryVM.RAFilter, Mode=TwoWay}"
                                                           Checked="Filter_Changed"
                                                           Unchecked="Filter_Changed">
@@ -176,6 +178,7 @@
                                                           HorizontalAlignment="Stretch"
                                                           HorizontalContentAlignment="Center"
                                                           ToolTipService.ToolTip="PlayStation Network"
+                                                          AutomationProperties.Name="PlayStation Network"
                                                           IsChecked="{x:Bind _libraryVM.PSNFilter, Mode=TwoWay}"
                                                           Checked="Filter_Changed"
                                                           Unchecked="Filter_Changed">
@@ -190,6 +193,7 @@
                                                           HorizontalAlignment="Stretch"
                                                           HorizontalContentAlignment="Center"
                                                           ToolTipService.ToolTip="Xbox"
+                                                          AutomationProperties.Name="Xbox"
                                                           IsChecked="{x:Bind _libraryVM.XBFilter, Mode=TwoWay}"
                                                           Checked="Filter_Changed"
                                                           Unchecked="Filter_Changed">

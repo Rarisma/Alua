@@ -12,19 +12,19 @@ public class Achievement
     /// Unique achievement identifier
     /// </summary>
     [JsonInclude, JsonPropertyName("ID")]
-    public string Id { get; set; }
-    
+    public string Id { get; set; } = string.Empty;
+
     /// <summary>
     /// Title of the Achievement
     /// </summary>
     [JsonInclude, JsonPropertyName("Title")]
-    public string Title { get; set; }
-    
+    public string Title { get; set; } = string.Empty;
+
     /// <summary>
     /// Description of the Achievement
     /// </summary>
     [JsonInclude, JsonPropertyName("Desc")]
-    public string Description { get; set; }
+    public string Description { get; set; } = string.Empty;
     
     /// <summary>
     /// Has the player unlocked this achievement
@@ -42,13 +42,34 @@ public class Achievement
     /// Achievement Icon URL
     /// </summary>
     [JsonInclude, JsonPropertyName("Icon")]
-    public string Icon { get; set; }
+    public string Icon { get; set; } = string.Empty;
 
     /// <summary>
     /// Is the achievement hidden/secret
     /// </summary>
     [JsonInclude, JsonPropertyName("Hidden")]
     public bool IsHidden { get; set; }
+
+    /// <summary>
+    /// Provider-agnostic classification flags (missable, progression, win-condition, ...).
+    /// Defaults to <see cref="AchievementFlags.None"/>; only providers that expose this
+    /// metadata (currently RetroAchievements) populate it. Serializes as an int, so saved
+    /// data that predates this field deserializes to <see cref="AchievementFlags.None"/>.
+    /// </summary>
+    [JsonInclude, JsonPropertyName("Flags")]
+    public AchievementFlags Flags { get; set; } = AchievementFlags.None;
+
+    /// <summary>True when this achievement can be permanently missed in a playthrough.</summary>
+    [JsonIgnore]
+    public bool IsMissable => Flags.HasFlag(AchievementFlags.Missable);
+
+    /// <summary>True when this achievement marks a story/progression milestone.</summary>
+    [JsonIgnore]
+    public bool IsProgression => Flags.HasFlag(AchievementFlags.Progression);
+
+    /// <summary>True when this achievement is the set's win condition (beat the game).</summary>
+    [JsonIgnore]
+    public bool IsWinCondition => Flags.HasFlag(AchievementFlags.WinCondition);
     
     /// <summary>
     /// Percentage of players who have unlocked this achievement (0-100)
@@ -61,6 +82,12 @@ public class Achievement
         : Uri.TryCreate(Icon, UriKind.Absolute, out var uri) ? uri : null;
 
     /// <summary>
+    /// Returns true when a valid rarity percentage is available for display.
+    /// </summary>
+    [JsonIgnore]
+    public bool HasRarity => RarityPercentage.HasValue && RarityPercentage.Value > 0;
+
+    /// <summary>
     /// Progress of achievement (if applicable)
     /// </summary>
     [JsonInclude, JsonPropertyName("Progress")]
@@ -71,13 +98,4 @@ public class Achievement
     /// </summary>
     [JsonInclude, JsonPropertyName("MaxProgress")]
     public int? MaxProgress { get; set; }
-
-    // Add parameterless constructor for JSON deserialization
-    public Achievement()
-    {
-        Id = string.Empty;
-        Title = string.Empty;
-        Description = string.Empty;
-        Icon = string.Empty;
-    }
 }

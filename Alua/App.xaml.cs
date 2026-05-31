@@ -1,9 +1,9 @@
-using System.Net.Mime;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
+using Alua.Models;
 using Alua.Services.ViewModels;
 using Alua.UI;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using Microsoft.Extensions.Configuration;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Serilog;
@@ -14,8 +14,9 @@ namespace Alua;
 
 public partial class App : Application
 {
-    // P/Invoke declarations for macOS window centering via Objective-C runtime
-#if TRUE
+    // P/Invoke declarations for macOS window centering via Objective-C runtime.
+    // These bind lazily on first call, so they are harmless to compile on every target;
+    // CenterWindowOnMac guards the actual call with a runtime OS check.
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern void objc_msgSend(IntPtr receiver, IntPtr selector);
 
@@ -27,11 +28,14 @@ public partial class App : Application
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
     private static extern IntPtr objc_msgSend_IntPtr(IntPtr receiver, IntPtr selector);
-#endif
 
     private static void CenterWindowOnMac(Window window)
     {
-#if TRUE
+        // Only macOS has the Objective-C runtime at /usr/lib/libobjc.dylib. On Windows/Android/
+        // Linux the first P/Invoke would throw DllNotFoundException on every launch.
+        if (!OperatingSystem.IsMacOS())
+            return;
+
         try
         {
             // Get the NSApplication shared instance
@@ -54,7 +58,6 @@ public partial class App : Application
         {
             Log.Warning(ex, "Failed to center window on macOS");
         }
-#endif
     }
 
 
@@ -71,8 +74,63 @@ public partial class App : Application
     private static Window? MainWindow { get; set; }
     private IHost? Host { get;  set; }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    private static void CleanupStaleLogs()
     {
+        try
+        {
+            var folder = ApplicationData.Current.LocalFolder.Path;
+            var cutoff = DateTime.UtcNow.AddDays(-30);
+            foreach (var file in Directory.GetFiles(folder, "alua*.log"))
+            {
+                try
+                {
+                    if (File.GetLastWriteTimeUtc(file) < cutoff)
+                        File.Delete(file);
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "Failed to clean up stale log {File}", file);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Log cleanup sweep failed");
+        }
+    }
+
+    private static void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not SettingsVM settings) return;
+        if (e.PropertyName == nameof(SettingsVM.UserSteamApiKey) ||
+            e.PropertyName == nameof(SettingsVM.UserRetroApiKey))
+        {
+            AppConfig.Refresh(settings);
+        }
+    }
+
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        // Configure Serilog FIRST so the settings load below — including its error path
+        // (corrupt/unreadable settings file) — is actually written to the log sink.
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.Console()
+            .WriteTo.File(
+                path: Path.Combine(ApplicationData.Current.LocalFolder.Path, "alua.log"),
+                rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 14,
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                rollOnFileSizeLimit: true,
+                outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+            )
+            .CreateLogger();
+
+        // Pre-load SettingsVM asynchronously BEFORE building the host so we never block
+        // the UI thread on I/O (JSON deserialization + Keychain/DPAPI reads).
+        // This must complete before the host registers services so that AppVM can resolve SettingsVM.
+        var preloadedSettings = await SettingsVM.LoadAsync();
+
         var builder = this.CreateBuilder(args)
             .Configure(host => host
 #if DEBUG
@@ -113,29 +171,20 @@ public partial class App : Application
                 .UseSerilog(consoleLoggingEnabled: true, fileLoggingEnabled: true)
                 .UseConfiguration(configure: configBuilder =>
                     configBuilder
-                        .EmbeddedSource<App>()
                         .EmbeddedSource<App>("appsettings.development.json")
                 )
                 .ConfigureServices(void (_, services) =>
                 {
+                    // Register the pre-loaded singleton instance so AppVM can resolve it immediately.
+                    services.AddSingleton(preloadedSettings);
                     services.AddSingleton<AppVM>();
-                    services.AddSingleton(_ => Task.Run(() => SettingsVM.LoadAsync()).GetAwaiter().GetResult());
                     services.AddSingleton<FirstRunVM>();
                     services.AddSingleton<LibraryVM>();
                     services.AddSingleton<Services.AggregateStatisticsService>();
+                    services.AddSingleton<Services.HowLongToBeatService>();
                 })
             );
 
-
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
-            .WriteTo.Console()
-            .WriteTo.File(
-                path: Path.Combine(ApplicationData.Current.LocalFolder.Path, "alua.log"),
-                rollingInterval: RollingInterval.Day,
-                outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
-            )
-            .CreateLogger();
         MainWindow = builder.Window;
 
 #if DEBUG
@@ -143,20 +192,22 @@ public partial class App : Application
 #endif
         MainWindow.SetWindowIcon();
         Host = builder.Build();
-        
-        var config = Host.Services.GetRequiredService<IConfiguration>();
-        var steamApiKey = config["SteamAPI"];
-        if (string.IsNullOrEmpty(steamApiKey))
-            throw new InvalidOperationException("Environment variable 'SteamAPI' not found.");
-        AppConfig.SteamAPIKey = steamApiKey;
-        
-        var retroApiKey = config["RetroAPI"];
-        if (string.IsNullOrEmpty(retroApiKey))
-            throw new InvalidOperationException("Environment variable 'RetroAPI' not found.");
-        AppConfig.RAAPIKey = retroApiKey;
+
+        // API keys are now user-provided via Settings — no longer embedded in the binary.
+        var settingsVm = Host.Services.GetRequiredService<SettingsVM>();
+        AppConfig.Refresh(settingsVm);
+        settingsVm.PropertyChanged += OnSettingsPropertyChanged;
 
         Ioc.Default.ConfigureServices(Host.Services);
-        
+
+        // Bound the on-disk image cache once at startup in case a previous crash left it
+        // over the size limit. Fire-and-forget so we don't hold up window activation.
+        _ = Task.Run(() => UI.Controls.CachedImage.InitializeAsync());
+
+        // Sweep stale log files older than 30 days. Serilog's retainedFileCountLimit only
+        // covers files it actively rolls; older files from previous configs can stick around.
+        _ = Task.Run(CleanupStaleLogs);
+
         // Do not repeat app initialization when the Window already has content,
         // just ensure that the window is active
         Frame = MainWindow.Content as Frame ?? new Frame();
@@ -174,7 +225,7 @@ public partial class App : Application
             // parameter
             Frame.Navigate(typeof(MainPage));
         }
-        
+
         // Ensure the current window is active
         MainWindow.Activate();
 

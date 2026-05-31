@@ -6,11 +6,11 @@ namespace Alua.UI;
 /// <summary>
 /// Initial set up dialog.
 /// </summary>
-public partial class Initalize : Page
+public partial class Initialize : Page
 {
     public FirstRunVM Frvm;
 
-    public Initalize()
+    public Initialize()
     {
         Frvm = Ioc.Default.GetRequiredService<FirstRunVM>();
         InitializeComponent();

@@ -12,6 +12,9 @@ namespace Alua.Services;
 public sealed partial class AggregateStatisticsService : ObservableObject, IDisposable
 {
     private readonly SettingsVM _settingsVm;
+
+    // Guards _isDirty and all _cached* fields against concurrent reads during a refresh.
+    private readonly object _cacheLock = new();
     private bool _isDirty = true;
 
     // Cached values
@@ -34,8 +37,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         get
         {
-            EnsureCalculated();
-            return _cachedTotalGames;
+            lock (_cacheLock) { EnsureCalculated(); return _cachedTotalGames; }
         }
     }
 
@@ -46,8 +48,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         get
         {
-            EnsureCalculated();
-            return _cachedUnlockedCount;
+            lock (_cacheLock) { EnsureCalculated(); return _cachedUnlockedCount; }
         }
     }
 
@@ -58,8 +59,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         get
         {
-            EnsureCalculated();
-            return _cachedTotalAchievements;
+            lock (_cacheLock) { EnsureCalculated(); return _cachedTotalAchievements; }
         }
     }
 
@@ -70,8 +70,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         get
         {
-            EnsureCalculated();
-            return _cachedPerfectGames;
+            lock (_cacheLock) { EnsureCalculated(); return _cachedPerfectGames; }
         }
     }
 
@@ -82,8 +81,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         get
         {
-            EnsureCalculated();
-            return _cachedPercentComplete;
+            lock (_cacheLock) { EnsureCalculated(); return _cachedPercentComplete; }
         }
     }
 
@@ -92,7 +90,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     /// </summary>
     public void Invalidate()
     {
-        _isDirty = true;
+        lock (_cacheLock) { _isDirty = true; }
     }
 
     /// <summary>
@@ -101,8 +99,11 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     /// </summary>
     public void Refresh()
     {
-        Invalidate();
-        EnsureCalculated();
+        lock (_cacheLock)
+        {
+            _isDirty = true;
+            EnsureCalculated();
+        }
 
         OnPropertyChanged(nameof(TotalGames));
         OnPropertyChanged(nameof(UnlockedCount));
@@ -111,6 +112,7 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
         OnPropertyChanged(nameof(PercentComplete));
     }
 
+    // Must be called under _cacheLock.
     private void EnsureCalculated()
     {
         if (!_isDirty) return;

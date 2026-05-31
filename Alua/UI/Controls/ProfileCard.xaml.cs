@@ -19,6 +19,7 @@ public sealed partial class ProfileCard : UserControl
     {
         InitializeComponent();
         _statsService.PropertyChanged += StatsServiceOnPropertyChanged;
+        Unloaded += (_, _) => _statsService.PropertyChanged -= StatsServiceOnPropertyChanged;
     }
 
     private void StatsServiceOnPropertyChanged(object? sender, PropertyChangedEventArgs e)

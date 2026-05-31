@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Net;
 using Alua.Services;
 using Alua.Services.ViewModels;
@@ -69,6 +68,16 @@ public sealed class PSNService : IAchievementProvider<PSNService>
 
             if (trophyTitles.TrophyTitles.Count == 0)
                 return [];
+
+            // Surface an up-front warning for large libraries — the per-game trophy fetches at
+            // concurrency 3 take minutes for 1000+ titles, so set the expectation before the
+            // per-game progress callback kicks in.
+            int titleCount = trophyTitles.TrophyTitles.Count;
+            if (titleCount > 100)
+            {
+                Log.Information("Large PSN library detected ({Count} titles), this will take a while", titleCount);
+                _appVm.LoadingGamesSummary = $"Large PSN library ({titleCount} titles), this may take several minutes...";
+            }
 
             // Fetch trophy data for all games (matching Steam's GetLibrary pattern)
             using var executor = new RateLimitedExecutor(3, "PSNLibrary");
@@ -167,7 +176,9 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     }
 
     /// <summary>
-    /// Updates data for a single title with full trophy information
+    /// Updates data for a single title with full trophy information.
+    /// Fetches only a small window of recent titles to locate the target rather than
+    /// downloading the user's entire trophy library.
     /// </summary>
     /// <param name="identifier">Game Identifier (NPCommunicationID)</param>
     /// <param name="cancellationToken">Cancellation token</param>
@@ -178,10 +189,13 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         {
             Log.Information("Refreshing PSN title {Identifier} for user with trophy data", identifier);
 
-            // Get trophy titles to find the specific game
-            var trophyTitles = await _apiClient.GetUserTrophyTitlesAsync("me");
-            var targetTitle = trophyTitles.TrophyTitles
-                .FirstOrDefault(t => t.NpCommunicationId == identifier);
+            // Identifiers are persisted with the "psn-" prefix (ProviderIds.PSN); strip it back to
+            // the bare NpCommunicationId that PSN's trophy API matches on.
+            var npCommunicationId = identifier.StartsWith(ProviderIds.PSN, StringComparison.Ordinal)
+                ? identifier[ProviderIds.PSN.Length..]
+                : identifier;
+
+            var targetTitle = await FindTrophyTitleAsync(npCommunicationId, cancellationToken);
 
             if (targetTitle == null)
             {
@@ -205,6 +219,41 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             Log.Error(ex, "Failed to refresh PSN title {Identifier} for user", identifier);
             throw;
         }
+    }
+
+    /// <summary>
+    /// Finds a single TrophyTitle by NpCommunicationId without downloading the entire library.
+    /// Fetches in pages of 50 (PSN returns titles sorted by most-recently-played, so the target
+    /// is almost always in the first page). Falls back to a second page if not found.
+    /// </summary>
+    private async Task<TrophyTitle?> FindTrophyTitleAsync(string npCommunicationId, CancellationToken cancellationToken = default)
+    {
+        const int pageSize = 50;
+        int offset = 0;
+        int totalFetched = 0;
+        // Search up to 200 recent titles before giving up to avoid an unbounded walk
+        const int maxSearch = 200;
+
+        while (totalFetched < maxSearch)
+        {
+            var page = await _apiClient.GetUserTrophyTitlesAsync("me", limit: pageSize, offset: offset, cancellationToken: cancellationToken);
+            if (page.TrophyTitles.Count == 0)
+                break;
+
+            var found = page.TrophyTitles.FirstOrDefault(t => t.NpCommunicationId == npCommunicationId);
+            if (found != null)
+                return found;
+
+            totalFetched += page.TrophyTitles.Count;
+            offset += page.TrophyTitles.Count;
+
+            // If PSN returned fewer titles than requested, we've reached the end
+            if (page.TrophyTitles.Count < pageSize)
+                break;
+        }
+
+        Log.Warning("PSN title {NpCommunicationId} not found in first {MaxSearch} titles", npCommunicationId, maxSearch);
+        return null;
     }
 
     /// <summary>
@@ -248,13 +297,14 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             // Determine platform from the trophy title platform field
             var platform = GetPlatformCode(title.TrophyTitlePlatform);
 
-            // Get earned trophies for this title
-            var earnedTrophies = await _apiClient.GetUserEarnedTrophiesAsync(title.NpCommunicationId, platform, "me");
+            // Get earned trophies and title trophies concurrently — these calls accept
+            // NpCommunicationId + platform directly and do not require the trophy library.
+            var earnedTask = _apiClient.GetUserEarnedTrophiesAsync(title.NpCommunicationId, platform, "me");
+            var titleTrophiesTask = _apiClient.GetTitleTrophiesAsync(title.NpCommunicationId, platform);
 
-            // Get title trophies (definitions)
-            var titleTrophies = await _apiClient.GetTitleTrophiesAsync(title.NpCommunicationId, platform);
+            await Task.WhenAll(earnedTask, titleTrophiesTask);
 
-            return ConvertSingleToAluaGame(title, earnedTrophies, titleTrophies);
+            return ConvertSingleToAluaGame(title, earnedTask.Result, titleTrophiesTask.Result);
         }
         catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -281,7 +331,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
             Icon = title.TrophyTitleIconUrl,
             LastUpdated = DateTime.UtcNow,
             LastPlayed = title.LastUpdatedDateTime.DateTime,
-            Identifier = title.NpCommunicationId,
+            Identifier = ProviderIds.PSN + title.NpCommunicationId,
             Platform = Platforms.PlayStation,
             PlaytimeMinutes = -1, //Playtime is not available in PSN API
             Achievements = new ()
@@ -293,17 +343,22 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// </summary>
     private Game ConvertSingleToAluaGame(TrophyTitle title, UserEarnedTrophiesResponse earnedTrophies, TitleTrophiesResponse titleTrophies)
     {
-        var achievements = new ObservableCollection<Achievement>();
-
         // Create a lookup for earned trophies
         var earnedLookup = earnedTrophies.Trophies.ToDictionary(t => t.TrophyId, t => t);
 
-        // Convert trophies to achievements
+        // Build achievements as a List first, then wrap once — avoids repeated collection resizes
+        var list = new List<Achievement>(titleTrophies.Trophies.Count);
+
         foreach (var trophy in titleTrophies.Trophies)
         {
             var earnedTrophy = earnedLookup.GetValueOrDefault(trophy.TrophyId);
 
-            var achievement = new Achievement
+            // Use null for parse failures so downstream null-checks behave correctly
+            double? rarityPercentage = double.TryParse(earnedTrophy?.TrophyEarnedRate, out var rate)
+                ? Math.Round(rate, 2)
+                : null;
+
+            list.Add(new Achievement
             {
                 Id = trophy.TrophyId.ToString(),
                 Title = trophy.TrophyName,
@@ -312,14 +367,12 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                 UnlockedOn = earnedTrophy?.EarnedDateTime,
                 Icon = trophy.TrophyIconUrl,
                 IsHidden = trophy.TrophyHidden,
-                RarityPercentage = Math.Round(double.TryParse(earnedTrophy?.TrophyEarnedRate, out var rate) ? rate : -1,2),
-            };
-
-            achievements.Add(achievement);
+                RarityPercentage = rarityPercentage,
+            });
         }
 
         var game = ConvertToAluaGame(title);
-        game.Achievements = achievements;
+        game.Achievements = list.ToObservableCollection();
 
         return game;
     }

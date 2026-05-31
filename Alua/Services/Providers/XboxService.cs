@@ -1,3 +1,4 @@
+using Alua.Models;
 using Alua.Services;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Sachya.Clients;
@@ -14,6 +15,10 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     private ViewModels.AppVM _appVm = null!;
     private ViewModels.SettingsVM _settingsVm = null!;
     private string _xuid = string.Empty;
+
+    // Session cache for title history — avoids redundant full-library fetches within a session.
+    private (List<TitleHistory> Titles, DateTime FetchedAt)? _titleHistoryCache;
+    private static readonly TimeSpan TitleHistoryCacheTtl = TimeSpan.FromMinutes(10);
 
     /// <summary>
     /// The authenticated user's Xbox gamertag
@@ -103,16 +108,16 @@ public sealed class XboxService : IAchievementProvider<XboxService>
             }
 
             Log.Debug("Fetching title history for full library scan");
-            var titleHistory = await _apiClient.GetTitleHistoryAsync(_xuid);
+            var titles = await GetCachedTitleHistoryAsync();
 
-            if (titleHistory?.Titles == null)
+            if (titles == null)
             {
                 Log.Error("Xbox API returned null response or titles list for user {XUID}", _xuid);
                 return [];
             }
 
-            Log.Information("Found {Count} titles in library", titleHistory.Titles.Count);
-            var result = await ConvertToAluaAsync(titleHistory.Titles, cancellationToken);
+            Log.Information("Found {Count} titles in library", titles.Count);
+            var result = await ConvertToAluaAsync(titles, cancellationToken);
             Log.Information("GetLibrary completed successfully, returning {Count} games", result.Length);
             return result;
         }
@@ -139,7 +144,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                 return [];
             }
 
-            var titleHistory = await _apiClient.GetTitleHistoryAsync(_xuid);
+            var titles = await GetCachedTitleHistoryAsync();
 
             var skip = _settingsVm.Games.Values!
                 .Where(g => g is { HasAchievements: false, Platform: Platforms.Xbox })
@@ -149,8 +154,8 @@ public sealed class XboxService : IAchievementProvider<XboxService>
             Log.Debug("Skipping {Count} games without achievements", skip.Count);
 
             // Get the 5 most recently played games
-            var recentTitles = titleHistory.Titles
-                .Where(t => !skip.Contains($"xbox-{t.TitleId}"))
+            var recentTitles = titles
+                .Where(t => !skip.Contains($"{ProviderIds.Xbox}{t.TitleId}"))
                 .Take(5)
                 .ToList();
 
@@ -175,10 +180,10 @@ public sealed class XboxService : IAchievementProvider<XboxService>
         try
         {
             Log.Information("Starting RefreshTitle for identifier: {Identifier}", identifier);
-            string titleId = identifier.Split("xbox-").Last();
+            string titleId = identifier.Split(ProviderIds.Xbox).Last();
 
-            var titleHistory = await _apiClient.GetTitleHistoryAsync(_xuid);
-            var title = titleHistory.Titles.FirstOrDefault(t => t.TitleId == titleId);
+            var titles = await GetCachedTitleHistoryAsync();
+            var title = titles.FirstOrDefault(t => t.TitleId == titleId);
 
             if (title == null)
             {
@@ -193,7 +198,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
 
             var game = new Game
             {
-                Identifier = $"xbox-{titleId}",
+                Identifier = $"{ProviderIds.Xbox}{titleId}",
                 Name = title.Name,
                 Icon = title.DisplayImage,
                 Author = string.Empty,
@@ -217,6 +222,26 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     #endregion
 
     #region Helpers
+
+    /// <summary>
+    /// Returns the cached title history if still fresh; otherwise fetches from the API and updates the cache.
+    /// Both RefreshLibrary and RefreshTitle share this cache to avoid redundant full-library fetches.
+    /// </summary>
+    private async Task<List<TitleHistory>> GetCachedTitleHistoryAsync()
+    {
+        var now = DateTime.UtcNow;
+        if (_titleHistoryCache.HasValue && now - _titleHistoryCache.Value.FetchedAt < TitleHistoryCacheTtl)
+        {
+            Log.Debug("Using cached Xbox title history ({Count} titles)", _titleHistoryCache.Value.Titles.Count);
+            return _titleHistoryCache.Value.Titles;
+        }
+
+        Log.Debug("Fetching fresh Xbox title history for user {XUID}", _xuid);
+        var response = await _apiClient.GetTitleHistoryAsync(_xuid);
+        var titles = response?.Titles ?? [];
+        _titleHistoryCache = (titles, now);
+        return titles;
+    }
 
     /// <summary>
     /// Gets achievement data for a title using the achievements endpoint.
@@ -263,7 +288,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                         Icon = ach.Icon ?? string.Empty,
                         IsUnlocked = isUnlocked,
                         UnlockedOn = unlockedOn,
-                        Id = $"xbox-{titleId}-{ach.Id}",
+                        Id = $"{ProviderIds.Xbox}{titleId}-{ach.Id}",
                         IsHidden = ach.IsSecret,
                         RarityPercentage = ach.RarityPercentage
                     };
@@ -284,7 +309,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                             Description = "Locked",
                             Icon = string.Empty,
                             IsUnlocked = false,
-                            Id = $"xbox-{titleId}-locked-{i}",
+                            Id = $"{ProviderIds.Xbox}{titleId}-locked-{i}",
                             IsHidden = false,
                             RarityPercentage = null
                         });
@@ -316,7 +341,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                     Description = $"Progress: {titleAchievementInfo.CurrentGamerscore}/{titleAchievementInfo.TotalGamerscore} Gamerscore",
                     Icon = string.Empty,
                     IsUnlocked = i < titleAchievementInfo.CurrentAchievements,
-                    Id = $"xbox-{titleId}-{i}",
+                    Id = $"{ProviderIds.Xbox}{titleId}-{i}",
                     IsHidden = false,
                     RarityPercentage = null
                 }).ToArray();
@@ -357,7 +382,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                     Author = string.Empty,
                     Platform = Platforms.Xbox,
                     PlaytimeMinutes = -1,
-                    Identifier = $"xbox-{title.TitleId}",
+                    Identifier = $"{ProviderIds.Xbox}{title.TitleId}",
                     Achievements = achievements.ToObservableCollection(),
                     LastUpdated = DateTime.UtcNow,
                     LastPlayed = title.Details?.LastTimePlayed

@@ -7,7 +7,6 @@
   -->
   <ItemGroup>
     <PackageVersion Include="AutoMapper" Version="16.1.1" />
-    <PackageVersion Include="dotenv.net" Version="3.2.1" />
     <PackageVersion Include="Codepotatoes.Scraper.HowLongToBeat" Version="1.4.0" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.5" />
     <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />

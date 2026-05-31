@@ -1,3 +1,4 @@
+using Alua.Models;
 using Alua.Services;
 using Alua.Services.ViewModels;
 using Alua.UI.Controls;
@@ -10,6 +11,7 @@ using static Alua.Services.ViewModels.OrderBy;
 
 //FHN walked so Alua could run.
 namespace Alua.UI;
+
 /// <summary>
 /// Main app UI, shows all users games
 /// </summary>
@@ -42,15 +44,19 @@ public partial class Library : Page
     // Cancellation support for long-running operations
     private CancellationTokenSource? _operationCts;
 
-    // Commands for layouts
-    public AsyncCommand SingleColumnCommand => new(async () => {
+    // Commands for layouts — cached to avoid allocating a new instance on every read
+    private AsyncCommand? _singleColumnCommand;
+    public AsyncCommand SingleColumnCommand => _singleColumnCommand ??= new AsyncCommand(async () =>
+    {
         _appVm.SingleColumnLayout = true;
         _settingsVM.SingleColumnLayout = true;
         UpdateItemsLayout();
         await _settingsVM.Save();
     });
 
-    public AsyncCommand MultiColumnCommand => new(async () => {
+    private AsyncCommand? _multiColumnCommand;
+    public AsyncCommand MultiColumnCommand => _multiColumnCommand ??= new AsyncCommand(async () =>
+    {
         if (_isPhone)
         {
             _appVm.SingleColumnLayout = true;
@@ -64,7 +70,21 @@ public partial class Library : Page
         await _settingsVM.Save();
     });
 
-    public Library() { InitializeComponent(); }
+    public Library()
+    {
+        InitializeComponent();
+
+        // Seed the ItemsRepeater's layout and ItemTemplate BEFORE it realizes any items.
+        // OnLoaded (where these previously ran first) fires only AFTER the initial render, so
+        // on re-navigation — when FilteredGames is already populated by the AppVM singleton —
+        // the repeater would realize items with a null ItemTemplate and fall back to ToString(),
+        // rendering every card as the raw type name "Alua.Models.Game". Reading the persisted
+        // values here lets items materialize with the correct template from the first layout pass.
+        _appVm.SingleColumnLayout = _isPhone || _settingsVM.SingleColumnLayout;
+        _appVm.FillBackgroundProgress = _settingsVM.FillBackgroundProgress;
+        UpdateItemsLayout();
+        UpdateFillMode();
+    }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
@@ -99,7 +119,7 @@ public partial class Library : Page
             // Update layout based on current settings
             UpdateItemsLayout();
             UpdateFillMode();
-            
+
             if (!_appVm.InitialLoadCompleted)
             {
                 await _appVm.ConfigureProviders();
@@ -130,7 +150,6 @@ public partial class Library : Page
         }
     }
 
-
     /// <summary>
     /// Does a full scan of users library for each platform
     /// if we don't have any games from that provider.
@@ -144,10 +163,11 @@ public partial class Library : Page
 
         _appVm.IsScanningOrRefreshing = true;
 
+        // Snapshot current games so we can restore on failure/cancellation
+        var previousGames = _settingsVM.Games;
+
         try
         {
-            _settingsVM.Games = [];
-
             // Run all providers in parallel for faster scanning
             var providerTasks = _appVm.Providers.Select(async provider =>
             {
@@ -160,6 +180,9 @@ public partial class Library : Page
 
             var results = await Task.WhenAll(providerTasks);
             ct.ThrowIfCancellationRequested();
+
+            // Stage all results into a fresh dictionary before committing
+            _settingsVM.Games = [];
 
             // Add all games using batch update for single notification
             using (_settingsVM.BeginBatchUpdate())
@@ -178,57 +201,17 @@ public partial class Library : Page
 
             var gamesToFetch = _settingsVM.Games.Values
                 .Where(g => !g.HowLongToBeatLastFetched.HasValue ||
-                           (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
+                            (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
                 .ToList();
 
-            Log.Information("Fetching HLTB data for {Count} games", gamesToFetch.Count);
+            await FetchHltbDataAsync(gamesToFetch, ct);
 
-            if (gamesToFetch.Any())
-            {
-                // Use a semaphore to limit concurrent requests to 5
-                using var semaphore = new SemaphoreSlim(5, 5);
-                // Share a single HowLongToBeatService instance across all tasks
-                using var hltbService = new HowLongToBeatService();
-                var completedCount = 0;
-                var totalCount = gamesToFetch.Count;
-
-                var tasks = gamesToFetch.Select(async game =>
-                {
-                    await semaphore.WaitAsync(ct);
-                    try
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        await hltbService.FetchAndUpdateGameData(game);
-
-                        var current = Interlocked.Increment(ref completedCount);
-                        _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
-
-                        _settingsVM.AddOrUpdateGame(game);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, "Failed to fetch HLTB data for {GameName}", game.Name);
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-                });
-
-                await Task.WhenAll(tasks);
-            }
-
-            //Save scan results
+            // Save scan results
             await _settingsVM.Save();
             Log.Information("loaded {0} games, {1} achievements",
                 _settingsVM.Games.Count, _settingsVM.Games.Sum(x =>
                     x.Value.Achievements.Count));
 
-            // Show a message or update a property for the UI
             _appVm.LoadingGamesSummary = "";
 
             // Refresh the filtered games collection once after all games are loaded
@@ -238,7 +221,16 @@ public partial class Library : Page
         {
             Log.Information("Scan operation was cancelled");
             _appVm.LoadingGamesSummary = "Scan cancelled";
-            // Still refresh with whatever games we have
+            // Restore the previous game list so no data is lost on cancel
+            _settingsVM.Games = previousGames;
+            RefreshFiltered();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Scan failed");
+            _appVm.LoadingGamesSummary = "Scan failed";
+            // Restore the previous game list so no data is lost on error
+            _settingsVM.Games = previousGames;
             RefreshFiltered();
         }
         finally
@@ -304,50 +296,16 @@ public partial class Library : Page
             }
 
             // Fetch HowLongToBeat data for new/updated games in parallel
-            var gamesToFetch = games.Where(g => !g.HowLongToBeatLastFetched.HasValue ||
-                                               (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
-                                    .ToList();
+            var gamesToFetch = games
+                .Where(g => !g.HowLongToBeatLastFetched.HasValue ||
+                            (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
+                .ToList();
 
-            if (gamesToFetch.Any())
+            if (gamesToFetch.Count > 0)
             {
                 _appVm.LoadingGamesSummary = "Fetching HowLongToBeat data...";
                 Log.Information("Fetching HLTB data for {Count} refreshed games", gamesToFetch.Count);
-
-                // Use a semaphore to limit concurrent requests to 5
-                using var semaphore = new SemaphoreSlim(5, 5);
-                // Share a single HowLongToBeatService instance across all tasks
-                using var hltbService = new HowLongToBeatService();
-                var completedCount = 0;
-                var totalCount = gamesToFetch.Count;
-
-                var tasks = gamesToFetch.Select(async game =>
-                {
-                    await semaphore.WaitAsync(ct);
-                    try
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        await hltbService.FetchAndUpdateGameData(game);
-
-                        var current = Interlocked.Increment(ref completedCount);
-                        _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
-
-                        _settingsVM.AddOrUpdateGame(game);
-                    }
-                    catch (OperationCanceledException)
-                    {
-                        throw;
-                    }
-                    catch (Exception ex)
-                    {
-                        Log.Warning(ex, "Failed to fetch HLTB data for {GameName}", game.Name);
-                    }
-                    finally
-                    {
-                        semaphore.Release();
-                    }
-                });
-
-                await Task.WhenAll(tasks);
+                await FetchHltbDataAsync(gamesToFetch, ct);
             }
 
             // Save and repopulate FilteredGames with all games from memory
@@ -373,6 +331,63 @@ public partial class Library : Page
     }
 
     /// <summary>
+    /// Fetches HowLongToBeat data for each game in <paramref name="gamesToFetch"/>,
+    /// limiting concurrency to 5 at a time. Resolves the HLTB service from DI
+    /// (it is a singleton — do NOT dispose it here).
+    /// Progress is reported via <see cref="AppVM.LoadingGamesSummary"/>.
+    /// </summary>
+    private async Task FetchHltbDataAsync(IReadOnlyCollection<Game> gamesToFetch, CancellationToken ct)
+    {
+        if (gamesToFetch.Count == 0)
+            return;
+
+        Log.Information("Fetching HLTB data for {Count} games", gamesToFetch.Count);
+
+        // Resolve the singleton from DI — do NOT dispose
+        var hltbService = Ioc.Default.GetRequiredService<HowLongToBeatService>();
+
+        // Limit concurrent requests to 5
+        using var semaphore = new SemaphoreSlim(5, 5);
+        var completedCount = 0;
+        var totalCount = gamesToFetch.Count;
+
+        var tasks = gamesToFetch.Select(async game =>
+        {
+            await semaphore.WaitAsync(ct);
+            try
+            {
+                ct.ThrowIfCancellationRequested();
+                // FetchAndUpdateGameData mutates the Game in place (it is already in the
+                // Games dictionary). We do NOT call AddOrUpdateGame per task here: doing so
+                // under BeginBatchUpdate from these concurrent background tasks both races the
+                // batch-depth counter and fires the Games notification off the UI thread.
+                await hltbService.FetchAndUpdateGameData(game);
+
+                var current = Interlocked.Increment(ref completedCount);
+                _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to fetch HLTB data for {GameName}", game.Name);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        });
+
+        await Task.WhenAll(tasks);
+
+        // Persist + fire a single Games notification once, back on the UI thread (this
+        // continuation resumes on the captured context), rather than per-game off-thread.
+        _settingsVM.AddOrUpdateGames(gamesToFetch);
+    }
+
+    /// <summary>
     /// Cancels the current scan/refresh operation
     /// </summary>
     private async Task CancelCurrentOperation()
@@ -384,6 +399,7 @@ public partial class Library : Page
             _operationCts = null;
         }
     }
+
     // Public method to apply filters from MainPage
     public void ApplyFilters()
     {
@@ -394,75 +410,32 @@ public partial class Library : Page
 
     private async void RefreshFiltered()
     {
-        // Capture filter/sort parameters as locals (safe for background thread access)
-        var games = _settingsVM.Games ?? new();
-        var hideComplete = _appVm.HideComplete;
-        var hideNoAchievements = _appVm.HideNoAchievements;
-        var hideUnstarted = _appVm.HideUnstarted;
-        var searchText = _appVm.SearchText;
-        var orderBy = _appVm.OrderBy;
+        // Snapshot the games dictionary values on the UI thread before going background.
+        // This avoids iterating _settingsVM.Games while it may be mutated on another thread.
+        var snapshot = _settingsVM.Games.Values.ToList();
+
+        // Capture all filter/sort parameters as immutable value (safe for background thread)
+        var args = new FilterArgs(
+            HideComplete:       _appVm.HideComplete,
+            HideNoAchievements: _appVm.HideNoAchievements,
+            HideUnstarted:      _appVm.HideUnstarted,
+            Reverse:            _appVm.Reverse,
+            SearchText:         _appVm.SearchText,
+            OrderBy:            _appVm.OrderBy,
+            SteamFilter:        LibraryVM.SteamFilter,
+            RAFilter:           LibraryVM.RAFilter,
+            PSNFilter:          LibraryVM.PSNFilter,
+            XBFilter:           LibraryVM.XBFilter);
 
         var version = ++_filterVersion;
 
-        var filtered = await Task.Run(() =>
-        {
-            var list = games
-                .Where(g => !hideComplete || g.Value.UnlockedCount < g.Value.Achievements.Count)
-                .Where(g => !hideNoAchievements || g.Value.HasAchievements)
-                .Where(g => !hideUnstarted || g.Value.UnlockedCount > 0);
-
-            // Apply text search filter
-            if (!string.IsNullOrWhiteSpace(searchText))
-            {
-                list = list.Where(g => g.Value.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
-            }
-
-            // Filter out games without HLTB data when sorting by HLTB
-            if (orderBy == HowLongToBeatMain)
-            {
-                list = list.Where(g => g.Value.HowLongToBeatMain.HasValue);
-            }
-            else if (orderBy == HowLongToBeatCompletionist)
-            {
-                list = list.Where(g => g.Value.HowLongToBeatCompletionist.HasValue);
-            }
-
-            list = orderBy switch
-            {
-                OrderBy.Name => list.OrderBy(g => g.Value.Name),
-                NameReverse => list.OrderByDescending(g => g.Value.Name),
-                CompletionPct => list.OrderByDescending(g => (double)g.Value.UnlockedCount / g.Value.Achievements.Count),
-                TotalCount => list.OrderBy(g => g.Value.Achievements.Count),
-                UnlockedCount => list.OrderBy(g => g.Value.UnlockedCount),
-                Playtime => list.OrderBy(g => g.Value.PlaytimeMinutes),
-                LastPlayed => list.OrderByDescending(g => g.Value.LastPlayed ?? DateTime.MinValue),
-                HowLongToBeatMain => list.OrderBy(g => g.Value.HowLongToBeatMain.Value),
-                HowLongToBeatCompletionist => list.OrderBy(g => g.Value.HowLongToBeatCompletionist.Value),
-                _ => list
-            };
-            
-            
-            //per platform filtering
-            Dictionary<Platforms, bool> Enabled = new()
-            {
-                { Platforms.Steam, LibraryVM.SteamFilter },
-                { Platforms.RetroAchievements, LibraryVM.RAFilter },
-                { Platforms.PlayStation, LibraryVM.PSNFilter },
-                { Platforms.Xbox, LibraryVM.XBFilter },
-            };
-            
-            list = list.Select(g => g)
-                .Where(g => Enabled[g.Value.Platform]);
-                
-            return list.Select(g => g.Value).ToList();
-        });
+        var filtered = await Task.Run(() => LibraryVM.FilterAndSort(snapshot, args));
 
         // Discard stale results if a newer filter was triggered
         if (_filterVersion != version)
             return;
 
         // Back on UI thread — give ItemsRepeater the full list, it virtualizes natively
-        _allFilteredGames = filtered;
         _appVm.FilteredGames.ReplaceAll(filtered);
 
         // Ensure layout settings are maintained after filtering
@@ -510,7 +483,6 @@ public partial class Library : Page
         }
     }
 
-
     private void OnScrollViewerPointerWheelChanged(object sender, PointerRoutedEventArgs e)
     {
         var sv = (ScrollViewer)sender;
@@ -525,7 +497,6 @@ public partial class Library : Page
     private AsyncCommand? _scanCommand;
     public AsyncCommand ScanCommand => _scanCommand ??= new AsyncCommand(Scan);
     private AsyncCommand? _cancelCommand;
-    private List<Game> _allFilteredGames;
     public AsyncCommand CancelCommand => _cancelCommand ??= new AsyncCommand(CancelCurrentOperation);
     #endregion
 }

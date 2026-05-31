@@ -10,7 +10,7 @@
         <ApplicationId>net.rarisma.gravity</ApplicationId>
         <!-- Versions -->
         <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <AssemblyVersion>0.6.0</AssemblyVersion>
+        <AssemblyVersion>0.7.0</AssemblyVersion>
         <ApplicationVersion>1</ApplicationVersion>
         <!-- Package Publisher -->
         <ApplicationPublisher>Rarisma</ApplicationPublisher>
@@ -65,7 +65,14 @@
     <PropertyGroup Condition="'$(Configuration)' == 'Release' AND $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'desktop'">
         <PublishTrimmed>true</PublishTrimmed>
         <TrimMode>full</TrimMode>
+        <!-- Sachya uses reflection-based System.Text.Json; keep it available (mirrors Android setting) -->
+        <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     </PropertyGroup>
+
+    <!-- Preserve Sachya types from trimming on any trimmed publish (desktop or android) -->
+    <ItemGroup Condition="'$(PublishTrimmed)' == 'true'">
+        <TrimmerRootAssembly Include="Sachya" RootMode="All" />
+    </ItemGroup>
     <ItemGroup>
       <PackageReference Include="AutoMapper" />
       <PackageReference Include="Codepotatoes.Scraper.HowLongToBeat" />
@@ -85,8 +92,8 @@
         <DependentUpon>GamePage.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
-      <Compile Update="UI\Initalize.xaml.cs">
-        <DependentUpon>FirstRunPage.xaml</DependentUpon>
+      <Compile Update="UI\Initialize.xaml.cs">
+        <DependentUpon>Initialize.xaml</DependentUpon>
         <IsDefaultItem>true</IsDefaultItem>
       </Compile>
       <Compile Update="UI\MainPage.xaml.cs">
@@ -100,7 +107,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\SACHYA\Sachya\Sachya.csproj" />
+      <ProjectReference Include="..\external\Sachya\Sachya\Sachya.csproj" />
     </ItemGroup>
 
     <ItemGroup>
@@ -111,6 +118,24 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Content Include="..\CLAUDE.md">
+        <Link>Other\CLAUDE.md</Link>
+      </Content>
+      <Content Include="..\Directory.Build.props">
+        <Link>Other\Directory.Build.props</Link>
+      </Content>
+      <Content Include="..\Directory.Build.targets">
+        <Link>Other\Directory.Build.targets</Link>
+      </Content>
+      <Content Include="..\Directory.Packages.props">
+        <Link>Other\Directory.Packages.props</Link>
+      </Content>
+      <Content Include="..\global.json">
+        <Link>Other\global.json</Link>
+      </Content>
+      <Content Include="..\README.md">
+        <Link>Other\README.md</Link>
+      </Content>
       <UnoIcon Remove="Assets\Icons\icon.svg" />
       <Content Remove="Assets\Icons\icon.png" />
       <UnoIcon Include="Assets\Icons\icon.png" />

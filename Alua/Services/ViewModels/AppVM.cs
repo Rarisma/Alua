@@ -3,7 +3,6 @@ using Alua.Helpers;
 using Alua.Models;
 using Alua.Services;
 using Alua.Services.Providers;
-using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 
 //Some things can never be fixed, they must be destroyed.
@@ -14,6 +13,7 @@ namespace Alua.Services.ViewModels;
 public partial class AppVM : ObservableRecipient
 {
     private readonly object _providersLock = new();
+    private readonly SettingsVM _settingsVM;
 
     [ObservableProperty]
     private BatchObservableCollection<Game> _filteredGames = new();
@@ -68,6 +68,15 @@ public partial class AppVM : ObservableRecipient
     private bool _hasError;
 
     private List<IAchievementProvider> _providers = new();
+
+    /// <summary>
+    /// Initialises AppVM with an injected <see cref="SettingsVM"/> dependency.
+    /// The DI container (which registers both as singletons) will supply it automatically.
+    /// </summary>
+    public AppVM(SettingsVM settingsVM)
+    {
+        _settingsVM = settingsVM;
+    }
 
     /// <summary>
     /// Sets an error message to display to the user
@@ -157,7 +166,7 @@ public partial class AppVM : ObservableRecipient
             return _providers.OfType<T>().FirstOrDefault();
         }
     }
-    
+
     /// <summary>
     /// Adds or updates the Xbox provider when authentication changes
     /// </summary>
@@ -170,55 +179,33 @@ public partial class AppVM : ObservableRecipient
             {
                 Log.Information("Removed existing Xbox provider");
             }
-            
+
             if (string.IsNullOrWhiteSpace(microsoftAuthData))
             {
                 Log.Information("No Microsoft auth data provided, Xbox provider not configured");
                 return false;
             }
-            
+
             Log.Information("Configuring Xbox Live provider");
-            
+
             // Create Microsoft auth service and restore authentication
             var msAuthService = new MicrosoftAuthService();
             var restored = await msAuthService.RestoreAuthDataAsync(microsoftAuthData);
-            
+
             if (!restored)
             {
                 Log.Warning("Failed to restore Xbox authentication from stored data");
                 return false;
             }
-            
+
             var accessToken = msAuthService.GetCachedAccessToken();
             if (string.IsNullOrEmpty(accessToken))
             {
                 Log.Warning("Xbox authentication data exists but access token is expired or unavailable");
                 return false;
             }
-            
-            var xbox = await XboxService.Create(accessToken);
-            
-            // Set up token refresh callback
-            if (xbox != null && xbox._apiClient != null)
-            {
-                var svm = Ioc.Default.GetRequiredService<SettingsVM>();
-                xbox._apiClient.SetTokenRefreshCallback(async () =>
-                {
-                    Log.Information("Refreshing Xbox Live access token");
-                    var newToken = await msAuthService.RefreshAccessTokenAsync();
-                    if (!string.IsNullOrEmpty(newToken))
-                    {
-                        // Update stored auth data
-                        svm.MicrosoftAuthData = await msAuthService.SerializeAuthDataAsync();
-                        await svm.Save();
-                    }
-                    return newToken;
-                });
-            }
 
-            AddProvider(xbox);
-            Log.Information("Successfully configured Xbox Live provider");
-            return true;
+            return await ConfigureXboxProviderCore(accessToken, msAuthService);
         }
         catch (Exception ex)
         {
@@ -226,46 +213,7 @@ public partial class AppVM : ObservableRecipient
             return false;
         }
     }
-    
-    /// <summary>
-    /// Scans for Xbox games and adds them to the collection
-    /// </summary>
-    private async Task ScanXboxGamesAsync(IAchievementProvider xboxProvider)
-    {
-        try
-        {
-            Log.Information("Scanning for Xbox games");
-            LoadingGamesSummary = "Loading Xbox games...";
-            
-            var svm = Ioc.Default.GetRequiredService<SettingsVM>();
-            var games = await xboxProvider.GetLibrary();
-            
-            Log.Information("Found {Count} Xbox games", games.Length);
-            
-            foreach (var game in games)
-            {
-                svm.AddOrUpdateGame(game);
-                
-                // Add to filtered games if not already present
-                if (!FilteredGames.Any(g => g.Identifier == game.Identifier))
-                {
-                    FilteredGames.Add(game);
-                }
-            }
-            
-            // Save the updated games list
-            await svm.Save();
-            
-            LoadingGamesSummary = "";
-            Log.Information("Xbox games scan complete. Total games in library: {Count}", svm.Games.Count);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to scan Xbox games");
-            LoadingGamesSummary = "";
-        }
-    }
-    
+
     /// <summary>
     /// Adds or updates the Xbox provider using a fresh access token
     /// </summary>
@@ -278,41 +226,16 @@ public partial class AppVM : ObservableRecipient
             {
                 Log.Information("Removed existing Xbox provider");
             }
-            
+
             if (string.IsNullOrWhiteSpace(accessToken))
             {
                 Log.Information("No access token provided, Xbox provider not configured");
                 return false;
             }
-            
+
             Log.Information("Configuring Xbox Live provider with access token");
-            
-            var xbox = await XboxService.Create(accessToken);
-            
-            // Set up token refresh callback
-            if (xbox != null && xbox._apiClient != null)
-            {
-                var svm = Ioc.Default.GetRequiredService<SettingsVM>();
-                xbox._apiClient.SetTokenRefreshCallback(async () =>
-                {
-                    Log.Information("Refreshing Xbox Live access token");
-                    var newToken = await authService.RefreshAccessTokenAsync();
-                    if (!string.IsNullOrEmpty(newToken))
-                    {
-                        // Update stored auth data
-                        svm.MicrosoftAuthData = await authService.SerializeAuthDataAsync();
-                        await svm.Save();
-                    }
-                    return newToken;
-                });
-            }
 
-            AddProvider(xbox);
-            Log.Information("Successfully configured Xbox Live provider with access token");
-
-            // Don't automatically scan - let user trigger it manually
-
-            return true;
+            return await ConfigureXboxProviderCore(accessToken, authService);
         }
         catch (Exception ex)
         {
@@ -321,52 +244,102 @@ public partial class AppVM : ObservableRecipient
         }
     }
 
+    /// <summary>
+    /// Core Xbox provider configuration: creates the <see cref="XboxService"/>, wires up the
+    /// token-refresh callback, and registers the provider.  All three public entry-points
+    /// (ConfigureXboxProvider, ConfigureXboxProviderWithToken, ConfigureProviders) delegate here.
+    /// </summary>
+    private async Task<bool> ConfigureXboxProviderCore(string accessToken, MicrosoftAuthService msAuthService)
+    {
+        var xbox = await XboxService.Create(accessToken);
+
+        if (xbox == null)
+        {
+            Log.Warning("Xbox provider creation returned null; skipping registration");
+            return false;
+        }
+
+        if (xbox._apiClient != null)
+        {
+            xbox._apiClient.SetTokenRefreshCallback(async () =>
+            {
+                Log.Information("Refreshing Xbox Live access token");
+                var newToken = await msAuthService.RefreshAccessTokenAsync();
+                if (!string.IsNullOrEmpty(newToken))
+                {
+                    _settingsVM.MicrosoftAuthData = await msAuthService.SerializeAuthDataAsync();
+                    await _settingsVM.Save();
+                }
+                return newToken;
+            });
+        }
+
+        AddProvider(xbox);
+        Log.Information("Successfully configured Xbox Live provider");
+        return true;
+    }
+
     public async Task ConfigureProviders()
     {
         try
         {
             Log.Information("Configuring providers");
             ClearError();
-            SettingsVM svm = Ioc.Default.GetRequiredService<SettingsVM>();
             Providers = new();
             var errors = new List<string>();
 
-            if (!string.IsNullOrWhiteSpace(svm.SteamID))
+            if (!string.IsNullOrWhiteSpace(_settingsVM.SteamID))
             {
-                try
+                if (string.IsNullOrWhiteSpace(AppConfig.SteamAPIKey))
                 {
-                    Log.Information("Configuring steam achievements");
-                    var steam = await SteamService.Create(svm.SteamID);
-                    AddProvider(steam);
-                    Log.Information("Successfully configured steam achievements");
+                    Log.Warning("Steam configured but no API key provided; skipping");
+                    errors.Add("Steam: API key required. Add it in Settings.");
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Error(ex, "Failed to configure Steam provider");
-                    errors.Add("Steam: Unable to connect. Check your Steam ID.");
+                    try
+                    {
+                        Log.Information("Configuring steam achievements");
+                        var steam = await SteamService.Create(_settingsVM.SteamID);
+                        AddProvider(steam);
+                        Log.Information("Successfully configured steam achievements");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to configure Steam provider");
+                        errors.Add("Steam: Unable to connect. Check your Steam ID.");
+                    }
                 }
             }
-            if (!string.IsNullOrWhiteSpace(svm.RetroAchievementsUsername))
+            if (!string.IsNullOrWhiteSpace(_settingsVM.RetroAchievementsUsername))
             {
-                try
+                if (string.IsNullOrWhiteSpace(AppConfig.RAAPIKey))
                 {
-                    Log.Information("Configuring retro achievements");
-                    var ra = await RetroAchievementsService.Create(svm.RetroAchievementsUsername);
-                    AddProvider(ra);
-                    Log.Information("Successfully configured retro achievements");
+                    Log.Warning("RetroAchievements configured but no API key provided; skipping");
+                    errors.Add("RetroAchievements: API key required. Add it in Settings.");
                 }
-                catch (Exception ex)
+                else
                 {
-                    Log.Error(ex, "Failed to configure RetroAchievements provider");
-                    errors.Add("RetroAchievements: Unable to connect. Check your username.");
+                    try
+                    {
+                        Log.Information("Configuring retro achievements");
+                        var ra = await RetroAchievementsService.Create(_settingsVM.RetroAchievementsUsername);
+                        AddProvider(ra);
+                        Log.Information("Successfully configured retro achievements");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Failed to configure RetroAchievements provider");
+                        errors.Add("RetroAchievements: Unable to connect. Check your username.");
+                    }
                 }
             }
-            if (!string.IsNullOrWhiteSpace(svm.PsnSSO))
+            if (!string.IsNullOrWhiteSpace(_settingsVM.PsnSSO))
             {
                 try
                 {
                     Log.Information("Configuring PSN achievements");
-                    var psn = await PSNService.Create(svm.PsnSSO);
+                    var psn = await PSNService.Create(_settingsVM.PsnSSO);
                     AddProvider(psn);
                     Log.Information("Successfully configured PSN achievements");
                 }
@@ -377,13 +350,13 @@ public partial class AppVM : ObservableRecipient
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(svm.MicrosoftAuthData))
+            if (!string.IsNullOrWhiteSpace(_settingsVM.MicrosoftAuthData))
             {
                 Log.Information("Configuring Xbox Live achievements");
 
                 // Create Microsoft auth service and restore authentication
                 var msAuthService = new MicrosoftAuthService();
-                var restored = await msAuthService.RestoreAuthDataAsync(svm.MicrosoftAuthData);
+                var restored = await msAuthService.RestoreAuthDataAsync(_settingsVM.MicrosoftAuthData);
 
                 if (restored)
                 {
@@ -392,43 +365,25 @@ public partial class AppVM : ObservableRecipient
                     {
                         try
                         {
-                            var xbox = await XboxService.Create(accessToken);
-
-                            // Set up token refresh callback
-                            if (xbox != null && xbox._apiClient != null)
-                            {
-                                xbox._apiClient.SetTokenRefreshCallback(async () =>
-                                {
-                                    Log.Information("Refreshing Xbox Live access token");
-                                    var newToken = await msAuthService.RefreshAccessTokenAsync();
-                                    if (!string.IsNullOrEmpty(newToken))
-                                    {
-                                        // Update stored auth data
-                                        svm.MicrosoftAuthData = await msAuthService.SerializeAuthDataAsync();
-                                        await svm.Save();
-                                    }
-                                    return newToken;
-                                });
-                            }
-
-                            AddProvider(xbox);
+                            await ConfigureXboxProviderCore(accessToken, msAuthService);
 
                             // Update gamertag from Xbox service if available
-                            if (!string.IsNullOrEmpty(xbox.Gamertag))
+                            var xbox = GetProvider<XboxService>();
+                            if (xbox != null && !string.IsNullOrEmpty(xbox.Gamertag))
                             {
-                                svm.XboxGamertag = xbox.Gamertag;
+                                _settingsVM.XboxGamertag = xbox.Gamertag;
                             }
 
-                            Log.Information("Successfully configured Xbox Live achievements with gamertag: {Gamertag}", svm.XboxGamertag);
+                            Log.Information("Successfully configured Xbox Live achievements with gamertag: {Gamertag}", _settingsVM.XboxGamertag);
                         }
                         catch (Exception ex)
                         {
                             Log.Warning(ex, "Failed to create Xbox service with restored token, clearing stored auth data");
                             errors.Add("Xbox: Unable to connect. Please sign in again.");
                             // Clear invalid auth data so user can re-authenticate
-                            svm.MicrosoftAuthData = null;
-                            svm.XboxGamertag = null;
-                            await svm.Save();
+                            _settingsVM.MicrosoftAuthData = null;
+                            _settingsVM.XboxGamertag = null;
+                            await _settingsVM.Save();
                         }
                     }
                     else
@@ -456,10 +411,10 @@ public partial class AppVM : ObservableRecipient
             SetError("Failed to connect to some services. Check Settings for details.");
         }
     }
-    
+
 }
 
-public enum OrderBy 
+public enum OrderBy
 {
     Name,
     NameReverse,
@@ -470,5 +425,5 @@ public enum OrderBy
     LastPlayed,
     HowLongToBeatMain,
     HowLongToBeatCompletionist
-    
+
 }

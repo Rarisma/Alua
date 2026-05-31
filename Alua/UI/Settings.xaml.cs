@@ -4,6 +4,7 @@ using Alua.Services.Providers;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Navigation;
 using Serilog;
 using SettingsVM = Alua.Services.ViewModels.SettingsVM;
 
@@ -59,8 +60,27 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         }
     }
 
+    public bool IsSteamApiKeyConfigured => !string.IsNullOrWhiteSpace(_settingsVM.UserSteamApiKey);
+    public bool IsRetroApiKeyConfigured => !string.IsNullOrWhiteSpace(_settingsVM.UserRetroApiKey);
+    public string SteamApiKeyButtonText => IsSteamApiKeyConfigured ? "Change Steam API key" : "Set up Steam API key";
+    public string RetroApiKeyButtonText => IsRetroApiKeyConfigured ? "Change RetroAchievements API key" : "Set up RetroAchievements API key";
+
+    private void RefreshApiKeyState()
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSteamApiKeyConfigured)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRetroApiKeyConfigured)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SteamApiKeyButtonText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(RetroApiKeyButtonText)));
+    }
+
     public event PropertyChangedEventHandler? PropertyChanged;
-    
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        RefreshApiKeyState();
+    }
+
     public Settings()
     {
         InitializeComponent();
@@ -70,15 +90,27 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         // Check PSN connection state
         IsPsnConnected = !string.IsNullOrWhiteSpace(_settingsVM.PsnSSO);
 
-        // Check if we have stored Xbox auth data
-        Task.Run(async () =>
+        // Defer async auth restore to Loaded so it runs on the UI thread
+        Loaded += OnLoaded;
+    }
+
+    private async void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        try
         {
+            // Restore Xbox auth state; RestoreAuthDataAsync may involve network I/O
             if (!string.IsNullOrEmpty(_settingsVM.MicrosoftAuthData))
             {
                 var restored = await _msAuthService.RestoreAuthDataAsync(_settingsVM.MicrosoftAuthData);
-                IsXboxAuthenticated = restored;
+                // Marshal the property write back to the UI thread so PropertyChanged
+                // is raised on the correct thread (bound controls require this).
+                DispatcherQueue.TryEnqueue(() => IsXboxAuthenticated = restored);
             }
-        });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to restore Xbox auth data on Settings page load");
+        }
     }
     
     private async Task AuthenticateXbox()
@@ -336,20 +368,47 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         }
     }
 
+    private void SetupSteamApiKey() =>
+        App.Frame.Navigate(typeof(ApiKeySetup), ApiKeyProvider.Steam);
+
+    private void SetupRetroApiKey() =>
+        App.Frame.Navigate(typeof(ApiKeySetup), ApiKeyProvider.RetroAchievements);
+
     #region Debug helpers
     /// <summary>
     /// Shows set up page again.
     /// </summary>
-    private void ShowInitialPage() => App.Frame.Navigate(typeof(Initalize));
+    private void ShowInitialPage() => App.Frame.Navigate(typeof(Initialize));
     
     /// <summary>
     /// Shows log for session in a dialog
     /// </summary>
     private async Task ShowLogs()
     {
-        string log = await File.ReadAllTextAsync(Path.Combine(ApplicationData.Current.LocalFolder.Path, "alua" +
-            DateTime.Now.ToString("yyyyMMdd") + ".log"));
-        
+        var folder = ApplicationData.Current.LocalFolder.Path;
+        string log;
+        try
+        {
+            var latest = Directory.GetFiles(folder, "alua*.log")
+                                  .OrderByDescending(File.GetLastWriteTimeUtc)
+                                  .FirstOrDefault();
+            if (latest == null)
+            {
+                log = "No log files were found.";
+            }
+            else
+            {
+                // Logs may be rotated mid-session; read with FileShare.ReadWrite.
+                await using var stream = new FileStream(latest, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                using var reader = new StreamReader(stream);
+                log = await reader.ReadToEndAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            log = $"Failed to read log: {ex.Message}";
+        }
+
         ContentDialog dialog = new()
         {
             XamlRoot = App.Frame.XamlRoot,

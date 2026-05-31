@@ -4,8 +4,8 @@ namespace Alua.UI.Controls;
 /// </summary>
 public class AsyncCommand : ICommand, ILoadable
 {
-    public event EventHandler CanExecuteChanged;
-    public event EventHandler IsExecutingChanged;
+    public event EventHandler? CanExecuteChanged;
+    public event EventHandler? IsExecutingChanged;
 
     private readonly Func<Task> _executeAsync;
     private bool _isExecuting;
@@ -15,7 +15,7 @@ public class AsyncCommand : ICommand, ILoadable
         _executeAsync = executeAsync;
     }
 
-    public bool CanExecute(object parameter) => !IsExecuting;
+    public bool CanExecute(object? parameter) => !IsExecuting;
 
     public bool IsExecuting
     {
@@ -36,6 +36,10 @@ public class AsyncCommand : ICommand, ILoadable
         {
             IsExecuting = true;
             await _executeAsync();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Error(ex, "Unhandled exception in AsyncCommand");
         }
         finally
         {

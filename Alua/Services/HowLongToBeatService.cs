@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Alua.Models;
 using HowLongToBeatScraper;
@@ -11,6 +12,14 @@ public class HowLongToBeatService : IDisposable
     private readonly HltbScraper _scraper;
     private readonly Serilog.ILogger _logger;
 
+    // HLTB scrapes a third-party website that breaks periodically. When it's down,
+    // every game we look up burns a timeout. Trip after a run of failures and back off.
+    // _consecutiveFailures and _circuitOpenUntilTicks are accessed via Interlocked for lock-free coherence.
+    private static int _consecutiveFailures;
+    private static long _circuitOpenUntilTicks = DateTime.MinValue.Ticks;
+    private const int FailureThreshold = 5;
+    private static readonly TimeSpan CircuitOpenDuration = TimeSpan.FromMinutes(30);
+
     public HowLongToBeatService()
     {
         _scraper = new HltbScraper();
@@ -19,6 +28,12 @@ public class HowLongToBeatService : IDisposable
 
     public async Task<HowLongToBeatData?> GetGameData(string gameName)
     {
+        if (DateTime.UtcNow.Ticks < Interlocked.Read(ref _circuitOpenUntilTicks))
+        {
+            _logger.Debug("HLTB circuit open, skipping fetch for {Game}", gameName);
+            return null;
+        }
+
         try
         {
             if (string.IsNullOrWhiteSpace(gameName))
@@ -28,23 +43,25 @@ public class HowLongToBeatService : IDisposable
             }
 
             _logger.Information($"Searching HowLongToBeat for: {gameName}");
-            
+
             var searchResults = await _scraper.Search(gameName);
             var resultsList = searchResults?.ToList();
-            
+
             if (resultsList == null || !resultsList.Any())
             {
                 _logger.Information($"No results found for: {gameName}");
+                Interlocked.Exchange(ref _consecutiveFailures, 0);
                 return null;
             }
 
             // Find the best match - prefer exact name match, otherwise take first result
-            var bestMatch = resultsList.FirstOrDefault(x => 
-                string.Equals(x.Title, gameName, StringComparison.OrdinalIgnoreCase)) 
+            var bestMatch = resultsList.FirstOrDefault(x =>
+                string.Equals(x.Title, gameName, StringComparison.OrdinalIgnoreCase))
                 ?? resultsList.First();
 
             _logger.Information($"Found HowLongToBeat data for: {bestMatch.Title}");
-            
+            Interlocked.Exchange(ref _consecutiveFailures, 0);
+
             return new HowLongToBeatData
             {
                 MainStory = bestMatch.MainStory,
@@ -56,6 +73,13 @@ public class HowLongToBeatService : IDisposable
         catch (Exception ex)
         {
             _logger.Error(ex, $"Error fetching HowLongToBeat data for: {gameName}");
+            var failures = Interlocked.Increment(ref _consecutiveFailures);
+            if (failures >= FailureThreshold)
+            {
+                var openUntil = DateTime.UtcNow + CircuitOpenDuration;
+                Interlocked.Exchange(ref _circuitOpenUntilTicks, openUntil.Ticks);
+                _logger.Warning("HLTB failed {Count} times in a row; opening circuit until {Until:O}", failures, openUntil);
+            }
             return null;
         }
     }

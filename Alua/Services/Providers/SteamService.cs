@@ -14,8 +14,10 @@ namespace Alua.Services.Providers;
 public sealed partial class SteamService : IAchievementProvider<SteamService>
 {
     private static readonly TimeSpan BlacklistCacheTtl = TimeSpan.FromDays(7);
-    private static HashSet<uint>? _nonGameBlacklist;
-    private static readonly SemaphoreSlim _blacklistLock = new(1, 1);
+
+    // Instance-level blacklist so it is GC-eligible when the provider is replaced.
+    private HashSet<uint>? _nonGameBlacklist;
+    private readonly SemaphoreSlim _blacklistLock = new(1, 1);
 
     private SteamWebApiClient _apiClient = null!;
     private ViewModels.AppVM _appVm = null!;
@@ -65,7 +67,10 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
     #region Methods
     /// <summary>
-    /// Gets a users whole library including family shared games with achievements
+    /// Gets a users whole library including family shared games with achievements.
+    /// Family-shared games are detected by checking recently-played titles not in the
+    /// owned set; ConvertToAluaAsync skips games with no achievement data, so no
+    /// per-game pre-check is needed here.
     /// </summary>
     /// <returns>Game array</returns>
     public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
@@ -85,8 +90,14 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 return [];
             }
 
-            var owned = await _apiClient.GetOwnedGamesAsync(_steamId, includeAppInfo: true, includePlayedFreeGames: true);
-            
+            var ownedTask = _apiClient.GetOwnedGamesAsync(_steamId, includeAppInfo: true, includePlayedFreeGames: true);
+            var recentTask = _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 100);
+
+            await Task.WhenAll(ownedTask, recentTask);
+
+            var owned = ownedTask.Result;
+            var recentlyPlayed = recentTask.Result;
+
             // Check if the response is valid
             if (owned?.response?.games == null)
             {
@@ -94,44 +105,20 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                 return [];
             }
 
-            // Get recently played games (includes family shared)
-            var recentlyPlayed = await _apiClient.GetRecentlyPlayedGamesAsync(_steamId, count: 100);
-            
             // Create a set of owned game IDs for quick lookup
             var ownedGameIds = new HashSet<int>(owned.response.games.Select(g => g.appid));
-            
-            // Find family shared games (games played but not owned)
-            var familySharedGames = new List<Sachya.Definitions.Steam.Game>();
-            
-            if (recentlyPlayed?.response?.games != null)
-            {
-                foreach (var game in recentlyPlayed.response.games)
-                {
-                    // If this game was played but not owned, it's likely family shared
-                    if (!ownedGameIds.Contains(game.appid))
-                    {
-                        try
-                        {
-                            // Check if the user has achievement data for this game
-                            var achievements = await _apiClient.GetPlayerAchievementsAsync(_steamId, game.appid);
-                            
-                            // If we got achievement data, add this as a family shared game
-                            if (achievements?.playerstats?.achievements != null && achievements.playerstats.achievements.Count > 0)
-                            {
-                                familySharedGames.Add(game);
-                                Log.Information("Found family shared game with achievements: {GameName} ({AppId})", game.name, game.appid);
-                            }
-                        }
-                        catch
-                        {
-                            // If we can't get achievement data, skip this game
-                            Log.Debug("No achievement access for game {AppId}, skipping", game.appid);
-                        }
-                    }
-                }
-            }
-            
-            // Combine owned and family shared games
+
+            // Find family shared games (played but not owned). We pass them directly into
+            // ConvertToAluaAsync — GetAchievementDataAsync returns [] when there is no
+            // achievement data, so games the user cannot access are silently skipped.
+            var familySharedGames = recentlyPlayed?.response?.games?
+                .Where(g => !ownedGameIds.Contains(g.appid))
+                .ToList() ?? [];
+
+            if (familySharedGames.Count > 0)
+                Log.Information("Found {Count} potentially family-shared games (not owned but recently played)", familySharedGames.Count);
+
+            // Combine owned and candidate family shared games
             var allGames = owned.response.games.Concat(familySharedGames).ToList();
 
             return await ConvertToAluaAsync(allGames, cancellationToken);
@@ -142,7 +129,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             return [];
         }
     }
-    
+
     /// <summary>
     /// Gets recently played games in a users library
     /// </summary>
@@ -198,7 +185,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     {
         try
         {
-            int appId = int.Parse(identifier.Split("steam-").Last());
+            int appId = int.Parse(identifier.Split(ProviderIds.Steam).Last());
 
             var data = (await _apiClient.GetOwnedGamesAsync(steamid: _steamId, includeAppInfo: true,
                 includePlayedFreeGames: true, [appId])).response.games[0];
@@ -206,7 +193,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
             var game = new Game
             {
-                Identifier       = "steam-"+appId,
+                Identifier       = ProviderIds.Steam+appId,
                 Name             = data.name,
                 Icon             = iconUrl,
                 Author           = string.Empty,
@@ -218,7 +205,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                     ? DateTimeOffset.FromUnixTimeSeconds(data.rtime_last_played).UtcDateTime
                     : null
             };
-            
+
             return game;
         }
         catch (Exception ex)
@@ -295,13 +282,13 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                         IsHidden = false
                     };
                 }
-                
+
                 // Set percentage if available
                 if (rarityData.TryGetValue(ach.apiname, out double percentage))
                 {
                     achievement.RarityPercentage = percentage;
                 }
-                
+
                 list.Add(achievement);
             }
 
@@ -436,7 +423,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                     Author          = string.Empty,
                     Platform        = Platforms.Steam,
                     PlaytimeMinutes = g.playtime_forever,
-                    Identifier      = "steam-"+g.appid,
+                    Identifier      = ProviderIds.Steam+g.appid,
                     Achievements    = (await GetAchievementDataAsync(g.appid.ToString())).ToObservableCollection(),
                     LastUpdated     = DateTime.UtcNow,
                     LastPlayed      = g.rtime_last_played > 0

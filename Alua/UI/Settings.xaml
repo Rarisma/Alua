@@ -5,9 +5,21 @@
 
     <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20">
         <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250" Text="{x:Bind _settingsVM.SteamID, Mode=TwoWay}"/>
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
+            <Button Content="{x:Bind SteamApiKeyButtonText, Mode=OneWay}" Click="{x:Bind SetupSteamApiKey}"
+                    ToolTipService.ToolTip="Open Steam's API key page in an embedded browser"/>
+            <TextBlock Text="API key configured" FontWeight="Bold" VerticalAlignment="Center"
+                       Visibility="{x:Bind IsSteamApiKeyConfigured, Mode=OneWay}"/>
+        </StackPanel>
 
         <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
-                 Margin="0,20" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
+                 Margin="0,20,0,0" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
+            <Button Content="{x:Bind RetroApiKeyButtonText, Mode=OneWay}" Click="{x:Bind SetupRetroApiKey}"
+                    ToolTipService.ToolTip="Open the RetroAchievements settings page in an embedded browser"/>
+            <TextBlock Text="API key configured" FontWeight="Bold" VerticalAlignment="Center"
+                       Visibility="{x:Bind IsRetroApiKeyConfigured, Mode=OneWay}"/>
+        </StackPanel>
 
         <!-- PlayStation Network -->
         <StackPanel Margin="0,20">
@@ -58,7 +70,7 @@
                     Margin="0,5"/>
         </StackPanel>
 
-        <Expander BorderBrush="transparent" Background="transparent">
+        <Expander BorderBrush="Transparent" Background="Transparent">
             <Expander.Header>
                 <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
                     <TextBlock Text="{x:Bind _settingsVM.Version}" Margin="10"/>

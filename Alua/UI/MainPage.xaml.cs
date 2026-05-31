@@ -42,7 +42,7 @@ public sealed partial class MainPage : Page
         else
         {
             //Hide nav bar.
-            App.Frame.Navigate(typeof(Initalize));
+            App.Frame.Navigate(typeof(Initialize));
             _appVM.CommandBarVisibility = Visibility.Collapsed;
         }
     }

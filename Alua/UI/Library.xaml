@@ -2,17 +2,18 @@
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:models="clr-namespace:Alua.Models"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:skia="http://uno.ui/skia"
       xmlns:android="http://uno.ui/android"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      mc:Ignorable="d skia android"
+      mc:Ignorable="android"
       xmlns:utu="using:Uno.Toolkit.UI"
       Loaded="OnLoaded"
       xmlns:controls="clr-namespace:Alua.UI.Controls"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
+        <!-- Defined per-page (not app-level): Uno does not reliably resolve a {StaticResource}
+             referenced inside a page-level DataTemplate up to Application.Resources, which left
+             the ItemsRepeater templates unresolved and games rendering as raw "Alua.Models.Game". -->
         <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
 
         <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">

@@ -15,9 +15,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.github\workflows\release-build.yml = .github\workflows\release-build.yml
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sachya", "..\SACHYA\Sachya\Sachya.csproj", "{DB8E0F7B-1B22-465E-98B9-7A644ACE3C61}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sachya", "external\Sachya\Sachya\Sachya.csproj", "{DB8E0F7B-1B22-465E-98B9-7A644ACE3C61}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SachyaTests", "..\SACHYA\SachyaTests\SachyaTests.csproj", "{D5BA5102-FEFC-475F-B52F-F46329560E41}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SachyaTests", "external\Sachya\SachyaTests\SachyaTests.csproj", "{D5BA5102-FEFC-475F-B52F-F46329560E41}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

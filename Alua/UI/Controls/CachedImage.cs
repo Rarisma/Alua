@@ -12,7 +12,14 @@ public sealed class CachedImage : Image
 {
     private const string CachePrefix = "imgcache_";
     private const long MaxCacheSizeBytes = 1L * 1024 * 1024 * 1024; // 1GB
-    private static readonly int MemoryCacheLimit = OperatingSystem.IsAndroid() ? 200 : 500;
+
+    // Byte budgets for the in-process memory cache (decoded BGRA pixels, ~4 bytes/pixel).
+    // Using a byte budget instead of an entry count prevents 500 decoded bitmaps from
+    // consuming ~87 MB unchecked.
+    private static readonly long MemoryCacheByteBudget = OperatingSystem.IsAndroid()
+        ? 24L * 1024 * 1024   // 24 MB on Android
+        : 64L * 1024 * 1024;  // 64 MB on Desktop / WASM
+
     private const int DefaultDecodeSize = 128;
 
     #region Dependency Properties
@@ -70,7 +77,7 @@ public sealed class CachedImage : Image
 
     private static readonly MemoryCache _memoryCache = new(new MemoryCacheOptions
     {
-        SizeLimit = MemoryCacheLimit
+        SizeLimit = MemoryCacheByteBudget
     });
 
     // Separate cache for provider icons (small, reused constantly)
@@ -85,6 +92,10 @@ public sealed class CachedImage : Image
 
     private CancellationTokenSource? _cts;
     private string? _currentCacheKey;
+    // Cheap pre-check fields — avoid SHA-256 when uri+decode-sizes are unchanged.
+    private Uri? _currentUri;
+    private int _lastDecodeW;
+    private int _lastDecodeH;
 
     public CachedImage()
     {
@@ -99,6 +110,9 @@ public sealed class CachedImage : Image
         // Release the bitmap so offscreen images can be GC'd
         Source = null;
         _currentCacheKey = null;
+        _currentUri = null;
+        _lastDecodeW = 0;
+        _lastDecodeH = 0;
     }
 
     private static void OnSourcePropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -126,9 +140,16 @@ public sealed class CachedImage : Image
 
         var decodeWidth = GetDecodeWidth();
         var decodeHeight = GetDecodeHeight();
+
+        // Cheap pre-check: if the URI and decode dimensions haven't changed, the image
+        // is already loaded — skip the SHA-256 hash entirely.
+        if (uri == _currentUri && decodeWidth == _lastDecodeW && decodeHeight == _lastDecodeH && _currentCacheKey is not null)
+            return;
+
         var cacheKey = ComputeCacheKey(uri, decodeWidth, decodeHeight);
 
-        // Skip if already displaying this image
+        // Skip if already displaying this image (belt-and-suspenders: handles hash collisions
+        // and the case where only _currentUri was already updated without storing the key).
         if (_currentCacheKey == cacheKey)
             return;
 
@@ -139,6 +160,9 @@ public sealed class CachedImage : Image
             {
                 Source = bitmap;
                 _currentCacheKey = cacheKey;
+                _currentUri = uri;
+                _lastDecodeW = decodeWidth;
+                _lastDecodeH = decodeHeight;
             }
         }
         catch (OperationCanceledException) { }
@@ -199,8 +223,11 @@ public sealed class CachedImage : Image
         if (bitmap2 is null)
             return null;
 
-        // 6. Cache in memory
-        _memoryCache.Set(cacheKey, bitmap2, new MemoryCacheEntryOptions { Size = 1 });
+        // 6. Cache in memory.
+        // Size is an estimated byte count (BGRA = 4 bytes/pixel) so the byte-budget SizeLimit
+        // correctly evicts entries when total decoded memory would exceed the configured limit.
+        var estimatedBytes = Math.Max(1L, (long)decodeWidth * decodeHeight * 4);
+        _memoryCache.Set(cacheKey, bitmap2, new MemoryCacheEntryOptions { Size = estimatedBytes });
 
         return bitmap2;
     }
@@ -336,6 +363,12 @@ public sealed class CachedImage : Image
             catch { }
         });
     }
+
+    /// <summary>
+    /// Bound the on-disk cache to the configured size. Call once at app startup so a crash
+    /// mid-scan doesn't leave the cache stuck over its limit until the next download.
+    /// </summary>
+    public static Task InitializeAsync() => EnforceCacheLimitAsync(ApplicationData.Current.LocalFolder.Path);
 
     private static async Task EnforceCacheLimitAsync(string folderPath)
     {

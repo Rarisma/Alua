@@ -24,6 +24,8 @@ public class MicrosoftAuthService
 
     private readonly IPublicClientApplication _msalClient;
     private AuthenticationResult? _cachedResult;
+    // Protects _cachedResult from concurrent read/write by background token-refresh and UI callers.
+    private readonly object _cachedResultLock = new();
     private static readonly object TokenCacheLock = new();
 
     public MicrosoftAuthService()
@@ -72,12 +74,12 @@ public class MicrosoftAuthService
                 try
                 {
                     Log.Information("Attempting silent authentication for cached account");
-                    _cachedResult = await _msalClient
+                    var silentResult = await _msalClient
                         .AcquireTokenSilent(Scopes, account)
                         .ExecuteAsync();
-                    
+                    lock (_cachedResultLock) { _cachedResult = silentResult; }
                     Log.Information("Silent authentication successful");
-                    return _cachedResult;
+                    return silentResult;
                 }
                 catch (MsalUiRequiredException)
                 {
@@ -85,19 +87,20 @@ public class MicrosoftAuthService
                     // Fall through to interactive login
                 }
             }
-            
+
             // Perform interactive authentication
             Log.Information("Starting interactive Microsoft authentication");
-            
-            _cachedResult = await _msalClient
+
+            var interactiveResult = await _msalClient
                 .AcquireTokenInteractive(Scopes)
                 .WithUseEmbeddedWebView(false) // Use system browser for better compatibility
                 .ExecuteAsync();
-            
-            Log.Information("Interactive authentication successful. Account: {Account}", 
-                _cachedResult.Account?.Username ?? "Unknown");
-            
-            return _cachedResult;
+            lock (_cachedResultLock) { _cachedResult = interactiveResult; }
+
+            Log.Information("Interactive authentication successful. Account: {Account}",
+                interactiveResult.Account?.Username ?? "Unknown");
+
+            return interactiveResult;
         }
         catch (MsalException msalEx)
         {
@@ -124,15 +127,16 @@ public class MicrosoftAuthService
                 Log.Warning("No cached account found for token refresh");
                 return null;
             }
-            
+
             Log.Information("Refreshing access token for account: {Account}", account.Username);
-            
-            _cachedResult = await _msalClient
+
+            var refreshedResult = await _msalClient
                 .AcquireTokenSilent(Scopes, account)
                 .ExecuteAsync();
-            
+            lock (_cachedResultLock) { _cachedResult = refreshedResult; }
+
             Log.Information("Token refresh successful");
-            return _cachedResult.AccessToken;
+            return refreshedResult.AccessToken;
         }
         catch (MsalException msalEx)
         {
@@ -159,26 +163,26 @@ public class MicrosoftAuthService
                 await _msalClient.RemoveAsync(account);
                 Log.Information("Signed out account: {Account}", account.Username);
             }
-            
-            _cachedResult = null;
+
+            lock (_cachedResultLock) { _cachedResult = null; }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Error during sign out");
         }
     }
-    
+
     /// <summary>
     /// Gets the current access token if available
     /// </summary>
     public string? GetCachedAccessToken()
     {
-        if (_cachedResult == null || _cachedResult.ExpiresOn <= DateTimeOffset.UtcNow.AddMinutes(5))
+        lock (_cachedResultLock)
         {
-            return null;
+            if (_cachedResult == null || _cachedResult.ExpiresOn <= DateTimeOffset.UtcNow.AddMinutes(5))
+                return null;
+            return _cachedResult.AccessToken;
         }
-        
-        return _cachedResult.AccessToken;
     }
     
     /// <summary>
@@ -189,23 +193,24 @@ public class MicrosoftAuthService
         try
         {
             var account = await GetCurrentAccountAsync();
-            if (account == null || _cachedResult == null)
-            {
+            AuthenticationResult? snapshot;
+            lock (_cachedResultLock) { snapshot = _cachedResult; }
+
+            if (account == null || snapshot == null)
                 return null;
-            }
-            
+
             var authData = new SerializedAuthData
             {
                 Username = account.Username,
                 HomeAccountId = account.HomeAccountId?.Identifier,
                 Environment = account.Environment,
-                AccessToken = _cachedResult.AccessToken,
-                ExpiresOn = _cachedResult.ExpiresOn,
-                TenantId = _cachedResult.TenantId,
-                UniqueId = _cachedResult.UniqueId,
-                Account = _cachedResult.Account?.Username
+                AccessToken = snapshot.AccessToken,
+                ExpiresOn = snapshot.ExpiresOn,
+                TenantId = snapshot.TenantId,
+                UniqueId = snapshot.UniqueId,
+                Account = snapshot.Account?.Username
             };
-            
+
             return JsonSerializer.Serialize(authData);
         }
         catch (Exception ex)
@@ -243,10 +248,10 @@ public class MicrosoftAuthService
             {
                 try
                 {
-                    _cachedResult = await _msalClient
+                    var restored = await _msalClient
                         .AcquireTokenSilent(Scopes, account)
                         .ExecuteAsync();
-                    
+                    lock (_cachedResultLock) { _cachedResult = restored; }
                     Log.Information("Successfully restored authentication for {Account}", account.Username);
                     return true;
                 }
@@ -271,24 +276,22 @@ public class MicrosoftAuthService
         tokenCache.SetAfterAccess(OnAfterAccessTokenCache);
     }
 
+    private const string MsalCacheSecretKey = "msal_cache_v1";
+
     private static void OnBeforeAccessTokenCache(TokenCacheNotificationArgs args)
     {
         lock (TokenCacheLock)
         {
             try
             {
-                string cachePath = GetTokenCacheFilePath();
-                if (!File.Exists(cachePath))
-                {
+                // Run on the thread pool so the WaitAsync continuation inside SecureStorage does
+                // not deadlock when this MSAL callback runs synchronously on the UI thread.
+                var encoded = Task.Run(() => SecureStorage.GetAsync(MsalCacheSecretKey)).GetAwaiter().GetResult();
+                if (string.IsNullOrEmpty(encoded))
                     return;
-                }
-
-                byte[] data = File.ReadAllBytes(cachePath);
+                var data = Convert.FromBase64String(encoded);
                 if (data.Length == 0)
-                {
                     return;
-                }
-
                 args.TokenCache.DeserializeMsalV3(data, true);
             }
             catch (Exception ex)
@@ -310,21 +313,17 @@ public class MicrosoftAuthService
         {
             try
             {
-                string cachePath = GetTokenCacheFilePath();
                 byte[] data = args.TokenCache.SerializeMsalV3();
-                File.WriteAllBytes(cachePath, data);
+                var encoded = data.Length == 0 ? string.Empty : Convert.ToBase64String(data);
+                // Run on the thread pool so the WaitAsync continuation inside SecureStorage does
+                // not deadlock when this MSAL callback runs synchronously on the UI thread.
+                Task.Run(() => SecureStorage.SetAsync(MsalCacheSecretKey, encoded)).GetAwaiter().GetResult();
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to persist Microsoft authentication token cache");
             }
         }
-    }
-
-    private static string GetTokenCacheFilePath()
-    {
-        string folderPath = ApplicationData.Current.LocalFolder.Path;
-        return Path.Combine(folderPath, "msal_token_cache.bin");
     }
 
     private class SerializedAuthData

@@ -68,18 +68,13 @@ jobs:
             binary_name: net.rarisma.gravity-Signed.apk
 
     steps:
-      # 1 ─ Checkout repositories
+      # 1 ─ Checkout repository (with Sachya submodule)
       - name: Checkout Alua
         uses: actions/checkout@v4
         with:
           path: Alua
+          submodules: recursive
           fetch-depth: 1
-
-      - name: Checkout SACHYA
-        uses: actions/checkout@v4
-        with:
-          repository: rarisma/sachya
-          path: SACHYA
 
       # 2 ─ Install the .NET SDK
       - name: Setup .NET
@@ -99,13 +94,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: dotnet workload install macos
 
-      # 4 ─ Update appsettings.json with content from secret
-      - name: Update appsettings.json with content from secret
-        shell: bash
-        run: |
-          echo '${{ secrets.ENVCONTENT }}' > Alua/Alua/appsettings.json
-
-      # 5 ─ Generate version
+      # 4 ─ Generate version
       - name: Generate version
         id: version
         shell: bash

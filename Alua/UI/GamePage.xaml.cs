@@ -17,7 +17,7 @@ public sealed partial class GamePage : Page
     private readonly BatchObservableCollection<Achievement> _filteredAchievements = new();
     public BatchObservableCollection<Achievement> FilteredAchievements => _filteredAchievements;
 
-    private bool _showUnlocked = true, _showLocked = true, _hideHidden = true;
+    private bool _showUnlocked = true, _showLocked = true, _hideHidden = true, _missableOnly = false;
 
     private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
 
@@ -38,22 +38,24 @@ public sealed partial class GamePage : Page
         _showUnlocked = CheckShowUnlocked.IsChecked == true;
         _showLocked = CheckShowLocked.IsChecked == true;
         _hideHidden = CheckHideHidden.IsChecked == true;
+        _missableOnly = CheckMissableOnly.IsChecked == true;
         RefreshFiltered();
     }
 
-    private void Close(object sender, RoutedEventArgs e) => App.Frame.GoBack();
     private async void RefreshFiltered()
     {
         var achievements = AppVM.SelectedGame?.Achievements ?? new();
         var showUnlocked = _showUnlocked;
         var showLocked = _showLocked;
         var hideHidden = _hideHidden;
+        var missableOnly = _missableOnly;
 
         var filtered = await Task.Run(() =>
             achievements
                 .Where(a => showUnlocked || !a.IsUnlocked)
                 .Where(a => showLocked || a.IsUnlocked)
                 .Where(a => !hideHidden || !a.IsHidden || a.IsUnlocked)
+                .Where(a => !missableOnly || a.IsMissable)
                 .ToList()
         );
 
@@ -96,6 +98,12 @@ public sealed partial class GamePage : Page
             Game game = await provider.RefreshTitle(AppVM.SelectedGame.Identifier);
             SettingsVM.AddOrUpdateGame(game);
             AppVM.SelectedGame = game;
+
+            // Force x:Bind compiled bindings rooted at this page to pick up the new SelectedGame
+            // reference. The OneWay bindings on AppVM.SelectedGame.* update automatically when
+            // SelectedGame raises PropertyChanged, but Bindings.Update() is a belt-and-suspenders
+            // guard for any OneTime bindings that may remain (e.g. the header icon).
+            DispatcherQueue.TryEnqueue(() => Bindings.Update());
 
             await SettingsVM.Save();
             RefreshFiltered();

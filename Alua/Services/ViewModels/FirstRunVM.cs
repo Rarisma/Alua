@@ -1,6 +1,7 @@
 using Alua.Services.Providers;
 using Alua.UI;
 using Microsoft.Identity.Client;
+using Microsoft.UI.Dispatching;
 using Serilog;
 
 namespace Alua.Services.ViewModels;
@@ -48,19 +49,46 @@ public partial class FirstRunVM : ObservableObject
         XboxGamertag = _settingsVM.XboxGamertag;
         IsPsnAuthenticated = !string.IsNullOrWhiteSpace(_settingsVM.PsnSSO);
 
-        // Check if we have stored Xbox auth data
-        Task.Run(async () =>
+        // Restore Xbox auth state asynchronously without blocking the UI thread.
+        _ = InitXboxAuthAsync();
+    }
+
+    /// <summary>
+    /// Restores stored Xbox authentication state. Property writes are marshalled to the UI
+    /// thread via DispatcherQueue so CommunityToolkit observable setters fire correctly.
+    /// </summary>
+    private async Task InitXboxAuthAsync()
+    {
+        try
         {
-            if (!string.IsNullOrEmpty(_settingsVM.MicrosoftAuthData))
+            if (string.IsNullOrEmpty(_settingsVM.MicrosoftAuthData))
+                return;
+
+            var restored = await _msAuthService.RestoreAuthDataAsync(_settingsVM.MicrosoftAuthData);
+            if (!restored)
+                return;
+
+            var gamertag = _settingsVM.XboxGamertag;
+            var dispatcher = DispatcherQueue.GetForCurrentThread();
+            if (dispatcher != null)
             {
-                var restored = await _msAuthService.RestoreAuthDataAsync(_settingsVM.MicrosoftAuthData);
-                if (restored)
+                dispatcher.TryEnqueue(() =>
                 {
                     IsXboxAuthenticated = true;
-                    XboxGamertag = _settingsVM.XboxGamertag;
-                }
+                    XboxGamertag = gamertag;
+                });
             }
-        });
+            else
+            {
+                // Dispatcher not available (e.g. unit test host); set directly.
+                IsXboxAuthenticated = true;
+                XboxGamertag = gamertag;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to restore Xbox authentication state during FirstRunVM initialization");
+        }
     }
     
     /// <summary>

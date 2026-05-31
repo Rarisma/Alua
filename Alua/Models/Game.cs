@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Xaml;
 using Windows.Foundation.Metadata;
 
@@ -9,7 +10,7 @@ namespace Alua.Models;
 /// <summary>
 /// Representation of game.
 /// </summary>
-public class Game
+public class Game : ObservableObject
 {
     /// <summary>
     /// Name of game
@@ -95,37 +96,26 @@ public class Game
 
     #region UI Helpers
 
-    // Cache for computed properties
-    private int? _cachedUnlockedCount;
-
     /// <summary>
-    /// How many achievements the user has unlocked
+    /// How many achievements the user has unlocked. Computed directly — providers always
+    /// build a fresh Game with the collection set before any read, so a cheap in-memory
+    /// Count needs no memoization.
     /// </summary>
     [JsonIgnore]
-    public int UnlockedCount
-    {
-        get
-        {
-            _cachedUnlockedCount ??= Achievements.Count(x => x.IsUnlocked);
-            return _cachedUnlockedCount.Value;
-        }
-    }
+    public int UnlockedCount => Achievements.Count(x => x.IsUnlocked);
 
     /// <summary>
-    /// Invalidates the cached UnlockedCount. Call when achievements change.
-    /// </summary>
-    public void InvalidateUnlockedCount() => _cachedUnlockedCount = null;
-    
-    /// <summary>
-    /// Returns true if the user has unlocked any achievements
+    /// Returns true if the game has any achievements at all.
     /// </summary>
     [JsonIgnore]
     public bool HasAchievements => Achievements.Count != 0;
+
     /// <summary>
-    /// Returns true if the user has unlocked any achievements
+    /// Returns true when playtime is tracked for this game (the provider reports a value;
+    /// -1 means untracked).
     /// </summary>
     [JsonIgnore]
-    public bool HasPlaytime => PlaytimeMinutes != -1;
+    public bool HasPlaytime => PlaytimeMinutes >= 0;
     
     /// <summary>
     /// Returns
@@ -144,10 +134,15 @@ public class Game
                 return "No Achievements";
             }
             
+            if (UnlockedCount == Achievements.Count && Achievements.Count > 0) // All unlocked
+            {
+                return "100% Complete";
+            }
+
             if (UnlockedCount > 0) // In progress / Started
             {
                 // 10% (10 / 100)
-                return $"{Math.Floor((double)UnlockedCount / Achievements.Count * 100)}% {UnlockedCount} / {Achievements.Count} ";
+                return $"{Math.Floor((double)UnlockedCount / Achievements.Count * 100)}% ({UnlockedCount} / {Achievements.Count})";
             }
 
             // Has achievements, but none unlocked

@@ -19,17 +19,45 @@ public class PSNAuthService
         try
         {
             Log.Information("Navigating to PSN login page");
-            var loginPage = new PSNLogin();
-            App.Frame.Navigate(typeof(PSNLogin));
 
-            // Get the actual page instance from the frame
-            if (App.Frame.Content is PSNLogin page)
+            PSNLogin? page = null;
+            var navigated = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void OnNavigated(object sender, Microsoft.UI.Xaml.Navigation.NavigationEventArgs e)
             {
-                return await page.ResultTask;
+                App.Frame.Navigated -= OnNavigated;
+                page = e.Content as PSNLogin;
+                navigated.TrySetResult(page is not null);
             }
 
-            Log.Warning("Failed to get PSN login page instance");
-            return null;
+            App.Frame.Navigated += OnNavigated;
+            var navigatedSuccessfully = App.Frame.Navigate(typeof(PSNLogin));
+
+            if (!navigatedSuccessfully)
+            {
+                App.Frame.Navigated -= OnNavigated;
+                Log.Warning("Frame.Navigate to PSNLogin returned false");
+                return null;
+            }
+
+            // Wait for the Navigated event to fire, bounded by a timeout so a suppressed or
+            // failed navigation (Navigated never raised) can't hang the auth flow — and its
+            // spinner — forever.
+            var completed = await Task.WhenAny(navigated.Task, Task.Delay(TimeSpan.FromSeconds(30)));
+            if (completed != navigated.Task)
+            {
+                App.Frame.Navigated -= OnNavigated;
+                Log.Warning("PSN login navigation did not complete within timeout");
+                return null;
+            }
+
+            if (page is null)
+            {
+                Log.Warning("Failed to get PSN login page instance after navigation");
+                return null;
+            }
+
+            return await page.ResultTask;
         }
         catch (Exception ex)
         {
