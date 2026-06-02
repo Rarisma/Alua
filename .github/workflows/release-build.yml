@@ -113,6 +113,17 @@ jobs:
           echo "tag_version=$v" >> $GITHUB_OUTPUT
           echo "Generated version: $v"
 
+          # Android versionCode: Play rejects duplicate codes, so repeat builds of one marketing
+          # version need a unique, increasing integer. Derive it from the csproj's single-source
+          # AssemblyVersion (base = major*10000 + minor*100 + patch), then layer the run number on
+          # top: code = base*10000 + (run % 10000). Monotonic across both version bumps and rebuilds.
+          # (grep -oE/sed kept portable so this works on the windows/macos/ubuntu matrix runners.)
+          asm=$(grep -oE '<AssemblyVersion>[^<]+' Alua/Alua/Alua.csproj | sed 's/<AssemblyVersion>//')
+          IFS='.' read -r MA MI PA <<< "$asm"
+          code=$(( (10#${MA:-0} * 10000 + 10#${MI:-0} * 100 + 10#${PA:-0}) * 10000 + (${{ github.run_number }} % 10000) ))
+          echo "version_code=$code" >> $GITHUB_OUTPUT
+          echo "Generated versionCode: $code (AssemblyVersion $asm, run ${{ github.run_number }})"
+
       # 6 ─ Restore dependencies
       - name: Restore dependencies
         run: dotnet restore Alua/Alua.sln
@@ -158,6 +169,7 @@ jobs:
             -c Release \
             -f ${{ matrix.fw }} \
             -r ${{ matrix.rid }} \
+            -p:ApplicationVersion=${{ steps.version.outputs.version_code }} \
             -o publish
 
       # 8 ─ Create macOS PKG

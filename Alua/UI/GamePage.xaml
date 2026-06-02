@@ -22,15 +22,11 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Border Width="50" Height="50" CornerRadius="5" Background="Transparent"
-                        Margin="0,0,10,0">
-                    <controls1:CachedImage UriSource="{x:Bind IconUri}" DecodePixelWidth="50" DecodePixelHeight="50" Stretch="UniformToFill">
-                        <Image.Clip>
-                            <RectangleGeometry Rect="0,0,50,50"/>
-                        </Image.Clip>
-                    </controls1:CachedImage>
+                <Border Width="50" Height="50" CornerRadius="12" Background="Transparent"
+                        Margin="0,0,10,0" VerticalAlignment="Center">
+                    <controls1:CachedImage UriSource="{x:Bind IconUri}" DecodePixelWidth="50" DecodePixelHeight="50" Stretch="UniformToFill"/>
                 </Border>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
                     <TextBlock Text="{x:Bind Title}" FontSize="20" TextWrapping="Wrap"
                                MaxLines="2" TextTrimming="CharacterEllipsis"/>
                     <TextBlock Text="{x:Bind Description}" TextWrapping="Wrap" Margin="0,5,0,0"
@@ -51,9 +47,10 @@
                     <!-- Rarity percentage if available -->
                     <TextBlock HorizontalAlignment="Right"
                                Style="{StaticResource CaptionTextBlockStyle}"
+                               FontSize="14"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Visibility="{x:Bind HasRarity, Converter={StaticResource BoolToVisibility}}">
-                        <Run Text="{x:Bind RarityPercentage}"/><Run Text="%"/>
+                        <Run Text="{x:Bind RarityPercentageText}"/><Run Text="%"/>
                     </TextBlock>
                 </StackPanel>
             </Grid>
@@ -76,10 +73,11 @@
             </Grid.ColumnDefinitions>
 
             <!-- App Icon -->
-            <Border Width="64" Height="64" Margin="10"
-                    CornerRadius="{StaticResource ControlCornerRadius}"
+            <Border Grid.Column="0" Width="200" Height="100" Margin="10"
+                    CornerRadius="16"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
-                <controls1:CachedImage UriSource="{x:Bind AppVM.SelectedGame.IconUri, Mode=OneWay}" DecodePixelWidth="64" DecodePixelHeight="64" Stretch="Uniform"/>
+                <controls1:CachedImage UriSource="{x:Bind AppVM.SelectedGame.IconUri, Mode=OneWay}"
+                                       DecodePixelWidth="64" DecodePixelHeight="64" Stretch="Uniform"/>
             </Border>
 
             <Grid Grid.Column="1" VerticalAlignment="Center">

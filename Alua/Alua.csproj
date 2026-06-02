@@ -8,10 +8,14 @@
         <ApplicationTitle>Alua</ApplicationTitle>
         <!-- App Identifier -->
         <ApplicationId>net.rarisma.gravity</ApplicationId>
-        <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <!-- Versions — AssemblyVersion is the single source of truth; the display version and the
+             integer version code both derive from it, so each release only edits AssemblyVersion.
+             Keep AssemblyVersion three-part (major.minor.patch) for the version-code maths below. -->
         <AssemblyVersion>0.7.0</AssemblyVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <!-- Marketing version: Android versionName, iOS/macOS CFBundleShortVersionString, MSIX Identity. -->
+        <ApplicationDisplayVersion>$(AssemblyVersion)</ApplicationDisplayVersion>
+        <!-- Integer version code (Android versionCode, iOS/macOS CFBundleVersion): major*10000 + minor*100 + patch. -->
+        <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($([System.Version]::Parse('$(AssemblyVersion)').Major), 10000)), $([MSBuild]::Multiply($([System.Version]::Parse('$(AssemblyVersion)').Minor), 100)))), $([System.Version]::Parse('$(AssemblyVersion)').Build)))</ApplicationVersion>
         <!-- Package Publisher -->
         <ApplicationPublisher>Rarisma</ApplicationPublisher>
         <!-- Package Description -->

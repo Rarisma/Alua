@@ -88,6 +88,16 @@ public class Achievement
     public bool HasRarity => RarityPercentage.HasValue && RarityPercentage.Value > 0;
 
     /// <summary>
+    /// Rarity percentage formatted for display, rounded to 2 decimal places with trailing
+    /// zeros trimmed (e.g. 12.3456 -> "12.35", 5.0 -> "5"). Providers other than PSN supply
+    /// full-precision values, so rounding here keeps the displayed rarity consistent.
+    /// </summary>
+    [JsonIgnore]
+    public string RarityPercentageText => RarityPercentage.HasValue
+        ? RarityPercentage.Value.ToString("0.##")
+        : string.Empty;
+
+    /// <summary>
     /// Progress of achievement (if applicable)
     /// </summary>
     [JsonInclude, JsonPropertyName("Progress")]
