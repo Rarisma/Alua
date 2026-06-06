@@ -13,21 +13,25 @@ public sealed partial class MainPage : Page
     private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
     private CancellationTokenSource? _searchDebounce;
 
+    /// <summary>
+    /// Visible only in Debug builds — gates the diagnostic "Show only merged" filter so it never
+    /// ships to end users. XAML can't use #if directly, so the flyout binds this for visibility.
+    /// </summary>
+    public Visibility DebugOnlyVisibility =>
+#if DEBUG
+        Visibility.Visible;
+#else
+        Visibility.Collapsed;
+#endif
+
     public MainPage()
     {
         InitializeComponent();
+        // Phones are always single-column; appearance/layout prefs now live on the Settings page.
         if (_isPhone)
         {
-            LayoutOptionsPanel.Visibility = Visibility.Collapsed;
-            LayoutToggle.IsOn = true;
-            LayoutToggle.IsEnabled = false;
             _appVM.SingleColumnLayout = true;
             _settingsVM.SingleColumnLayout = true;
-        }
-        else
-        {
-            LayoutOptionsPanel.Visibility = Visibility.Visible;
-            LayoutToggle.IsEnabled = true;
         }
         App.Frame = AppContentFrame;
         App.Frame.Navigated += OnFrameNavigated;
@@ -37,6 +41,24 @@ public sealed partial class MainPage : Page
 
         if (_settingsVM.Initialised)
         {
+            // Restore persisted filter/sort state into the live VMs BEFORE navigating, so the
+            // Library page's RestoreFilterUIFromVM (raised on Navigated, ahead of Library.OnLoaded)
+            // reflects the saved values. Do NOT call Filter_Changed here: it reads state FROM the
+            // still-empty UI controls back into the VM, which clobbered everything we just loaded
+            // and reset every filter on launch.
+            _appVM.HideComplete = _settingsVM.HideComplete;
+            _appVM.HideNoAchievements = _settingsVM.HideNoAchievements;
+            _appVM.HideUnstarted = _settingsVM.HideUnstarted;
+            _appVM.Reverse = _settingsVM.Reverse;
+            _appVM.OrderBy = _settingsVM.OrderBy;
+
+            // Platform toggles live on LibraryVM (TwoWay-bound to the flyout buttons).
+            _libraryVM.SteamFilter = _settingsVM.SteamFilter;
+            _libraryVM.RAFilter = _settingsVM.RAFilter;
+            _libraryVM.PSNFilter = _settingsVM.PSNFilter;
+            _libraryVM.XBFilter = _settingsVM.XBFilter;
+            _libraryVM.MergeEditions = _settingsVM.MergeEditions;
+
             App.Frame.Navigate(typeof(Library));
         }
         else
@@ -138,6 +160,13 @@ public sealed partial class MainPage : Page
             _settingsVM.Reverse = _appVM.Reverse;
             _settingsVM.OrderBy = _appVM.OrderBy;
 
+            // Platform toggles are TwoWay-bound to LibraryVM; mirror them so they persist too.
+            _settingsVM.SteamFilter = _libraryVM.SteamFilter;
+            _settingsVM.RAFilter = _libraryVM.RAFilter;
+            _settingsVM.PSNFilter = _libraryVM.PSNFilter;
+            _settingsVM.XBFilter = _libraryVM.XBFilter;
+            _settingsVM.MergeEditions = _libraryVM.MergeEditions;
+
             await _settingsVM.Save();
 
             // Update filter icon based on whether any filters are active
@@ -152,46 +181,14 @@ public sealed partial class MainPage : Page
         }
     }
     
-    private async void ToggleLayout_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var toggle = (ToggleSwitch)sender;
-            if (_isPhone)
-            {
-                if (!toggle.IsOn)
-                {
-                    toggle.IsOn = true;
-                }
-                return;
-            }
-            _appVM.SingleColumnLayout = toggle.IsOn;
-            _settingsVM.SingleColumnLayout = toggle.IsOn;
-            _currentGameList?.UpdateLayout();
-            await _settingsVM.Save();
-        }
-        catch (Exception ex)
-        {
-            Serilog.Log.Error(ex, "Error toggling layout");
-        }
-    }
+    // The filter controls live inside this flyout, whose content Uno only loads into the live
+    // visual tree when it is first shown. Imperative values set on them at navigation time (before
+    // the content is loaded) get reset to their XAML defaults on first open — which is why the
+    // checkboxes/sort selection never reflected the persisted state. Re-sync from the VM here, once
+    // the content is realized, so the saved filters actually appear. (The platform toggle buttons
+    // are x:Bind-bound and re-evaluate on show, so they don't need this.)
+    private void OnFilterFlyoutOpened(object? sender, object e) => RestoreFilterUIFromVM();
 
-    private async void ToggleFillBackground_Click(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            var toggle = (ToggleSwitch)sender;
-            _appVM.FillBackgroundProgress = toggle.IsOn;
-            _settingsVM.FillBackgroundProgress = toggle.IsOn;
-            _currentGameList?.UpdateFillMode();
-            await _settingsVM.Save();
-        }
-        catch (Exception ex)
-        {
-            Serilog.Log.Error(ex, "Error toggling fill background");
-        }
-    }
-    
     private void RestoreFilterUIFromVM()
     {
         // Restore checkbox states from VM
@@ -209,23 +206,6 @@ public sealed partial class MainPage : Page
                 break;
             }
         }
-
-        // Layout toggle
-        if (_isPhone)
-        {
-            LayoutOptionsPanel.Visibility = Visibility.Collapsed;
-            LayoutToggle.IsEnabled = false;
-            LayoutToggle.IsOn = true;
-        }
-        else
-        {
-            LayoutOptionsPanel.Visibility = Visibility.Visible;
-            LayoutToggle.IsEnabled = true;
-            LayoutToggle.IsOn = _appVM.SingleColumnLayout;
-        }
-
-        // Fill-background toggle
-        FillBackgroundToggle.IsOn = _appVM.FillBackgroundProgress;
 
         // Search box
         SearchBox.Text = _appVM.SearchText ?? string.Empty;

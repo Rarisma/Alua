@@ -200,6 +200,12 @@ public partial class App : Application
 
         Ioc.Default.ConfigureServices(Host.Services);
 
+        // Expose the SettingsVM singleton to XAML (added before any page loads) so library-card
+        // DataTemplates and the Settings preview can bind appearance preferences live via
+        // {Binding ..., Source={StaticResource Settings}}. SettingsVM is INotifyPropertyChanged,
+        // so toggling a preference updates the cards without a re-scan.
+        Resources["Settings"] = settingsVm;
+
         // Bound the on-disk image cache once at startup in case a previous crash left it
         // over the size limit. Fire-and-forget so we don't hold up window activation.
         _ = Task.Run(() => UI.Controls.CachedImage.InitializeAsync());

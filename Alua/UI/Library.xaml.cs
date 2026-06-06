@@ -74,6 +74,11 @@ public partial class Library : Page
     {
         InitializeComponent();
 
+        // Expose the SettingsVM to this page's resource scope so the card DataTemplates can bind
+        // appearance preferences via {Binding ..., Source={StaticResource Settings}}. Page-scoped
+        // (not App-level) because Uno does not resolve App resources from inside page DataTemplates.
+        Resources["Settings"] = _settingsVM;
+
         // Seed the ItemsRepeater's layout and ItemTemplate BEFORE it realizes any items.
         // OnLoaded (where these previously ran first) fires only AFTER the initial render, so
         // on re-navigation — when FilteredGames is already populated by the AppVM singleton —
@@ -81,7 +86,7 @@ public partial class Library : Page
         // rendering every card as the raw type name "Alua.Models.Game". Reading the persisted
         // values here lets items materialize with the correct template from the first layout pass.
         _appVm.SingleColumnLayout = _isPhone || _settingsVM.SingleColumnLayout;
-        _appVm.FillBackgroundProgress = _settingsVM.FillBackgroundProgress;
+        _appVm.CardProgressStyle = _settingsVM.CardProgressStyle;
         UpdateItemsLayout();
         UpdateFillMode();
     }
@@ -114,7 +119,7 @@ public partial class Library : Page
                 _appVm.SingleColumnLayout = _settingsVM.SingleColumnLayout;
             }
 
-            _appVm.FillBackgroundProgress = _settingsVM.FillBackgroundProgress;
+            _appVm.CardProgressStyle = _settingsVM.CardProgressStyle;
 
             // Update layout based on current settings
             UpdateItemsLayout();
@@ -361,7 +366,7 @@ public partial class Library : Page
                 // Games dictionary). We do NOT call AddOrUpdateGame per task here: doing so
                 // under BeginBatchUpdate from these concurrent background tasks both races the
                 // batch-depth counter and fires the Games notification off the UI thread.
-                await hltbService.FetchAndUpdateGameData(game);
+                await hltbService.FetchAndUpdateGameData(game, ct);
 
                 var current = Interlocked.Increment(ref completedCount);
                 _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
@@ -425,7 +430,10 @@ public partial class Library : Page
             SteamFilter:        LibraryVM.SteamFilter,
             RAFilter:           LibraryVM.RAFilter,
             PSNFilter:          LibraryVM.PSNFilter,
-            XBFilter:           LibraryVM.XBFilter);
+            XBFilter:           LibraryVM.XBFilter,
+            MergeEditions:      LibraryVM.MergeEditions,
+            ShowOnlyMerged:     LibraryVM.ShowOnlyMerged,
+            MergedCompletionMode: _settingsVM.MergedCompletionMode);
 
         var version = ++_filterVersion;
 
@@ -438,8 +446,45 @@ public partial class Library : Page
         // Back on UI thread — give ItemsRepeater the full list, it virtualizes natively
         _appVm.FilteredGames.ReplaceAll(filtered);
 
+        // Drive the empty-state overlays: distinguish "no games at all" from "filtered to zero".
+        _appVm.LibraryIsEmpty = snapshot.Count == 0;
+        _appVm.HasNoVisibleGames = snapshot.Count > 0 && filtered.Count == 0;
+
         // Ensure layout settings are maintained after filtering
         UpdateItemsLayout();
+    }
+
+    /// <summary>
+    /// Clears all filters, search, and platform toggles back to defaults (everything shown),
+    /// persists the change, and re-applies. Wired to the "Reset filters" button on the
+    /// filtered-to-zero empty state.
+    /// </summary>
+    private async void ResetFilters_Click(object sender, RoutedEventArgs e)
+    {
+        _appVm.HideComplete = false;
+        _appVm.HideNoAchievements = false;
+        _appVm.HideUnstarted = false;
+        _appVm.Reverse = false;
+        _appVm.OrderBy = OrderBy.Name;
+        _appVm.SearchText = string.Empty;
+
+        LibraryVM.SteamFilter = true;
+        LibraryVM.RAFilter = true;
+        LibraryVM.PSNFilter = true;
+        LibraryVM.XBFilter = true;
+
+        _settingsVM.HideComplete = false;
+        _settingsVM.HideNoAchievements = false;
+        _settingsVM.HideUnstarted = false;
+        _settingsVM.Reverse = false;
+        _settingsVM.OrderBy = OrderBy.Name;
+        _settingsVM.SteamFilter = true;
+        _settingsVM.RAFilter = true;
+        _settingsVM.PSNFilter = true;
+        _settingsVM.XBFilter = true;
+        await _settingsVM.Save();
+
+        ApplyFilters();
     }
 
     // Windowing removed — ItemsRepeater handles virtualization natively
@@ -473,10 +518,14 @@ public partial class Library : Page
         gameRepeater.Layout = _appVm.SingleColumnLayout ? _listLayout : _gridLayout;
     }
 
-    // Public method to swap the game card template when fill-background toggle changes
+    // Public method to swap the game card template when the progress style changes. Only the
+    // filled-background style needs the dedicated template; Bar and None both use GameTemplate
+    // (whose progress bar binds its visibility to the style, so None hides it).
     public void UpdateFillMode()
     {
-        var key = _appVm.FillBackgroundProgress ? "GameFillTemplate" : "GameTemplate";
+        var key = _appVm.CardProgressStyle == CardProgressStyle.FilledBackground
+            ? "GameFillTemplate"
+            : "GameTemplate";
         if (Resources[key] is DataTemplate template)
         {
             gameRepeater.ItemTemplate = template;

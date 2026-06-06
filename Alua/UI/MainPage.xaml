@@ -44,7 +44,7 @@
                             <FontIcon x:Name="FilterIcon" Glyph="&#xE71C;" FontFamily="{ThemeResource SymbolThemeFontFamily}"/>
                         </AppBarButton.Icon>
                         <AppBarButton.Flyout>
-                            <Flyout x:Name="FilterFlyout" Placement="Bottom">
+                            <Flyout x:Name="FilterFlyout" Placement="Bottom" Opened="OnFilterFlyoutOpened">
                                 <Flyout.FlyoutPresenterStyle>
                                     <Style TargetType="FlyoutPresenter">
                                         <Setter Property="Padding" Value="16"/>
@@ -72,6 +72,19 @@
                                                   Content="Hide unstarted games"
                                                   Checked="Filter_Changed"
                                                   Unchecked="Filter_Changed"/>
+                                        <CheckBox x:Name="CheckMergeEditions"
+                                                  Content="Merge editions"
+                                                  ToolTipService.ToolTip="Collapse duplicate editions and subsets into one card with tabs"
+                                                  IsChecked="{x:Bind _libraryVM.MergeEditions, Mode=TwoWay}"
+                                                  Checked="Filter_Changed"
+                                                  Unchecked="Filter_Changed"/>
+                                        <CheckBox x:Name="CheckShowOnlyMerged"
+                                                  Content="Show only merged (debug)"
+                                                  ToolTipService.ToolTip="Diagnostic: show only games that merged into multiple editions/subsets"
+                                                  Visibility="{x:Bind DebugOnlyVisibility}"
+                                                  IsChecked="{x:Bind _libraryVM.ShowOnlyMerged, Mode=TwoWay}"
+                                                  Checked="Filter_Changed"
+                                                  Unchecked="Filter_Changed"/>
                                     </StackPanel>
 
                                     <Rectangle Height="1"
@@ -96,25 +109,6 @@
                                             <ComboBoxItem Content="HLTB Story Time" Tag="HowLongToBeatMain"/>
                                             <ComboBoxItem Content="HLTB 100% Time" Tag="HowLongToBeatCompletionist"/>
                                         </ComboBox>
-                                    </StackPanel>
-
-                                    <Rectangle Height="1"
-                                               Fill="{ThemeResource SystemControlForegroundBaseLowBrush}"
-                                               Margin="0,4"/>
-
-                                    <StackPanel x:Name="LayoutOptionsPanel" Spacing="8">
-                                        <TextBlock Text="View"
-                                                   Style="{ThemeResource BaseTextBlockStyle}"
-                                                   FontWeight="SemiBold"
-                                                   Margin="0,0,0,4"/>
-                                        <ToggleSwitch x:Name="LayoutToggle"
-                                                      OffContent="Multi-Column View"
-                                                      OnContent="Single Column View"
-                                                      Toggled="ToggleLayout_Click"/>
-                                        <ToggleSwitch x:Name="FillBackgroundToggle"
-                                                      OffContent="Progress Bar"
-                                                      OnContent="Filled Background"
-                                                      Toggled="ToggleFillBackground_Click"/>
                                     </StackPanel>
 
                                     <Rectangle Height="1"

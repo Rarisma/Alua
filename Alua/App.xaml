@@ -14,6 +14,13 @@
 
       <!-- Add resources here -->
       <controls:BoolNegationToVisibilityConverter x:Key="BoolNegationToVisibilityConverter" />
+      <!-- Appearance converters (used by inline page content such as the Settings preview; the
+           Library card DataTemplates register their own copies per Uno's resource-scoping rule). -->
+      <controls:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+      <controls:EnumToVisibilityConverter x:Key="EnumToVisibility" />
+      <controls:CardTextAlignmentToTextAlignmentConverter x:Key="TextAlignToTextAlign" />
+      <controls:CardTextAlignmentToHorizontalAlignmentConverter x:Key="TextAlignToHorizontal" />
+      <controls:CompactToPaddingConverter x:Key="CompactToPadding" />
 
     </ResourceDictionary>
   </Application.Resources>

@@ -108,4 +108,31 @@ public class Achievement
     /// </summary>
     [JsonInclude, JsonPropertyName("MaxProgress")]
     public int? MaxProgress { get; set; }
+
+    /// <summary>
+    /// PlayStation trophy tier. Only PSN exposes this; every other provider leaves it
+    /// <see cref="TrophyKind.None"/>. Serialized as an int, so saves that predate this field
+    /// deserialize to <see cref="TrophyKind.None"/>.
+    /// </summary>
+    [JsonInclude, JsonPropertyName("TrophyType")]
+    public TrophyKind TrophyType { get; set; } = TrophyKind.None;
+
+    /// <summary>True when a PlayStation trophy tier is known for this achievement.</summary>
+    [JsonIgnore]
+    public bool HasTrophy => TrophyType != TrophyKind.None;
+
+    /// <summary>Display name for the trophy tier (e.g. "Platinum"); empty when none.</summary>
+    [JsonIgnore]
+    public string TrophyTypeText => HasTrophy ? TrophyType.ToString() : string.Empty;
+}
+
+/// <summary>PlayStation trophy tiers, ordered by prestige. <see cref="TrophyKind.None"/> means the
+/// achievement has no trophy tier (e.g. Steam/Xbox/RetroAchievements).</summary>
+public enum TrophyKind
+{
+    None = 0,
+    Bronze = 1,
+    Silver = 2,
+    Gold = 3,
+    Platinum = 4
 }

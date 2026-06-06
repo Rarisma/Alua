@@ -139,8 +139,60 @@ public partial class SettingsVM  : ObservableObject
     [ObservableProperty, JsonPropertyName("FilterSingleColumnLayout")]
     private bool _singleColumnLayout;
 
-    [ObservableProperty, JsonPropertyName("FilterFillBackgroundProgress")]
-    private bool _fillBackgroundProgress;
+    // ---- Appearance (card display) preferences. All save immediately from the Settings page. ----
+
+    /// <summary>How achievement progress is drawn on a card. Replaces the legacy
+    /// FilterFillBackgroundProgress bool, which is migrated on load (see LoadAsync).</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceCardProgressStyle")]
+    private CardProgressStyle _cardProgressStyle = CardProgressStyle.Bar;
+
+    /// <summary>Denser cards (smaller padding / icon) when true.</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceCompactCards")]
+    private bool _compactCards;
+
+    /// <summary>Whether the provider badge is shown on each card.</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceShowPlatformBadge")]
+    private bool _showPlatformBadge = true;
+
+    /// <summary>Opacity (0-1) of the provider badge on each card.</summary>
+    [ObservableProperty, JsonPropertyName("AppearancePlatformBadgeOpacity")]
+    private double _platformBadgeOpacity = 0.6;
+
+    /// <summary>Whether playtime is shown on each card.</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceShowPlaytimeOnCard")]
+    private bool _showPlaytimeOnCard = true;
+
+    /// <summary>Horizontal alignment of card text.</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceCardTextAlignment")]
+    private CardTextAlignment _cardTextAlignment = CardTextAlignment.Right;
+
+    /// <summary>How a merged card reports completion (best edition vs aggregate across editions).</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceMergedCompletionMode")]
+    private MergedCompletionMode _mergedCompletionMode = MergedCompletionMode.Best;
+
+    // Per-platform visibility toggles. These mirror LibraryVM's bound toggles and default to
+    // true (show everything) so existing settings files without these keys behave as before.
+    [ObservableProperty, JsonPropertyName("FilterShowSteam")]
+    private bool _steamFilter = true;
+
+    [ObservableProperty, JsonPropertyName("FilterShowRetroAchievements")]
+    private bool _RAFilter = true;
+
+    [ObservableProperty, JsonPropertyName("FilterShowPlayStation")]
+    private bool _PSNFilter = true;
+
+    [ObservableProperty, JsonPropertyName("FilterShowXbox")]
+    private bool _XBFilter = true;
+
+    // Collapse duplicate / edition / subset games into one card with per-edition tabs.
+    // Defaults to true so existing settings files without this key merge by default.
+    [ObservableProperty, JsonPropertyName("FilterMergeEditions")]
+    private bool _mergeEditions = true;
+
+    // When true, a game owned on multiple platforms / re-released across editions counts once in
+    // aggregate statistics (no double-counting of totals or "perfect games"). Defaults to true.
+    [ObservableProperty, JsonPropertyName("StatsCountMultiPlatformOnce")]
+    private bool _countMultiPlatformOnce = true;
 
     /// <summary>
     /// Number of games to load per page (for infinite scroll pagination)
@@ -166,6 +218,32 @@ public partial class SettingsVM  : ObservableObject
     partial void OnMicrosoftAuthDataChanged(string? value) => _hasUnsavedChanges = true;
     partial void OnUserSteamApiKeyChanged(string? value) => _hasUnsavedChanges = true;
     partial void OnUserRetroApiKeyChanged(string? value) => _hasUnsavedChanges = true;
+
+    // Filter/sort/layout preferences persist to JSON. Their [ObservableProperty] setters must mark
+    // the VM dirty, otherwise Save() early-returns (no unsaved changes) and a toggled filter only
+    // ever reached disk incidentally when a scan happened to dirty the VM in the same session.
+    // The generated setters compare-before-set, so re-assigning the current value (e.g. restoring
+    // the UI from the VM on startup) is a no-op and won't flag a spurious save. LoadAsync clears
+    // the flag after deserialization so a pure load doesn't count as a change.
+    partial void OnHideCompleteChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnHideNoAchievementsChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnHideUnstartedChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnReverseChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnOrderByChanged(OrderBy value) => _hasUnsavedChanges = true;
+    partial void OnSingleColumnLayoutChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnCardProgressStyleChanged(CardProgressStyle value) => _hasUnsavedChanges = true;
+    partial void OnCompactCardsChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnShowPlatformBadgeChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnPlatformBadgeOpacityChanged(double value) => _hasUnsavedChanges = true;
+    partial void OnShowPlaytimeOnCardChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnCardTextAlignmentChanged(CardTextAlignment value) => _hasUnsavedChanges = true;
+    partial void OnMergedCompletionModeChanged(MergedCompletionMode value) => _hasUnsavedChanges = true;
+    partial void OnSteamFilterChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnRAFilterChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnPSNFilterChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnXBFilterChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnMergeEditionsChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnCountMultiPlatformOnceChanged(bool value) => _hasUnsavedChanges = true;
 
     /// <summary>
     /// Begins a batch update scope. Notifications are deferred until all scopes complete.
@@ -391,7 +469,19 @@ public partial class SettingsVM  : ObservableObject
             _reverse = _reverse,
             _orderBy = _orderBy,
             _singleColumnLayout = _singleColumnLayout,
-            _fillBackgroundProgress = _fillBackgroundProgress,
+            _cardProgressStyle = _cardProgressStyle,
+            _compactCards = _compactCards,
+            _showPlatformBadge = _showPlatformBadge,
+            _platformBadgeOpacity = _platformBadgeOpacity,
+            _showPlaytimeOnCard = _showPlaytimeOnCard,
+            _cardTextAlignment = _cardTextAlignment,
+            _mergedCompletionMode = _mergedCompletionMode,
+            _steamFilter = _steamFilter,
+            _RAFilter = _RAFilter,
+            _PSNFilter = _PSNFilter,
+            _XBFilter = _XBFilter,
+            _mergeEditions = _mergeEditions,
+            _countMultiPlatformOnce = _countMultiPlatformOnce,
             _pageSize = _pageSize
         };
 #pragma warning restore MVVMTK0034
@@ -442,6 +532,11 @@ public partial class SettingsVM  : ObservableObject
             Reverse = imported.Reverse;
             OrderBy = imported.OrderBy;
             SingleColumnLayout = imported.SingleColumnLayout;
+            SteamFilter = imported.SteamFilter;
+            RAFilter = imported.RAFilter;
+            PSNFilter = imported.PSNFilter;
+            XBFilter = imported.XBFilter;
+            MergeEditions = imported.MergeEditions;
             PageSize = imported.PageSize;
             _hasUnsavedChanges = true;
         }
@@ -603,6 +698,25 @@ public partial class SettingsVM  : ObservableObject
                 }
 
                 SettingsVM Model = (await JsonSerializer.DeserializeAsync<SettingsVM>(stream))!;
+
+                // Deserialization runs through the [ObservableProperty] setters, whose OnChanged
+                // hooks flip _hasUnsavedChanges. That's just load noise — clear it so a pure load
+                // doesn't trigger a redundant full save. The migrations below set it again only if
+                // they actually change something.
+                Model._hasUnsavedChanges = false;
+
+                // Migrate the legacy fill-background bool to the new progress-style enum. The old
+                // "FilterFillBackgroundProgress" key lands in LegacyExtras now that the property is
+                // gone; an old save with it set to true becomes FilledBackground.
+                if (Model.CardProgressStyle == CardProgressStyle.Bar
+                    && Model.LegacyExtras != null
+                    && Model.LegacyExtras.TryGetValue("FilterFillBackgroundProgress", out var fillBg)
+                    && fillBg.ValueKind == System.Text.Json.JsonValueKind.True)
+                {
+                    Model.CardProgressStyle = CardProgressStyle.FilledBackground;
+                    Model.LegacyExtras.Remove("FilterFillBackgroundProgress");
+                }
+
                 if (MinimumVersion > Model.Version)
                 {
                     Log.Information("Migrating settings from {OldVersion} to {NewVersion}", Model.Version, MinimumVersion);

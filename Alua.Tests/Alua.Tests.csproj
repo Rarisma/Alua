@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Unit tests for Alua's pure logic (grouping, filtering, stats classification).
+
+    These types live in the Alua app assembly, but the app's net*-desktop head bundles a WPF Skia
+    host (framework reference Microsoft.WindowsDesktop.App.WPF), so a ProjectReference trips
+    NETSDK1136 on non-Windows, and loading Uno.WinUI in a headless test host breaks NUnit discovery.
+    Instead we compile the specific source files under test directly (shared-source pattern) into a
+    plain net10.0 assembly. The model's UI-only helpers live in Game.Layout.cs (NOT linked here),
+    so nothing here depends on Microsoft.UI.Xaml / Uno.WinUI.
+
+    Run directly (never via the .sln with a desktop TFM — see CLAUDE.md):
+        dotnet test Alua.Tests/Alua.Tests.csproj
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <!-- Isolated from the app's central package management so test deps can't affect the app. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <RootNamespace>Alua.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="NUnit" Version="4.2.2" />
+    <PackageReference Include="NUnit3TestAdapter" Version="4.6.0" />
+    <!-- Game derives from ObservableObject; matches the version Uno pulls for the app. -->
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+  </ItemGroup>
+
+  <!-- Source under test, compiled directly (no app reference). Game.Layout.cs is intentionally
+       excluded so the core model stays free of Uno UI types. -->
+  <ItemGroup>
+    <Compile Include="..\Alua\Models\Game.cs" Link="Linked\Game.cs" />
+    <Compile Include="..\Alua\Models\Achievement.cs" Link="Linked\Achievement.cs" />
+    <Compile Include="..\Alua\Models\AchievementFlags.cs" Link="Linked\AchievementFlags.cs" />
+    <Compile Include="..\Alua\Models\Platforms.cs" Link="Linked\Platforms.cs" />
+    <Compile Include="..\Alua\Services\GameGrouping.cs" Link="Linked\GameGrouping.cs" />
+    <Compile Include="..\Alua\Services\LibraryStats.cs" Link="Linked\LibraryStats.cs" />
+    <Compile Include="..\Alua\Services\ViewModels\OrderBy.cs" Link="Linked\OrderBy.cs" />
+    <Compile Include="..\Alua\Services\ViewModels\AppearanceSettings.cs" Link="Linked\AppearanceSettings.cs" />
+    <Compile Include="..\Alua\Services\ViewModels\LibraryVM.cs" Link="Linked\LibraryVM.cs" />
+  </ItemGroup>
+</Project>

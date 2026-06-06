@@ -13,7 +13,6 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     private AppVM _appVm = null!;
     private SettingsVM _settingsVm = null!;
     private string _npssoToken = null!;
-    private bool _hasRetriedAuth;
 
     private PSNService() {}
 
@@ -58,7 +57,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Gets the users whole PSN library with trophy data
     /// </summary>
     /// <returns>Array of Games</returns>
-    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
+    public Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
+        => GetLibraryCore(cancellationToken, isRetry: false);
+
+    private async Task<Game[]> GetLibraryCore(CancellationToken cancellationToken, bool isRetry)
     {
         try
         {
@@ -106,10 +108,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
             Log.Warning("PSN access token expired, attempting re-authentication from stored NPSSO");
-            if (await TryRecreateClient())
-                return await GetLibrary(cancellationToken);
+            if (!isRetry && await TryRecreateClient())
+                return await GetLibraryCore(cancellationToken, isRetry: true);
 
-            _appVm.SetError("PlayStation: Session expired. Please sign in again in Settings.");
+            _appVm.SetError(ProviderError.AuthExpired("PlayStation").UserMessage);
             return [];
         }
         catch (Exception ex)
@@ -123,7 +125,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Refreshes the users library and returns recently updated games with trophy data
     /// </summary>
     /// <returns>Array of games with trophy information</returns>
-    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
+    public Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
+        => RefreshLibraryCore(cancellationToken, isRetry: false);
+
+    private async Task<Game[]> RefreshLibraryCore(CancellationToken cancellationToken, bool isRetry)
     {
         try
         {
@@ -162,10 +167,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
             Log.Warning("PSN access token expired, attempting re-authentication from stored NPSSO");
-            if (await TryRecreateClient())
-                return await RefreshLibrary(cancellationToken);
+            if (!isRetry && await TryRecreateClient())
+                return await RefreshLibraryCore(cancellationToken, isRetry: true);
 
-            _appVm.SetError("PlayStation: Session expired. Please sign in again in Settings.");
+            _appVm.SetError(ProviderError.AuthExpired("PlayStation").UserMessage);
             return [];
         }
         catch (Exception ex)
@@ -183,7 +188,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// <param name="identifier">Game Identifier (NPCommunicationID)</param>
     /// <param name="cancellationToken">Cancellation token</param>
     /// <returns>Game Object with trophy data</returns>
-    public async Task<Game> RefreshTitle(string identifier, CancellationToken cancellationToken = default)
+    public Task<Game> RefreshTitle(string identifier, CancellationToken cancellationToken = default)
+        => RefreshTitleCore(identifier, cancellationToken, isRetry: false);
+
+    private async Task<Game> RefreshTitleCore(string identifier, CancellationToken cancellationToken, bool isRetry)
     {
         try
         {
@@ -208,10 +216,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         catch (PlaystationApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
         {
             Log.Warning("PSN access token expired during RefreshTitle, attempting re-authentication from stored NPSSO");
-            if (await TryRecreateClient())
-                return await RefreshTitle(identifier, cancellationToken);
+            if (!isRetry && await TryRecreateClient())
+                return await RefreshTitleCore(identifier, cancellationToken, isRetry: true);
 
-            _appVm.SetError("PlayStation: Session expired. Please sign in again in Settings.");
+            _appVm.SetError(ProviderError.AuthExpired("PlayStation").UserMessage);
             throw;
         }
         catch (Exception ex)
@@ -260,21 +268,18 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Attempts to re-create the PSN client from the stored NPSSO token.
     /// Returns true if successful, false if the NPSSO itself has expired.
     /// </summary>
+    /// <summary>
+    /// Attempts to re-create the PSN client from the stored NPSSO token. Callers bound retries with
+    /// their own per-operation <c>isRetry</c> flag, so re-auth happens at most once per top-level
+    /// call and a persistent 401 (even with a succeeding recreate) can no longer recurse unbounded.
+    /// </summary>
     private async Task<bool> TryRecreateClient()
     {
-        if (_hasRetriedAuth)
-        {
-            Log.Warning("Already retried PSN re-authentication, NPSSO token likely expired");
-            return false;
-        }
-
-        _hasRetriedAuth = true;
         try
         {
             Log.Information("Re-creating PSN client from stored NPSSO token");
             _apiClient.Dispose();
             _apiClient = await PSNClient.CreateFromNpsso(_npssoToken);
-            _hasRetriedAuth = false;
             Log.Information("Successfully re-created PSN client");
             return true;
         }
@@ -368,6 +373,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                 Icon = trophy.TrophyIconUrl,
                 IsHidden = trophy.TrophyHidden,
                 RarityPercentage = rarityPercentage,
+                TrophyType = ParseTrophyKind(trophy.TrophyType),
             });
         }
 
@@ -376,6 +382,16 @@ public sealed class PSNService : IAchievementProvider<PSNService>
 
         return game;
     }
+
+    /// <summary>Maps PSN's trophy-type string ("bronze"/"silver"/"gold"/"platinum") to a tier.</summary>
+    private static TrophyKind ParseTrophyKind(string? trophyType) => trophyType?.ToLowerInvariant() switch
+    {
+        "bronze"   => TrophyKind.Bronze,
+        "silver"   => TrophyKind.Silver,
+        "gold"     => TrophyKind.Gold,
+        "platinum" => TrophyKind.Platinum,
+        _          => TrophyKind.None
+    };
 
     /// <summary>
     /// Gets platform code for API calls from platform display name

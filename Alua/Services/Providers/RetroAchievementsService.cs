@@ -67,7 +67,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 {
                     ct.ThrowIfCancellationRequested();
 
-                    var (achievements, playtime) = await GetAchievements(completed.GameID, ct);
+                    var (achievements, playtime, parentGameID) = await GetAchievements(completed.GameID, ct);
                     return new Game
                     {
                         Name = completed.Title ?? "Unknown Game",
@@ -77,6 +77,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                         PlaytimeMinutes = playtime,
                         Achievements = achievements.ToObservableCollection(),
                         Identifier = ProviderIds.Retro + completed.GameID,
+                        ParentIdentifier = ParentIdentifierFor(parentGameID),
                         LastUpdated = DateTime.UtcNow,
                         LastPlayed = completed.MostRecentAwardedDate?.UtcDateTime
                     };
@@ -118,7 +119,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                 ct.ThrowIfCancellationRequested();
                 try
                 {
-                    var (achievements, playtime) = await GetAchievements(game.GameID, ct);
+                    var (achievements, playtime, parentGameID) = await GetAchievements(game.GameID, ct);
                     return new Game
                     {
                         Name = game.Title ?? "Unknown Game",
@@ -128,6 +129,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                         PlaytimeMinutes = playtime,
                         Achievements = achievements.ToObservableCollection(),
                         Identifier = ProviderIds.Retro + game.GameID,
+                        ParentIdentifier = ParentIdentifierFor(parentGameID),
                         LastUpdated = DateTime.UtcNow,
                         LastPlayed = game.LastPlayed
                     };
@@ -159,7 +161,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
 
         // GetAchievements internally fetches both GameInfoAndUserProgress and GameExtended
         // concurrently — no need to call GetGameExtendedAsync again here.
-        var (achievementsList, playtime, gameTitle, gameIcon) = await GetAchievementsWithMetadata(gameId, cancellationToken);
+        var (achievementsList, playtime, gameTitle, gameIcon, parentGameID) = await GetAchievementsWithMetadata(gameId, cancellationToken);
 
         // GetAchievementsWithMetadata swallows API errors and returns an empty/degraded result
         // (good for the bulk library scan, where one bad game shouldn't fail everything). For a
@@ -189,6 +191,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             PlaytimeMinutes = playtime,
             Achievements = achievements,
             Identifier = ProviderIds.Retro + gameId,
+            ParentIdentifier = ParentIdentifierFor(parentGameID),
             LastUpdated = DateTime.UtcNow,
             LastPlayed = lastPlayed
         };
@@ -197,25 +200,33 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     }
 
     /// <summary>
+    /// Maps a RetroAchievements <c>ParentGameID</c> to an Alua parent identifier, or null when the
+    /// game is not a subset (the API reports 0 / null for standalone games).
+    /// </summary>
+    private static string? ParentIdentifierFor(int? parentGameID) =>
+        parentGameID is > 0 ? ProviderIds.Retro + parentGameID.Value : null;
+
+    /// <summary>
     /// Fetches achievement data for a game. The two independent API calls
     /// (GetGameInfoAndUserProgressAsync and GetGameExtendedAsync) are executed concurrently.
     /// </summary>
-    private async Task<(List<Achievement> Achievements, int PlaytimeMinutes)> GetAchievements(int gameID, CancellationToken cancellationToken = default)
+    private async Task<(List<Achievement> Achievements, int PlaytimeMinutes, int? ParentGameID)> GetAchievements(int gameID, CancellationToken cancellationToken = default)
     {
-        var (achievements, playtime, _, _) = await GetAchievementsWithMetadata(gameID, cancellationToken);
-        return (achievements, playtime);
+        var (achievements, playtime, _, _, parentGameID) = await GetAchievementsWithMetadata(gameID, cancellationToken);
+        return (achievements, playtime, parentGameID);
     }
 
     /// <summary>
     /// Fetches achievement data and game metadata for a game.
     /// The two independent API calls are executed concurrently via Task.WhenAll.
     /// </summary>
-    private async Task<(List<Achievement> Achievements, int PlaytimeMinutes, string? Title, string? Icon)> GetAchievementsWithMetadata(int gameID, CancellationToken cancellationToken = default)
+    private async Task<(List<Achievement> Achievements, int PlaytimeMinutes, string? Title, string? Icon, int? ParentGameID)> GetAchievementsWithMetadata(int gameID, CancellationToken cancellationToken = default)
     {
         List<Achievement> achievements = new(64);
         int playtimeMinutes = -1;
         string? title = null;
         string? icon = null;
+        int? parentGameID = null;
 
         try
         {
@@ -231,6 +242,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             playtimeMinutes = progress.UserTotalPlaytime.HasValue ? progress.UserTotalPlaytime.Value / 60 : -1;
             title = gameExtended.Title;
             icon = gameExtended.ImageIcon;
+            parentGameID = gameExtended.ParentGameID;
 
             foreach (var kvp in progress.Achievements)
             {
@@ -271,7 +283,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
             achievements = new();
         }
 
-        return (achievements, playtimeMinutes, title, icon);
+        return (achievements, playtimeMinutes, title, icon, parentGameID);
     }
 
     /// <summary>

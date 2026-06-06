@@ -2,15 +2,13 @@ using System;
 using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Microsoft.UI.Xaml;
-using Windows.Foundation.Metadata;
 
 //GARY HIT EM WITH THE
 namespace Alua.Models;
 /// <summary>
 /// Representation of game.
 /// </summary>
-public class Game : ObservableObject
+public partial class Game : ObservableObject
 {
     /// <summary>
     /// Name of game
@@ -65,6 +63,15 @@ public class Game : ObservableObject
     public string Identifier { get; set; } = string.Empty;
 
     /// <summary>
+    /// Identifier of this game's parent, when the provider models it as a child of another game
+    /// (currently only RetroAchievements subsets, linked via GameInfoExtended.ParentGameID).
+    /// Stored in the same "&lt;prefix&gt;&lt;id&gt;" form as <see cref="Identifier"/> (e.g. "ra-1234").
+    /// Null for standalone games. Used by grouping to merge subsets under their parent.
+    /// </summary>
+    [JsonInclude, JsonPropertyName("ParentIdentifier")]
+    public string? ParentIdentifier { get; set; }
+
+    /// <summary>
     /// Time to beat main story in hours
     /// </summary>
     [JsonInclude, JsonPropertyName("HowLongToBeatMain")]
@@ -93,6 +100,90 @@ public class Game : ObservableObject
     /// </summary>
     [JsonInclude, JsonPropertyName("HowLongToBeatLastFetched")]
     public DateTime? HowLongToBeatLastFetched { get; set; }
+
+    #region Grouping (in-memory only)
+
+    /// <summary>
+    /// Other games merged under this one (editions / re-releases / RA subsets), including this
+    /// game itself, with this game first. Populated at display time by
+    /// <see cref="Alua.Services.GameGrouping"/>; empty for unmerged games. Never persisted.
+    /// </summary>
+    [JsonIgnore]
+    public List<Game> Editions { get; set; } = new();
+
+    /// <summary>
+    /// True when this card stands in for more than one game and should show edition tabs.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsMerged => Editions.Count > 1;
+
+    /// <summary>
+    /// Clean group label chosen during grouping (the shortest edition name, e.g. "Control"
+    /// rather than "Control Ultimate Edition"). Falls back to <see cref="Name"/> when unset.
+    /// </summary>
+    [JsonIgnore]
+    public string? MergedDisplayName { get; set; }
+
+    /// <summary>
+    /// Title shown on the library card and game-page header. Equals the group label for merged
+    /// games and the plain <see cref="Name"/> otherwise.
+    /// </summary>
+    [JsonIgnore]
+    public string DisplayName => string.IsNullOrWhiteSpace(MergedDisplayName) ? Name : MergedDisplayName;
+
+    /// <summary>
+    /// Short label for this game's edition tab. Currently just the full <see cref="Name"/>;
+    /// the tab also shows <see cref="ProviderImage"/> to disambiguate cross-platform editions.
+    /// </summary>
+    [JsonIgnore]
+    public string EditionLabel => Name;
+
+    /// <summary>
+    /// Caption shown on a merged library card to hint that it collapses several editions
+    /// (e.g. "3 editions"). Empty for unmerged games.
+    /// </summary>
+    [JsonIgnore]
+    public string EditionsBadgeText => IsMerged ? $"{Editions.Count} editions" : string.Empty;
+
+    /// <summary>
+    /// Aggregate unlocked count to show on a merged card, set by <see cref="Alua.Services.GameGrouping"/>
+    /// when the user picks MergedCompletionMode.Aggregate. Null means "use this game's own count"
+    /// (Best mode / unmerged). In-memory only.
+    /// </summary>
+    [JsonIgnore]
+    public int? DisplayUnlocked { get; set; }
+
+    /// <summary>Aggregate total achievement count to show on a merged card; see <see cref="DisplayUnlocked"/>.</summary>
+    [JsonIgnore]
+    public int? DisplayTotal { get; set; }
+
+    /// <summary>Unlocked count for the card (aggregate across editions when set, else this game's own).</summary>
+    [JsonIgnore]
+    public int EffectiveUnlocked => DisplayUnlocked ?? UnlockedCount;
+
+    /// <summary>Total achievement count for the card (aggregate across editions when set, else own).</summary>
+    [JsonIgnore]
+    public int EffectiveTotal => DisplayTotal ?? Achievements.Count;
+
+    /// <summary>Status text using the effective (possibly aggregated) counts; mirrors <see cref="StatusText"/>.</summary>
+    [JsonIgnore]
+    public string EffectiveStatusText
+    {
+        get
+        {
+            int total = EffectiveTotal;
+            int unlocked = EffectiveUnlocked;
+            if (total == 0)
+                return "No Achievements";
+            if (unlocked == total)
+                return "100% Complete";
+            if (unlocked > 0)
+                return $"{Math.Floor((double)unlocked / total * 100)}% ({unlocked} / {total})";
+            return $"Not played (0 / {total})";
+        }
+    }
+
+    #endregion
 
     #region UI Helpers
 
@@ -166,37 +257,6 @@ public class Game : ObservableObject
                 Platforms.Xbox => "ms-appx:///Assets/Icons/xbox.png",
                 _ => "ms-appx:///Assets/Icons/UnknownProvider.png"
             };
-        }
-    }
-
-    /// <summary>
-    /// Star-based width for the "unlocked" portion of the filled-background progress indicator.
-    /// </summary>
-    [JsonIgnore]
-    public GridLength UnlockedColumnWidth
-    {
-        get
-        {
-            if (!HasAchievements || UnlockedCount == 0)
-                return new GridLength(0);
-            return new GridLength(UnlockedCount, GridUnitType.Star);
-        }
-    }
-
-    /// <summary>
-    /// Star-based width for the "locked" remainder of the filled-background progress indicator.
-    /// </summary>
-    [JsonIgnore]
-    public GridLength LockedColumnWidth
-    {
-        get
-        {
-            if (!HasAchievements)
-                return new GridLength(1, GridUnitType.Star);
-            var locked = Achievements.Count - UnlockedCount;
-            if (locked <= 0)
-                return new GridLength(0);
-            return new GridLength(locked, GridUnitType.Star);
         }
     }
 

@@ -15,10 +15,15 @@
              referenced inside a page-level DataTemplate up to Application.Resources, which left
              the ItemsRepeater templates unresolved and games rendering as raw "Alua.Models.Game". -->
         <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <controls:EnumToVisibilityConverter x:Key="EnumToVisibility"/>
+        <controls:CardTextAlignmentToTextAlignmentConverter x:Key="TextAlignToTextAlign"/>
+        <controls:CardTextAlignmentToHorizontalAlignmentConverter x:Key="TextAlignToHorizontal"/>
+        <controls:CompactToPaddingConverter x:Key="CompactToPadding"/>
 
         <DataTemplate x:Key="GameTemplate" x:DataType="models:Game">
             <Grid Tapped="OpenGame" HorizontalAlignment="Stretch"
-                  Padding="12" BorderThickness="1"
+                  Padding="{Binding CompactCards, Source={StaticResource Settings}, Converter={StaticResource CompactToPadding}}"
+                  BorderThickness="1"
                   Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                   CornerRadius="8"
@@ -43,40 +48,47 @@
                     <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
                                           Width="16" Height="16"
                                           Stretch="Uniform"
-                                          Opacity="0.6"
+                                          Opacity="{Binding PlatformBadgeOpacity, Source={StaticResource Settings}}"
+                                          Visibility="{Binding ShowPlatformBadge, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"
                                           HorizontalAlignment="Right"
                                           VerticalAlignment="Bottom"
                                           Margin="0,0,2,2"/>
                 </Grid>
 
                 <!-- Game info -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right" Spacing="2">
-                    <TextBlock Text="{x:Bind Name}"
-                               TextWrapping="Wrap" TextAlignment="Right"
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"
+                            HorizontalAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToHorizontal}}">
+                    <TextBlock Text="{x:Bind DisplayName}"
+                               TextWrapping="Wrap"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
                                MaxLines="2" TextTrimming="CharacterEllipsis"
                                FontWeight="SemiBold"
                                FontSize="14"/>
-                    <TextBlock Text="{x:Bind StatusText}"
-                               TextAlignment="Right"
+                    <TextBlock Text="{x:Bind EffectiveStatusText}"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <TextBlock Text="{x:Bind PlaytimeText}"
-                               TextAlignment="Right"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
                                Style="{StaticResource CaptionTextBlockStyle}"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               Visibility="{x:Bind HasPlaytime,
+                               Visibility="{Binding ShowPlaytimeOnCard, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock Text="{x:Bind EditionsBadgeText}"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Visibility="{x:Bind IsMerged,
                                Converter={StaticResource BoolToVisibility}}"/>
                 </StackPanel>
 
-                <!-- Achievement progress -->
+                <!-- Achievement progress (hidden when the progress style is None) -->
                 <ProgressBar Grid.Row="1" Grid.ColumnSpan="2"
-                             Minimum="0" Maximum="{x:Bind Achievements.Count}"
-                             Value="{x:Bind UnlockedCount}"
+                             Minimum="0" Maximum="{x:Bind EffectiveTotal}"
+                             Value="{x:Bind EffectiveUnlocked}"
                              Height="6"
                              MinHeight="6"
                              CornerRadius="3"
-                             Visibility="{x:Bind HasAchievements,
-                             Converter={StaticResource BoolToVisibility}}"/>
+                             Visibility="{Binding CardProgressStyle, Source={StaticResource Settings}, ConverterParameter=Bar, Converter={StaticResource EnumToVisibility}}"/>
             </Grid>
         </DataTemplate>
 
@@ -100,7 +112,7 @@
                 </Grid>
 
                 <!-- Content layer -->
-                <Grid Padding="12"
+                <Grid Padding="{Binding CompactCards, Source={StaticResource Settings}, Converter={StaticResource CompactToPadding}}"
                       ColumnSpacing="12" RowSpacing="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*"/>
@@ -120,26 +132,36 @@
                         <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
                                               Width="16" Height="16"
                                               Stretch="Uniform"
-                                              Opacity="0.6"
+                                              Opacity="{Binding PlatformBadgeOpacity, Source={StaticResource Settings}}"
+                                              Visibility="{Binding ShowPlatformBadge, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"
                                               HorizontalAlignment="Right"
                                               VerticalAlignment="Bottom"
                                               Margin="0,0,2,2"/>
                     </Grid>
 
                     <!-- Game info -->
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2" HorizontalAlignment="Stretch">
-                        <TextBlock Text="{x:Bind Name}"
-                                   TextWrapping="Wrap" TextAlignment="Right"
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"
+                                HorizontalAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToHorizontal}}">
+                        <TextBlock Text="{x:Bind DisplayName}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
                                    MaxLines="2" TextTrimming="CharacterEllipsis"
                                    FontWeight="SemiBold"
                                    FontSize="14"/>
-                        <TextBlock Text="{x:Bind StatusText}" TextAlignment="Right"
+                        <TextBlock Text="{x:Bind EffectiveStatusText}"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-                        <TextBlock Text="{x:Bind PlaytimeText}" TextAlignment="Right"
+                        <TextBlock Text="{x:Bind PlaytimeText}"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
                                    Style="{StaticResource CaptionTextBlockStyle}"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                   Visibility="{x:Bind HasPlaytime,
+                                   Visibility="{Binding ShowPlaytimeOnCard, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Text="{x:Bind EditionsBadgeText}"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   Visibility="{x:Bind IsMerged,
                                    Converter={StaticResource BoolToVisibility}}"/>
                     </StackPanel>
                 </Grid>
@@ -189,6 +211,36 @@
                                    ItemsSource="{x:Bind _appVm.FilteredGames, Mode=OneWay}"
                                    HorizontalAlignment="Stretch"/>
                 </ScrollViewer>
+
+                <!-- Empty state: no games scanned yet -->
+                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="12" MaxWidth="320"
+                            Visibility="{x:Bind _appVm.LibraryIsEmpty, Mode=OneWay,
+                                         Converter={StaticResource BoolToVisibility}}">
+                    <FontIcon Glyph="&#xE7FC;" FontSize="48"
+                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="No games yet" HorizontalAlignment="Center"
+                               Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock Text="Pull down to refresh, or run a scan from Settings to load your library."
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                </StackPanel>
+
+                <!-- Empty state: games exist but filters hide them all -->
+                <StackPanel Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Spacing="12" MaxWidth="320"
+                            Visibility="{x:Bind _appVm.HasNoVisibleGames, Mode=OneWay,
+                                         Converter={StaticResource BoolToVisibility}}">
+                    <FontIcon Glyph="&#xE71C;" FontSize="48"
+                              Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="No games match your filters" HorizontalAlignment="Center"
+                               Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                    <TextBlock Text="Try adjusting your search, platform toggles, or filters."
+                               HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <Button Content="Reset filters" HorizontalAlignment="Center"
+                            Click="ResetFilters_Click"/>
+                </StackPanel>
             </Grid>
         </RefreshContainer>
     </utu:LoadingView>

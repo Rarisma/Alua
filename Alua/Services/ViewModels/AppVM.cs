@@ -50,7 +50,7 @@ public partial class AppVM : ObservableRecipient
     private bool _singleColumnLayout;
 
     [ObservableProperty]
-    private bool _fillBackgroundProgress;
+    private CardProgressStyle _cardProgressStyle;
 
     [ObservableProperty]
     private string _searchText = string.Empty;
@@ -66,6 +66,14 @@ public partial class AppVM : ObservableRecipient
 
     [ObservableProperty]
     private bool _hasError;
+
+    /// <summary>True when the library has no games at all (nothing scanned yet).</summary>
+    [ObservableProperty]
+    private bool _libraryIsEmpty;
+
+    /// <summary>True when games exist but the current filters/search hide all of them.</summary>
+    [ObservableProperty]
+    private bool _hasNoVisibleGames;
 
     private List<IAchievementProvider> _providers = new();
 
@@ -411,19 +419,5 @@ public partial class AppVM : ObservableRecipient
             SetError("Failed to connect to some services. Check Settings for details.");
         }
     }
-
-}
-
-public enum OrderBy
-{
-    Name,
-    NameReverse,
-    CompletionPct,
-    TotalCount,
-    UnlockedCount,
-    Playtime,
-    LastPlayed,
-    HowLongToBeatMain,
-    HowLongToBeatCompletionist
 
 }

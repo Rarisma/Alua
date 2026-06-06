@@ -21,15 +21,47 @@ public sealed partial class GamePage : Page
 
     private readonly bool _isPhone = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
 
+    /// <summary>
+    /// The edition whose achievements / stats are currently shown. For a merged game this is the
+    /// selected tab; for a normal game it is just <see cref="AppVM.SelectedGame"/>. The header and
+    /// achievement list bind to this; tab changes call <c>Bindings.Update()</c> to re-read it.
+    /// </summary>
+    private Game? _currentEdition;
+    public Game CurrentEdition => _currentEdition ?? AppVM.SelectedGame;
+
     public GamePage()
     {
         InitializeComponent();
+
+        _currentEdition = AppVM.SelectedGame;
 
         // Override scroll handling for faster trackpad scrolling on desktop
         if (!_isPhone)
             achievementsScrollViewer.AddHandler(UIElement.PointerWheelChangedEvent,
                 new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
 
+        // Highlight the first edition tab once the list is realized (merged games only).
+        if (AppVM.SelectedGame.IsMerged)
+            Loaded += SelectFirstEditionOnLoad;
+
+        RefreshFiltered();
+    }
+
+    private void SelectFirstEditionOnLoad(object sender, RoutedEventArgs e)
+    {
+        Loaded -= SelectFirstEditionOnLoad;
+        if (EditionTabs.Items.Count > 0)
+            EditionTabs.SelectedIndex = 0;
+    }
+
+    private void EditionTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (EditionTabs.SelectedItem is not Game edition)
+            return;
+
+        _currentEdition = edition;
+        // Header binds to CurrentEdition.* via OneWay compiled bindings; force them to re-read.
+        Bindings.Update();
         RefreshFiltered();
     }
 
@@ -44,7 +76,7 @@ public sealed partial class GamePage : Page
 
     private async void RefreshFiltered()
     {
-        var achievements = AppVM.SelectedGame?.Achievements ?? new();
+        var achievements = CurrentEdition?.Achievements ?? new();
         var showUnlocked = _showUnlocked;
         var showLocked = _showLocked;
         var hideHidden = _hideHidden;
@@ -76,10 +108,12 @@ public sealed partial class GamePage : Page
     /// <exception cref="NotImplementedException">Requested game provider is not available or doesn't exist.</exception>
     private async Task Refresh()
     {
+        // Refresh the edition currently shown (the selected tab), not necessarily the group primary.
+        var target = CurrentEdition;
         try
         {
             //Resolve game provider
-            IAchievementProvider? provider = AppVM.SelectedGame.Platform switch
+            IAchievementProvider? provider = target.Platform switch
             {
                 Platforms.Steam => AppVM.GetProvider<SteamService>(),
                 Platforms.RetroAchievements => AppVM.GetProvider<RetroAchievementsService>(),
@@ -90,19 +124,34 @@ public sealed partial class GamePage : Page
 
             if (provider == null)
             {
-                Log.Warning("No provider available for platform {Platform}", AppVM.SelectedGame.Platform);
+                Log.Warning("No provider available for platform {Platform}", target.Platform);
                 return;
             }
 
             //Update settings collection and this page's binding source.
-            Game game = await provider.RefreshTitle(AppVM.SelectedGame.Identifier);
+            Game game = await provider.RefreshTitle(target.Identifier);
             SettingsVM.AddOrUpdateGame(game);
-            AppVM.SelectedGame = game;
 
-            // Force x:Bind compiled bindings rooted at this page to pick up the new SelectedGame
-            // reference. The OneWay bindings on AppVM.SelectedGame.* update automatically when
-            // SelectedGame raises PropertyChanged, but Bindings.Update() is a belt-and-suspenders
-            // guard for any OneTime bindings that may remain (e.g. the header icon).
+            if (AppVM.SelectedGame.IsMerged)
+            {
+                // Splice the refreshed edition back into the open group so the page reflects the
+                // new data, without collapsing the merge (SelectedGame stays the representative,
+                // keeping its Editions list and group display name). Re-grouping on the next
+                // library refresh reconciles everything from the persisted dictionary.
+                var editions = AppVM.SelectedGame.Editions;
+                var idx = editions.FindIndex(e => e.Identifier == game.Identifier);
+                if (idx >= 0)
+                    editions[idx] = game;
+                _currentEdition = game;
+            }
+            else
+            {
+                AppVM.SelectedGame = game;
+                _currentEdition = game;
+            }
+
+            // Force x:Bind compiled bindings rooted at this page (CurrentEdition.*) to pick up the
+            // new edition reference. Bindings.Update() also covers any OneTime bindings that remain.
             DispatcherQueue.TryEnqueue(() => Bindings.Update());
 
             await SettingsVM.Save();
@@ -110,7 +159,7 @@ public sealed partial class GamePage : Page
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Cannot refresh game ID {GameId}", AppVM.SelectedGame.Identifier);
+            Log.Error(ex, "Cannot refresh game ID {GameId}", target.Identifier);
         }
     }
 }

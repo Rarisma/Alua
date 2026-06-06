@@ -84,6 +84,12 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
     public Settings()
     {
         InitializeComponent();
+
+        // Expose the SettingsVM to this page's resource scope so the preview-card DataTemplate can
+        // bind appearance preferences via {Binding ..., Source={StaticResource Settings}} (Uno does
+        // not resolve App-level resources from inside a page DataTemplate).
+        Resources["Settings"] = _settingsVM;
+
         _msAuthService = new MicrosoftAuthService();
         _psnAuthService = new PSNAuthService();
 
@@ -96,6 +102,8 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        // Enum appearance ComboBoxes are driven imperatively (their indices map 1:1 to the enum).
+        InitAppearanceControls();
         try
         {
             // Restore Xbox auth state; RestoreAuthDataAsync may involve network I/O
@@ -110,6 +118,96 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to restore Xbox auth data on Settings page load");
+        }
+    }
+
+    // ---- Appearance settings + live preview ----
+
+    private List<Game>? _previewGames;
+
+    /// <summary>
+    /// Up to five real games from the user's library for the appearance preview, chosen to span the
+    /// card states the appearance settings affect: one with no playtime, one partially complete,
+    /// plus the most-played others. Empty until the library has been scanned.
+    /// </summary>
+    public List<Game> PreviewGames => _previewGames ??= BuildPreviewGames();
+
+    /// <summary>True when there are real games to preview (drives the "scan first" placeholder).</summary>
+    public bool HasPreviewGames => PreviewGames.Count > 0;
+
+    private List<Game> BuildPreviewGames()
+    {
+        var all = _settingsVM.Games.Values.ToList();
+        if (all.Count == 0)
+            return new List<Game>();
+
+        var picks = new List<Game>();
+        void Add(Game? g) { if (g != null && !picks.Contains(g)) picks.Add(g); }
+
+        // Favour variety: one never-played game and one started-but-incomplete game...
+        Add(all.FirstOrDefault(g => g.PlaytimeMinutes <= 0));
+        Add(all.FirstOrDefault(g => g.HasAchievements && g.UnlockedCount > 0 && g.UnlockedCount < g.Achievements.Count));
+        // ...then fill up to five with the most-played remaining games (recognizable, real icons).
+        foreach (var g in all.OrderByDescending(g => g.PlaytimeMinutes))
+        {
+            if (picks.Count >= 5) break;
+            Add(g);
+        }
+
+        return picks.Take(5).ToList();
+    }
+
+    /// <summary>Swaps the preview card template to match the chosen progress style (mirrors the
+    /// library's own template swap so the preview shows the real card for that style).</summary>
+    private void UpdatePreviewTemplate()
+    {
+        var key = _settingsVM.CardProgressStyle == CardProgressStyle.FilledBackground
+            ? "PreviewFillCardTemplate"
+            : "PreviewCardTemplate";
+        if (Resources[key] is DataTemplate template)
+            PreviewItems.ItemTemplate = template;
+    }
+
+    /// <summary>Sets the enum ComboBoxes' selection from the persisted values (indices map 1:1).</summary>
+    private void InitAppearanceControls()
+    {
+        ProgressStyleCombo.SelectedIndex = (int)_settingsVM.CardProgressStyle;
+        TextAlignmentCombo.SelectedIndex = (int)_settingsVM.CardTextAlignment;
+        MergedModeCombo.SelectedIndex = (int)_settingsVM.MergedCompletionMode;
+        UpdatePreviewTemplate();
+    }
+
+    // Toggles/sliders bind TwoWay to SettingsVM; these handlers only persist the change.
+    private async void AppearanceToggled(object sender, RoutedEventArgs e) => await _settingsVM.Save();
+
+    private async void AppearanceSliderChanged(object sender,
+        Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) => await _settingsVM.Save();
+
+    private async void ProgressStyleChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedIndex: >= 0 } cb)
+        {
+            _settingsVM.CardProgressStyle = (CardProgressStyle)cb.SelectedIndex;
+            UpdatePreviewTemplate();
+            await _settingsVM.Save();
+        }
+    }
+
+    private async void TextAlignmentChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedIndex: >= 0 } cb)
+        {
+            _settingsVM.CardTextAlignment = (CardTextAlignment)cb.SelectedIndex;
+            await _settingsVM.Save();
+        }
+    }
+
+    private async void MergedModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedIndex: >= 0 } cb)
+        {
+            _settingsVM.MergedCompletionMode = (MergedCompletionMode)cb.SelectedIndex;
+            await _settingsVM.Save();
         }
     }
     

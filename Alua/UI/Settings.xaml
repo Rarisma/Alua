@@ -1,8 +1,149 @@
 <Page x:Class="Alua.UI.Settings"
       xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:controls="clr-namespace:Alua.UI.Controls"
+      xmlns:models="clr-namespace:Alua.Models"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
+    <Page.Resources>
+        <!-- Page-scoped (not App.xaml) so the preview-card DataTemplate resolves them; the "Settings"
+             source is added to this page's Resources in code-behind. -->
+        <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <controls:EnumToVisibilityConverter x:Key="EnumToVisibility"/>
+        <controls:CardTextAlignmentToTextAlignmentConverter x:Key="TextAlignToTextAlign"/>
+        <controls:CardTextAlignmentToHorizontalAlignmentConverter x:Key="TextAlignToHorizontal"/>
+        <controls:CompactToPaddingConverter x:Key="CompactToPadding"/>
+
+        <!-- Exact copies of the real library card templates (Library.xaml) minus the tap-to-open
+             handler, so the preview renders the same card the library does. Keep these in sync. -->
+        <DataTemplate x:Key="PreviewCardTemplate" x:DataType="models:Game">
+            <Grid HorizontalAlignment="Stretch"
+                  Padding="{Binding CompactCards, Source={StaticResource Settings}, Converter={StaticResource CompactToPadding}}"
+                  BorderThickness="1"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  CornerRadius="8"
+                  MinHeight="120" MinWidth="300"
+                  ColumnSpacing="12" RowSpacing="8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid HorizontalAlignment="Left" VerticalAlignment="Center">
+                    <Border CornerRadius="6">
+                        <controls:CachedImage UriSource="{x:Bind IconUri}" Stretch="Uniform"
+                                              MaxWidth="140" MaxHeight="80"
+                                              DecodePixelWidth="140" DecodePixelHeight="80"/>
+                    </Border>
+                    <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
+                                          Width="16" Height="16" Stretch="Uniform"
+                                          Opacity="{Binding PlatformBadgeOpacity, Source={StaticResource Settings}}"
+                                          Visibility="{Binding ShowPlatformBadge, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"
+                                          HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
+                </Grid>
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"
+                            HorizontalAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToHorizontal}}">
+                    <TextBlock Text="{x:Bind DisplayName}"
+                               TextWrapping="Wrap"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                               MaxLines="2" TextTrimming="CharacterEllipsis"
+                               FontWeight="SemiBold" FontSize="14"/>
+                    <TextBlock Text="{x:Bind EffectiveStatusText}"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <TextBlock Text="{x:Bind PlaytimeText}"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="{Binding ShowPlaytimeOnCard, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"/>
+                    <TextBlock Text="{x:Bind EditionsBadgeText}"
+                               TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                               Style="{StaticResource CaptionTextBlockStyle}"
+                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                               Visibility="{x:Bind IsMerged, Converter={StaticResource BoolToVisibility}}"/>
+                </StackPanel>
+
+                <ProgressBar Grid.Row="1" Grid.ColumnSpan="2"
+                             Minimum="0" Maximum="{x:Bind EffectiveTotal}"
+                             Value="{x:Bind EffectiveUnlocked}"
+                             Height="6" MinHeight="6" CornerRadius="3"
+                             Visibility="{Binding CardProgressStyle, Source={StaticResource Settings}, ConverterParameter=Bar, Converter={StaticResource EnumToVisibility}}"/>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="PreviewFillCardTemplate" x:DataType="models:Game">
+            <Grid HorizontalAlignment="Stretch"
+                  BorderThickness="1"
+                  Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                  BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                  CornerRadius="8"
+                  MinHeight="120" MinWidth="300">
+                <Grid IsHitTestVisible="False">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{x:Bind UnlockedColumnWidth, Mode=OneWay}"/>
+                        <ColumnDefinition Width="{x:Bind LockedColumnWidth, Mode=OneWay}"/>
+                    </Grid.ColumnDefinitions>
+                    <Rectangle Grid.Column="0" Fill="{ThemeResource AccentFillColorDefaultBrush}" Opacity="0.3"/>
+                </Grid>
+
+                <Grid Padding="{Binding CompactCards, Source={StaticResource Settings}, Converter={StaticResource CompactToPadding}}"
+                      ColumnSpacing="12" RowSpacing="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Grid HorizontalAlignment="Left" VerticalAlignment="Center">
+                        <Border CornerRadius="6">
+                            <controls:CachedImage UriSource="{x:Bind IconUri}" Stretch="Uniform"
+                                                  MaxWidth="140" MaxHeight="80"
+                                                  DecodePixelWidth="140" DecodePixelHeight="80"/>
+                        </Border>
+                        <controls:CachedImage UriSource="{x:Bind ProviderImageUri}"
+                                              Width="16" Height="16" Stretch="Uniform"
+                                              Opacity="{Binding PlatformBadgeOpacity, Source={StaticResource Settings}}"
+                                              Visibility="{Binding ShowPlatformBadge, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"
+                                              HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,2,2"/>
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2"
+                                HorizontalAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToHorizontal}}">
+                        <TextBlock Text="{x:Bind DisplayName}"
+                                   TextWrapping="Wrap"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                                   MaxLines="2" TextTrimming="CharacterEllipsis"
+                                   FontWeight="SemiBold" FontSize="14"/>
+                        <TextBlock Text="{x:Bind EffectiveStatusText}"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="{x:Bind PlaytimeText}"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Visibility="{Binding ShowPlaytimeOnCard, Source={StaticResource Settings}, Converter={StaticResource BoolToVisibility}}"/>
+                        <TextBlock Text="{x:Bind EditionsBadgeText}"
+                                   TextAlignment="{Binding CardTextAlignment, Source={StaticResource Settings}, Converter={StaticResource TextAlignToTextAlign}}"
+                                   Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                   Visibility="{x:Bind IsMerged, Converter={StaticResource BoolToVisibility}}"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer>
     <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20">
         <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250" Text="{x:Bind _settingsVM.SteamID, Mode=TwoWay}"/>
         <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
@@ -62,12 +203,79 @@
         </StackPanel>
 
         <!-- Library Management -->
-        <StackPanel Margin="0,20">
+        <StackPanel Margin="0,20" Spacing="8">
             <TextBlock Text="Library Management" FontWeight="Bold" Margin="0,0,0,5"/>
             <Button Content="Full Rescan"
                     Click="{x:Bind FullRescan}"
                     ToolTipService.ToolTip="Rescan all configured platforms for games and achievements"
                     Margin="0,5"/>
+            <ToggleSwitch Header="Count multi-platform games once in stats"
+                          ToolTipService.ToolTip="A game owned on several platforms counts once, so totals aren't inflated"
+                          IsOn="{x:Bind _settingsVM.CountMultiPlatformOnce, Mode=TwoWay}"
+                          Toggled="AppearanceToggled"/>
+        </StackPanel>
+
+        <!-- Appearance -->
+        <StackPanel Margin="0,20" Spacing="8">
+            <TextBlock Text="Appearance" FontWeight="Bold" Margin="0,0,0,5"/>
+
+            <ToggleSwitch Header="Single column layout"
+                          IsOn="{x:Bind _settingsVM.SingleColumnLayout, Mode=TwoWay}"
+                          Toggled="AppearanceToggled"/>
+            <ToggleSwitch Header="Compact cards"
+                          IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"
+                          Toggled="AppearanceToggled"/>
+
+            <ComboBox x:Name="ProgressStyleCombo" Header="Progress style"
+                      HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
+                <ComboBoxItem Content="Progress bar"/>
+                <ComboBoxItem Content="Filled background"/>
+                <ComboBoxItem Content="None"/>
+            </ComboBox>
+
+            <ToggleSwitch Header="Show platform badge"
+                          IsOn="{x:Bind _settingsVM.ShowPlatformBadge, Mode=TwoWay}"
+                          Toggled="AppearanceToggled"/>
+            <Slider Header="Platform badge opacity"
+                    Minimum="0" Maximum="1" StepFrequency="0.1"
+                    Value="{x:Bind _settingsVM.PlatformBadgeOpacity, Mode=TwoWay}"
+                    ValueChanged="AppearanceSliderChanged"
+                    Width="240" HorizontalAlignment="Left"/>
+
+            <ToggleSwitch Header="Show playtime on cards"
+                          IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"
+                          Toggled="AppearanceToggled"/>
+
+            <ComboBox x:Name="TextAlignmentCombo" Header="Card text alignment"
+                      HorizontalAlignment="Stretch" SelectionChanged="TextAlignmentChanged">
+                <ComboBoxItem Content="Left"/>
+                <ComboBoxItem Content="Center"/>
+                <ComboBoxItem Content="Right"/>
+            </ComboBox>
+
+            <ComboBox x:Name="MergedModeCombo" Header="Merged card completion"
+                      HorizontalAlignment="Stretch" SelectionChanged="MergedModeChanged">
+                <ComboBoxItem Content="Best edition"/>
+                <ComboBoxItem Content="Aggregate across editions"/>
+            </ComboBox>
+
+            <!-- Live preview: real games from the library, rendered with the real card template -->
+            <TextBlock Text="Preview" Margin="0,8,0,0"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+            <ItemsControl x:Name="PreviewItems"
+                          ItemsSource="{x:Bind PreviewGames}"
+                          ItemTemplate="{StaticResource PreviewCardTemplate}"
+                          HorizontalAlignment="Left" MaxWidth="360"
+                          Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolToVisibility}}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Vertical" Spacing="8"/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            <TextBlock Text="Scan your library to see a preview."
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolNegationToVisibilityConverter}}"/>
         </StackPanel>
 
         <Expander BorderBrush="Transparent" Background="Transparent">
@@ -87,5 +295,6 @@
         </Expander>
 
     </StackPanel>
+    </ScrollViewer>
 
 </Page>

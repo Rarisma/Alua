@@ -265,6 +265,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                         Description = def.description,
                         Icon = ach.achieved == 1 ? def.icon : def.icongray,
                         IsUnlocked = ach.achieved == 1,
+                        UnlockedOn = ach.achieved == 1 && ach.unlocktime > 0
+                            ? DateTimeOffset.FromUnixTimeSeconds(ach.unlocktime).UtcDateTime
+                            : null,
                         Id = ach.apiname,
                         IsHidden = def.hidden == 1
                     };
@@ -278,6 +281,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
                         Icon =
                             $"https://media.steampowered.com/steamcommunity/public/images/apps/{appId}/{ach.apiname}.jpg",
                         IsUnlocked = ach.achieved == 1,
+                        UnlockedOn = ach.achieved == 1 && ach.unlocktime > 0
+                            ? DateTimeOffset.FromUnixTimeSeconds(ach.unlocktime).UtcDateTime
+                            : null,
                         Id = ach.apiname,
                         IsHidden = false
                     };

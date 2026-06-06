@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Alua.Models;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.DependencyInjection;
@@ -117,48 +118,25 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         if (!_isDirty) return;
 
-        var games = _settingsVm.Games;
-        if (games == null || games.Count == 0)
-        {
-            _cachedTotalGames = 0;
-            _cachedUnlockedCount = 0;
-            _cachedTotalAchievements = 0;
-            _cachedPerfectGames = 0;
-            _cachedPercentComplete = 0;
-        }
-        else
-        {
-            _cachedTotalGames = games.Count;
-            _cachedUnlockedCount = 0;
-            _cachedTotalAchievements = 0;
-            _cachedPerfectGames = 0;
+        // When CountMultiPlatformOnce is on, a game owned on multiple platforms / re-released across
+        // editions counts once, so totals and "perfect games" aren't inflated for cross-platform users.
+        IReadOnlyCollection<Game> source =
+            (IReadOnlyCollection<Game>?)_settingsVm.Games?.Values ?? System.Array.Empty<Game>();
+        var stats = LibraryStats.Compute(source, _settingsVm.CountMultiPlatformOnce);
 
-            foreach (var kvp in games)
-            {
-                var game = kvp.Value;
-                var achievementCount = game.Achievements.Count;
-                var unlockedCount = game.UnlockedCount;
-
-                _cachedTotalAchievements += achievementCount;
-                _cachedUnlockedCount += unlockedCount;
-
-                if (game.HasAchievements && achievementCount == unlockedCount)
-                {
-                    _cachedPerfectGames++;
-                }
-            }
-
-            _cachedPercentComplete = _cachedTotalAchievements == 0
-                ? 0
-                : _cachedUnlockedCount * 100 / _cachedTotalAchievements;
-        }
+        _cachedTotalGames = stats.TotalGames;
+        _cachedUnlockedCount = stats.UnlockedCount;
+        _cachedTotalAchievements = stats.TotalAchievements;
+        _cachedPerfectGames = stats.PerfectGames;
+        _cachedPercentComplete = stats.PercentComplete;
 
         _isDirty = false;
     }
 
     private void OnSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(SettingsVM.Games))
+        if (e.PropertyName == nameof(SettingsVM.Games)
+            || e.PropertyName == nameof(SettingsVM.CountMultiPlatformOnce))
         {
             Refresh();
         }
