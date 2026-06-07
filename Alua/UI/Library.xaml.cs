@@ -44,6 +44,11 @@ public partial class Library : Page
     // Cancellation support for long-running operations
     private CancellationTokenSource? _operationCts;
 
+    // Guards the one-time PointerWheelChanged subscription. Uno's LoadingView re-parents this
+    // page's content when it toggles loading/loaded, so OnLoaded fires more than once per page
+    // instance; without this we would stack a new handler every time.
+    private bool _scrollHandlerHooked;
+
     // Commands for layouts — cached to avoid allocating a new instance on every read
     private AsyncCommand? _singleColumnCommand;
     public AsyncCommand SingleColumnCommand => _singleColumnCommand ??= new AsyncCommand(async () =>
@@ -95,10 +100,15 @@ public partial class Library : Page
     {
         try
         {
-            // Override scroll handling for faster trackpad scrolling on desktop
-            if (!_isPhone)
+            // Override scroll handling for faster trackpad scrolling on desktop. Guarded because
+            // OnLoaded fires repeatedly (LoadingView re-parents the content on each loading toggle);
+            // re-adding the handler would leak and multiply wheel handling.
+            if (!_isPhone && !_scrollHandlerHooked)
+            {
                 gamesScrollViewer.AddHandler(PointerWheelChangedEvent,
                     new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
+                _scrollHandlerHooked = true;
+            }
 
             Log.Information("Initialised games list");
             _appVm.CommandBarVisibility = Visibility.Visible;
@@ -241,6 +251,8 @@ public partial class Library : Page
         finally
         {
             _appVm.IsScanningOrRefreshing = false;
+            // Reclaim the LOH fragmentation left by the scan/refresh allocation burst.
+            CompactLargeObjectHeap();
         }
     }
 
@@ -332,6 +344,8 @@ public partial class Library : Page
         finally
         {
             _appVm.IsScanningOrRefreshing = false;
+            // Reclaim the LOH fragmentation left by the scan/refresh allocation burst.
+            CompactLargeObjectHeap();
         }
     }
 
@@ -538,6 +552,21 @@ public partial class Library : Page
         var delta = e.GetCurrentPoint(sv).Properties.MouseWheelDelta;
         sv.ChangeView(null, sv.VerticalOffset - delta, null, true);
         e.Handled = true;
+    }
+
+    /// <summary>
+    /// Compacts the Large Object Heap once, then collects. A scan/refresh allocates many large,
+    /// short-lived buffers (provider JSON, the ~20 MB settings blob, per-image decode streams);
+    /// the LOH is never compacted by an ordinary GC, so that burst leaves ~140 MB of trapped free
+    /// space (measured after a full refresh). Doing it explicitly once the burst is over returns
+    /// those pages to the OS. Cheap and infrequent — scans are user-initiated and the loading UI
+    /// is already shown — so the one blocking collection here is not in any hot path.
+    /// </summary>
+    private static void CompactLargeObjectHeap()
+    {
+        System.Runtime.GCSettings.LargeObjectHeapCompactionMode =
+            System.Runtime.GCLargeObjectHeapCompactionMode.CompactOnce;
+        GC.Collect();
     }
 
     #region Async Commands

@@ -13,12 +13,14 @@ public sealed class CachedImage : Image
     private const string CachePrefix = "imgcache_";
     private const long MaxCacheSizeBytes = 1L * 1024 * 1024 * 1024; // 1GB
 
-    // Byte budgets for the in-process memory cache (decoded BGRA pixels, ~4 bytes/pixel).
-    // Using a byte budget instead of an entry count prevents 500 decoded bitmaps from
-    // consuming ~87 MB unchecked.
+    // Byte budgets for the in-process memory cache, expressed in *physical* decoded bytes
+    // (BGRA, ~4 bytes/pixel). Entry sizes are accounted at the real decoded resolution
+    // (decode size × display scale; see LoadImageAsync), so these limits reflect actual RAM.
+    // Tunable: raising them caches more thumbnails (fewer re-decodes on scroll-back) at the
+    // cost of more memory.
     private static readonly long MemoryCacheByteBudget = OperatingSystem.IsAndroid()
-        ? 24L * 1024 * 1024   // 24 MB on Android
-        : 64L * 1024 * 1024;  // 64 MB on Desktop / WASM
+        ? 16L * 1024 * 1024   // 16 MB on Android
+        : 32L * 1024 * 1024;  // 32 MB on Desktop / WASM
 
     private const int DefaultDecodeSize = 128;
 
@@ -88,6 +90,12 @@ public sealed class CachedImage : Image
     private static readonly SemaphoreSlim _downloadThrottle = new(OperatingSystem.IsAndroid() ? 2 : 3);
     private static int _cacheEnforcementScheduled;
 
+    // Best-known display scale (RawPixelsPerViewPixel). Uno decodes Logical-typed bitmaps at
+    // (decodeSize × scale), so cache entries must be accounted at that physical size or the byte
+    // budget under-counts by scale² (≈4× on a 2× display) and the SizeLimit never evicts. Updated
+    // from each element's XamlRoot; the last good value covers loads before an element is rooted.
+    private static double _lastKnownScale = 1.0;
+
     #endregion
 
     private CancellationTokenSource? _cts;
@@ -153,9 +161,11 @@ public sealed class CachedImage : Image
         if (_currentCacheKey == cacheKey)
             return;
 
+        var scale = GetRasterizationScale();
+
         try
         {
-            var bitmap = await LoadImageAsync(uri, cacheKey, decodeWidth, decodeHeight, ct);
+            var bitmap = await LoadImageAsync(uri, cacheKey, decodeWidth, decodeHeight, scale, ct);
             if (!ct.IsCancellationRequested && bitmap is not null)
             {
                 Source = bitmap;
@@ -185,8 +195,21 @@ public sealed class CachedImage : Image
         return DefaultDecodeSize;
     }
 
+    /// <summary>
+    /// Display scale (RawPixelsPerViewPixel) for this element, used to account decoded bitmaps at
+    /// their physical size. Remembers the last known value so loads that happen before the element
+    /// is attached to a XamlRoot still estimate sensibly (falls back to 1.0 only on the very first).
+    /// </summary>
+    private double GetRasterizationScale()
+    {
+        var scale = XamlRoot?.RasterizationScale ?? 0;
+        if (scale > 0)
+            _lastKnownScale = scale;
+        return _lastKnownScale;
+    }
+
     private static async Task<BitmapImage?> LoadImageAsync(
-        Uri uri, string cacheKey, int decodeWidth, int decodeHeight, CancellationToken ct)
+        Uri uri, string cacheKey, int decodeWidth, int decodeHeight, double scale, CancellationToken ct)
     {
         // 1. Check provider cache (for frequently reused small icons)
         if (IsProviderIcon(uri) && _providerCache.TryGetValue(cacheKey, out var providerBitmap))
@@ -224,9 +247,12 @@ public sealed class CachedImage : Image
             return null;
 
         // 6. Cache in memory.
-        // Size is an estimated byte count (BGRA = 4 bytes/pixel) so the byte-budget SizeLimit
-        // correctly evicts entries when total decoded memory would exceed the configured limit.
-        var estimatedBytes = Math.Max(1L, (long)decodeWidth * decodeHeight * 4);
+        // Account for the *physical* decoded size: Uno scales Logical decode targets by the
+        // display scale, so the real bitmap is (decodeWidth×scale)×(decodeHeight×scale) BGRA.
+        // Sizing by the unscaled dimensions under-counts by scale² and defeats the SizeLimit.
+        var physicalWidth = (long)Math.Round(decodeWidth * scale);
+        var physicalHeight = (long)Math.Round(decodeHeight * scale);
+        var estimatedBytes = Math.Max(1L, physicalWidth * physicalHeight * 4);
         _memoryCache.Set(cacheKey, bitmap2, new MemoryCacheEntryOptions { Size = estimatedBytes });
 
         return bitmap2;
@@ -462,7 +488,7 @@ public sealed class CachedImage : Image
         var tasks = uris.Select(uri =>
         {
             var cacheKey = ComputeCacheKey(uri, decodeWidth, decodeHeight);
-            return LoadImageAsync(uri, cacheKey, decodeWidth, decodeHeight, ct);
+            return LoadImageAsync(uri, cacheKey, decodeWidth, decodeHeight, _lastKnownScale, ct);
         });
 
         await Task.WhenAll(tasks);
