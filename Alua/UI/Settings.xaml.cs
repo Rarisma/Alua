@@ -20,6 +20,7 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
     private bool _isPsnConnected;
     private bool _isPsnAuthenticating;
     
+    
     public bool IsXboxAuthenticated
     {
         get => _isXboxAuthenticated;
@@ -529,4 +530,30 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         await dialog.ShowAsync();
     }
     #endregion
+
+    private void NavigationOptionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        _settingsVM.PlatformSettingsVisibility = Visibility.Collapsed;
+        _settingsVM.UISettingsVisibility = Visibility.Collapsed;
+        _settingsVM.MetricsSettingsVisibility = Visibility.Collapsed;
+        _settingsVM.DebugSettingsVisibility = Visibility.Collapsed;
+
+        switch (args.SelectedItemContainer?.Tag)
+        {
+            case "PlatformsSettings":
+                _settingsVM.PlatformSettingsVisibility = Visibility.Visible;
+                break;
+            case "UISettings":
+                _settingsVM.UISettingsVisibility = Visibility.Visible;
+                break;
+            case "MetricsSettings":
+                _settingsVM.MetricsSettingsVisibility = Visibility.Visible;
+                break;
+            case "DebugSettings":
+                _settingsVM.DebugSettingsVisibility = Visibility.Visible;
+                break;
+            default:
+                throw new NotImplementedException("Unknown tag: " + args.SelectedItemContainer?.Tag);
+        }
+    }
 }

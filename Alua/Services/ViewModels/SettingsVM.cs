@@ -9,8 +9,18 @@ namespace Alua.Services.ViewModels;
 /// </summary>
 public partial class SettingsVM  : ObservableObject
 {
-    private readonly object _gamesLock = new object();
+    private readonly object _gamesLock = new();
+    [ObservableProperty]
+    private Visibility _platformSettingsVisibility = Visibility.Visible;
 
+    [ObservableProperty]
+    private Visibility _uISettingsVisibility = Visibility.Collapsed;
+
+    [ObservableProperty]
+    private Visibility _metricsSettingsVisibility = Visibility.Collapsed;
+
+    [ObservableProperty]
+    private Visibility _debugSettingsVisibility = Visibility.Collapsed;
     // Serialization lock: prevents concurrent Save() calls from racing on the same .tmp file.
     private static readonly SemaphoreSlim _saveLock = new(1, 1);
 

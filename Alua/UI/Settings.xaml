@@ -6,8 +6,6 @@
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
-        <!-- Page-scoped (not App.xaml) so the preview-card DataTemplate resolves them; the "Settings"
-             source is added to this page's Resources in code-behind. -->
         <controls:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <controls:EnumToVisibilityConverter x:Key="EnumToVisibility"/>
         <controls:CardTextAlignmentToTextAlignmentConverter x:Key="TextAlignToTextAlign"/>
@@ -18,7 +16,8 @@
              handler, so the preview renders the same card the library does. Keep these in sync. -->
         <DataTemplate x:Key="PreviewCardTemplate" x:DataType="models:Game">
             <Grid HorizontalAlignment="Stretch"
-                  Padding="{Binding CompactCards, Source={StaticResource Settings}, Converter={StaticResource CompactToPadding}}"
+                  Padding="{Binding CompactCards, Source={StaticResource Settings},
+                   Converter={StaticResource CompactToPadding}}"
                   BorderThickness="1"
                   Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                   BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -144,157 +143,170 @@
     </Page.Resources>
 
     <ScrollViewer>
-    <StackPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="20">
-        <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250" Text="{x:Bind _settingsVM.SteamID, Mode=TwoWay}"/>
-        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
-            <Button Content="{x:Bind SteamApiKeyButtonText, Mode=OneWay}" Click="{x:Bind SetupSteamApiKey}"
-                    ToolTipService.ToolTip="Open Steam's API key page in an embedded browser"/>
-            <TextBlock Text="API key configured" FontWeight="Bold" VerticalAlignment="Center"
-                       Visibility="{x:Bind IsSteamApiKeyConfigured, Mode=OneWay}"/>
-        </StackPanel>
+        <NavigationView IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
+                        IsPaneToggleButtonVisible="False" SelectionChanged="NavigationOptionChanged">
+            <NavigationView.MenuItems>
+                <NavigationViewItem Content="Platforms" Tag="PlatformsSettings" IsSelected="True"/>
+                <NavigationViewItem Content="UI" Tag="UISettings"/>
+                <NavigationViewItem Content="Metrics" Tag="MetricsSettings"/>
+                <NavigationViewItem Content="About + Debug" Tag="DebugSettings"/>
+            </NavigationView.MenuItems>
 
-        <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
-                 Margin="0,20,0,0" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
-        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,5,0,0">
-            <Button Content="{x:Bind RetroApiKeyButtonText, Mode=OneWay}" Click="{x:Bind SetupRetroApiKey}"
-                    ToolTipService.ToolTip="Open the RetroAchievements settings page in an embedded browser"/>
-            <TextBlock Text="API key configured" FontWeight="Bold" VerticalAlignment="Center"
-                       Visibility="{x:Bind IsRetroApiKeyConfigured, Mode=OneWay}"/>
-        </StackPanel>
+            <StackPanel>
+                <Grid Tag="PlatformsSettings" HorizontalAlignment="Stretch"
+                      Visibility="{x:Bind _settingsVM.PlatformSettingsVisibility, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-        <!-- PlayStation Network -->
-        <StackPanel Margin="0,20">
-            <TextBlock Text="PlayStation Network" FontWeight="Bold" Margin="0,0,0,5"/>
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="Sign in with PlayStation"
-                        Click="{x:Bind AuthenticatePsn}"
-                        Visibility="{x:Bind IsPsnConnected,
-                        Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+                    <Expander Grid.Row="0" Grid.Column="0" Header="Steam" HorizontalAlignment="Stretch">
+                        <StackPanel>
+                            <TextBox Header="Steam ID" PlaceholderText="Enter your SteamID here" MinWidth="250"
+                                     Text="{x:Bind _settingsVM.SteamID, Mode=TwoWay}"/>
+                            <Button Content="{x:Bind SteamApiKeyButtonText, Mode=OneWay}"
+                                    Click="{x:Bind SetupSteamApiKey}"/>
+                            <TextBlock Text="API key configured" FontWeight="Bold" VerticalAlignment="Center"
+                                       Visibility="{x:Bind IsSteamApiKeyConfigured, Mode=OneWay}"/>
+                        </StackPanel>
+                    </Expander>
 
-                <StackPanel Orientation="Horizontal" Spacing="10"
-                            Visibility="{x:Bind IsPsnConnected, Mode=OneWay}">
-                    <TextBlock Text="PSN Connected" VerticalAlignment="Center" FontWeight="Bold"/>
-                    <Button Content="Sign Out" Click="{x:Bind SignOutPsn}"/>
+                    <Expander Grid.Row="1" Grid.Column="0" Header="RetroAchievements">
+                        <StackPanel>
+                            <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
+                                     Margin="0,20,0,0" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
+                                <Button Content="{x:Bind RetroApiKeyButtonText, Mode=OneWay}" Click="{x:Bind SetupRetroApiKey}"
+                                        ToolTipService.ToolTip="Open the RetroAchievements settings page in an embedded browser"/>
+                                <TextBlock Text="API key configured" FontWeight="Bold" VerticalAlignment="Center"
+                                           Visibility="{x:Bind IsRetroApiKeyConfigured, Mode=OneWay}"/>
+                        </StackPanel>
+                    </Expander>
+
+                <!-- PlayStation Network -->
+                <Expander Grid.Row="2" Grid.Column="0" Header="PlayStation Network">
+                    <StackPanel Margin="0,20">
+                        <TextBlock Text="PlayStation Network" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Sign in with PlayStation"
+                                    Click="{x:Bind AuthenticatePsn}"
+                                    Visibility="{x:Bind IsPsnConnected,
+                                    Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10"
+                                        Visibility="{x:Bind IsPsnConnected, Mode=OneWay}">
+                                <TextBlock Text="PSN Connected" VerticalAlignment="Center" FontWeight="Bold"/>
+                                <Button Content="Sign Out" Click="{x:Bind SignOutPsn}"/>
+                            </StackPanel>
+
+                            <ProgressRing IsActive="{x:Bind IsPsnAuthenticating, Mode=OneWay}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+
+                <!-- Xbox Live Authentication -->
+                <Expander Grid.Row="3" Grid.Column="0" Header="Xbox">
+                    <StackPanel Margin="0,20">
+                        <TextBlock Text="Xbox Live" FontWeight="Bold" Margin="0,0,0,5"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <Button Content="Sign in with Microsoft"
+                                    Click="{x:Bind AuthenticateXbox}"
+                                    Visibility="{x:Bind IsXboxAuthenticated,
+                                    Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+
+                            <StackPanel Orientation="Horizontal" Spacing="10"
+                                        Visibility="{x:Bind IsXboxAuthenticated, Mode=OneWay}">
+                                <TextBlock Text="Signed in as:" VerticalAlignment="Center"/>
+                                <TextBlock Text="{x:Bind _settingsVM.XboxGamertag, Mode=OneWay}"
+                                          FontWeight="Bold" VerticalAlignment="Center"/>
+                                <Button Content="Sign Out" Click="{x:Bind SignOutXbox}" />
+                            </StackPanel>
+
+                            <ProgressRing IsActive="{x:Bind IsAuthenticating, Mode=OneWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Expander>
+                </Grid>
+
+                <StackPanel Visibility="{x:Bind _settingsVM.UISettingsVisibility, Mode=OneWay}" Tag="UISettings"
+                            Margin="0,20" Spacing="8">
+                    <ComboBox x:Name="ProgressStyleCombo" Header="Progress style"
+                              HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
+                        <ComboBoxItem Content="Progress bar"/>
+                        <ComboBoxItem Content="Filled background"/>
+                        <ComboBoxItem Content="None"/>
+                    </ComboBox>
+                    <ToggleSwitch Header="Single column layout"
+                                  IsOn="{x:Bind _settingsVM.SingleColumnLayout, Mode=TwoWay}"
+                                  Toggled="AppearanceToggled"/>
+                    <ToggleSwitch Header="Compact cards"
+                                  IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"
+                                  Toggled="AppearanceToggled"/>
+                    <ToggleSwitch Header="Show platform badge"
+                                  IsOn="{x:Bind _settingsVM.ShowPlatformBadge, Mode=TwoWay}"
+                                  Toggled="AppearanceToggled"/>
+                    <Slider Header="Platform badge opacity"
+                            Minimum="0" Maximum="1" StepFrequency="0.1"
+                            Value="{x:Bind _settingsVM.PlatformBadgeOpacity, Mode=TwoWay}"
+                            ValueChanged="AppearanceSliderChanged"
+                            Width="240" HorizontalAlignment="Left"/>
+
+                    <ToggleSwitch Header="Show playtime on cards"
+                                  IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"
+                                  Toggled="AppearanceToggled"/>
+
+                    <ComboBox x:Name="TextAlignmentCombo" Header="Card text alignment"
+                              HorizontalAlignment="Stretch" SelectionChanged="TextAlignmentChanged">
+                        <ComboBoxItem Content="Left"/>
+                        <ComboBoxItem Content="Center"/>
+                        <ComboBoxItem Content="Right"/>
+                    </ComboBox>
+
+                    <ComboBox x:Name="MergedModeCombo" Header="Merged card completion"
+                              HorizontalAlignment="Stretch" SelectionChanged="MergedModeChanged">
+                        <ComboBoxItem Content="Best edition"/>
+                        <ComboBoxItem Content="Aggregate across editions"/>
+                    </ComboBox>
+
+                    <!-- Live preview: real games from the library, rendered with the real card template -->
+                    <TextBlock Text="Preview" Margin="0,8,0,0"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                    <ItemsControl x:Name="PreviewItems"
+                                  ItemsSource="{x:Bind PreviewGames}"
+                                  ItemTemplate="{StaticResource PreviewCardTemplate}"
+                                  HorizontalAlignment="Left" MaxWidth="360"
+                                  Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolToVisibility}}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Vertical" Spacing="8"/>
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <TextBlock Text="Scan your library to see a preview."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolNegationToVisibilityConverter}}"/>
                 </StackPanel>
-
-                <ProgressRing IsActive="{x:Bind IsPsnAuthenticating, Mode=OneWay}"/>
-            </StackPanel>
-        </StackPanel>
-
-        <!-- Xbox Live Authentication -->
-        <StackPanel Margin="0,20">
-            <TextBlock Text="Xbox Live" FontWeight="Bold" Margin="0,0,0,5"/>
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <Button Content="Sign in with Microsoft"
-                        Click="{x:Bind AuthenticateXbox}"
-                        Visibility="{x:Bind IsXboxAuthenticated,
-                        Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
-
-                <StackPanel Orientation="Horizontal" Spacing="10"
-                            Visibility="{x:Bind IsXboxAuthenticated, Mode=OneWay}">
-                    <TextBlock Text="Signed in as:" VerticalAlignment="Center"/>
-                    <TextBlock Text="{x:Bind _settingsVM.XboxGamertag, Mode=OneWay}"
-                              FontWeight="Bold" VerticalAlignment="Center"/>
-                    <Button Content="Sign Out" Click="{x:Bind SignOutXbox}" />
+                <StackPanel Visibility="{x:Bind _settingsVM.MetricsSettingsVisibility, Mode=OneWay}"
+                            Tag="MetricsSettings" Margin="0,20" Spacing="8">
                 </StackPanel>
-
-                <ProgressRing IsActive="{x:Bind IsAuthenticating, Mode=OneWay}" />
-            </StackPanel>
-        </StackPanel>
-
-        <!-- Library Management -->
-        <StackPanel Margin="0,20" Spacing="8">
-            <TextBlock Text="Library Management" FontWeight="Bold" Margin="0,0,0,5"/>
-            <Button Content="Full Rescan"
-                    Click="{x:Bind FullRescan}"
-                    ToolTipService.ToolTip="Rescan all configured platforms for games and achievements"
-                    Margin="0,5"/>
-            <ToggleSwitch Header="Count multi-platform games once in stats"
-                          ToolTipService.ToolTip="A game owned on several platforms counts once, so totals aren't inflated"
-                          IsOn="{x:Bind _settingsVM.CountMultiPlatformOnce, Mode=TwoWay}"
-                          Toggled="AppearanceToggled"/>
-        </StackPanel>
-
-        <!-- Appearance -->
-        <StackPanel Margin="0,20" Spacing="8">
-            <TextBlock Text="Appearance" FontWeight="Bold" Margin="0,0,0,5"/>
-
-            <ToggleSwitch Header="Single column layout"
-                          IsOn="{x:Bind _settingsVM.SingleColumnLayout, Mode=TwoWay}"
-                          Toggled="AppearanceToggled"/>
-            <ToggleSwitch Header="Compact cards"
-                          IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"
-                          Toggled="AppearanceToggled"/>
-
-            <ComboBox x:Name="ProgressStyleCombo" Header="Progress style"
-                      HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
-                <ComboBoxItem Content="Progress bar"/>
-                <ComboBoxItem Content="Filled background"/>
-                <ComboBoxItem Content="None"/>
-            </ComboBox>
-
-            <ToggleSwitch Header="Show platform badge"
-                          IsOn="{x:Bind _settingsVM.ShowPlatformBadge, Mode=TwoWay}"
-                          Toggled="AppearanceToggled"/>
-            <Slider Header="Platform badge opacity"
-                    Minimum="0" Maximum="1" StepFrequency="0.1"
-                    Value="{x:Bind _settingsVM.PlatformBadgeOpacity, Mode=TwoWay}"
-                    ValueChanged="AppearanceSliderChanged"
-                    Width="240" HorizontalAlignment="Left"/>
-
-            <ToggleSwitch Header="Show playtime on cards"
-                          IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"
-                          Toggled="AppearanceToggled"/>
-
-            <ComboBox x:Name="TextAlignmentCombo" Header="Card text alignment"
-                      HorizontalAlignment="Stretch" SelectionChanged="TextAlignmentChanged">
-                <ComboBoxItem Content="Left"/>
-                <ComboBoxItem Content="Center"/>
-                <ComboBoxItem Content="Right"/>
-            </ComboBox>
-
-            <ComboBox x:Name="MergedModeCombo" Header="Merged card completion"
-                      HorizontalAlignment="Stretch" SelectionChanged="MergedModeChanged">
-                <ComboBoxItem Content="Best edition"/>
-                <ComboBoxItem Content="Aggregate across editions"/>
-            </ComboBox>
-
-            <!-- Live preview: real games from the library, rendered with the real card template -->
-            <TextBlock Text="Preview" Margin="0,8,0,0"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
-            <ItemsControl x:Name="PreviewItems"
-                          ItemsSource="{x:Bind PreviewGames}"
-                          ItemTemplate="{StaticResource PreviewCardTemplate}"
-                          HorizontalAlignment="Left" MaxWidth="360"
-                          Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolToVisibility}}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Vertical" Spacing="8"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-            </ItemsControl>
-            <TextBlock Text="Scan your library to see a preview."
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                       Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolNegationToVisibilityConverter}}"/>
-        </StackPanel>
-
-        <Expander BorderBrush="Transparent" Background="Transparent">
-            <Expander.Header>
-                <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal">
+                <StackPanel Visibility="{x:Bind _settingsVM.DebugSettingsVisibility, Mode=OneWay}"
+                            Tag="DebugSettings" Margin="0,20" Spacing="8">
                     <TextBlock Text="{x:Bind _settingsVM.Version}" Margin="10"/>
                     <TextBlock Text="{x:Bind _settingsVM.BuildString}" Margin="10"/>
-                </StackPanel>
-            </Expander.Header>
-            <Expander.Content>
-                <StackPanel>
-                    <TextBlock Text="Debug Settings" FontSize="24"/>
                     <Button Content="Show init page" Click="{x:Bind ShowInitialPage}"/>
                     <Button Content="Show logs" Click="{x:Bind ShowLogs}"/>
+                    <Button Content="Full Rescan" Click="{x:Bind FullRescan}" Margin="0,5"/>
+                    <ToggleSwitch Header="Count multi-platform games once in stats" Toggled="AppearanceToggled"
+                                  IsOn="{x:Bind _settingsVM.CountMultiPlatformOnce, Mode=TwoWay}"/>
                 </StackPanel>
-            </Expander.Content>
-        </Expander>
+            </StackPanel>
 
-    </StackPanel>
+        </NavigationView>
     </ScrollViewer>
 
 </Page>
