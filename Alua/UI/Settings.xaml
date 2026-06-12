@@ -152,7 +152,7 @@
                 <NavigationViewItem Content="About + Debug" Tag="DebugSettings"/>
             </NavigationView.MenuItems>
 
-            <StackPanel>
+            <StackPanel  Margin="10">
                 <Grid Tag="PlatformsSettings" HorizontalAlignment="Stretch"
                       Visibility="{x:Bind _settingsVM.PlatformSettingsVisibility, Mode=OneWay}">
                     <Grid.ColumnDefinitions>
@@ -177,7 +177,7 @@
                         </StackPanel>
                     </Expander>
 
-                    <Expander Grid.Row="1" Grid.Column="0" Header="RetroAchievements">
+                    <Expander Grid.Row="1" Grid.Column="0" Header="RetroAchievements" HorizontalAlignment="Stretch">
                         <StackPanel>
                             <TextBox Header="RetroAchievements Username" PlaceholderText="Enter your RA username here" MinWidth="250"
                                      Margin="0,20,0,0" Text="{x:Bind _settingsVM.RetroAchievementsUsername, Mode=TwoWay}"/>
@@ -189,9 +189,8 @@
                     </Expander>
 
                 <!-- PlayStation Network -->
-                <Expander Grid.Row="2" Grid.Column="0" Header="PlayStation Network">
+                <Expander Grid.Row="2" Grid.Column="0" Header="PlayStation Network" HorizontalAlignment="Stretch">
                     <StackPanel Margin="0,20">
-                        <TextBlock Text="PlayStation Network" FontWeight="Bold" Margin="0,0,0,5"/>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Sign in with PlayStation"
                                     Click="{x:Bind AuthenticatePsn}"
@@ -210,9 +209,8 @@
                 </Expander>
 
                 <!-- Xbox Live Authentication -->
-                <Expander Grid.Row="3" Grid.Column="0" Header="Xbox">
+                <Expander Grid.Row="3" Grid.Column="0" Header="Xbox"  HorizontalAlignment="Stretch">
                     <StackPanel Margin="0,20">
-                        <TextBlock Text="Xbox Live" FontWeight="Bold" Margin="0,0,0,5"/>
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Sign in with Microsoft"
                                     Click="{x:Bind AuthenticateXbox}"
@@ -241,24 +239,25 @@
                         <ComboBoxItem Content="Filled background"/>
                         <ComboBoxItem Content="None"/>
                     </ComboBox>
+                    <ComboBox Header="Platform icon"
+                              HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
+                        <ComboBoxItem Content="Bottom right corner"/>
+                        <ComboBoxItem Content="Below game banner"/>
+                        <ComboBoxItem Content="None"/>
+                    </ComboBox>
                     <ToggleSwitch Header="Single column layout"
                                   IsOn="{x:Bind _settingsVM.SingleColumnLayout, Mode=TwoWay}"
                                   Toggled="AppearanceToggled"/>
-                    <ToggleSwitch Header="Compact cards"
-                                  IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"
-                                  Toggled="AppearanceToggled"/>
-                    <ToggleSwitch Header="Show platform badge"
-                                  IsOn="{x:Bind _settingsVM.ShowPlatformBadge, Mode=TwoWay}"
-                                  Toggled="AppearanceToggled"/>
-                    <Slider Header="Platform badge opacity"
-                            Minimum="0" Maximum="1" StepFrequency="0.1"
-                            Value="{x:Bind _settingsVM.PlatformBadgeOpacity, Mode=TwoWay}"
-                            ValueChanged="AppearanceSliderChanged"
-                            Width="240" HorizontalAlignment="Left"/>
 
-                    <ToggleSwitch Header="Show playtime on cards"
-                                  IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"
-                                  Toggled="AppearanceToggled"/>
+                    <ToggleSwitch Header="Compact cards" Toggled="AppearanceToggled"
+                                  IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"/>
+
+                    <ToggleSwitch Header="Show playtime on cards" Toggled="AppearanceToggled"
+                                  IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"/>
+
+                    <Slider Header="Platform badge opacity" Minimum="0" Maximum="1" StepFrequency="0.1"
+                            Value="{x:Bind _settingsVM.PlatformBadgeOpacity, Mode=TwoWay}"
+                            ValueChanged="AppearanceSliderChanged" Width="240" HorizontalAlignment="Left"/>
 
                     <ComboBox x:Name="TextAlignmentCombo" Header="Card text alignment"
                               HorizontalAlignment="Stretch" SelectionChanged="TextAlignmentChanged">
@@ -270,10 +269,10 @@
                     <ComboBox x:Name="MergedModeCombo" Header="Merged card completion"
                               HorizontalAlignment="Stretch" SelectionChanged="MergedModeChanged">
                         <ComboBoxItem Content="Best edition"/>
-                        <ComboBoxItem Content="Aggregate across editions"/>
+                        <ComboBoxItem Content="Aggregate acro32ss editions"/>
                     </ComboBox>
 
-                    <!-- Live preview: real games from the library, rendered with the real card template -->
+                    <!-- Live preview -->
                     <TextBlock Text="Preview" Margin="0,8,0,0"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                     <ItemsControl x:Name="PreviewItems"
