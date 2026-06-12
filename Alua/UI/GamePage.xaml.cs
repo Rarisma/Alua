@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.DependencyInjection;
 using Serilog;
 using Microsoft.UI.Xaml.Input;
 using AppVM = Alua.Services.ViewModels.AppVM;
+using Timer = System.Timers.Timer;
 
 //And guess what? It's not the pizza guy!
 namespace Alua.UI;
@@ -13,6 +14,8 @@ public sealed partial class GamePage : Page
 {
     AppVM AppVM = Ioc.Default.GetRequiredService<AppVM>();
     SettingsVM SettingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    private Timer _refreshTimer;
+
 
     private readonly BatchObservableCollection<Achievement> _filteredAchievements = new();
     public BatchObservableCollection<Achievement> FilteredAchievements => _filteredAchievements;
@@ -34,10 +37,14 @@ public sealed partial class GamePage : Page
         InitializeComponent();
 
         _currentEdition = AppVM.SelectedGame;
-
+        _refreshTimer = new Timer(60000);
+        _refreshTimer.AutoReset = true;
+        _refreshTimer.Elapsed += async (s, e) => await Refresh();
+        _refreshTimer.Start();
+        
         // Override scroll handling for faster trackpad scrolling on desktop
         if (!_isPhone)
-            achievementsScrollViewer.AddHandler(UIElement.PointerWheelChangedEvent,
+            achievementsScrollViewer.AddHandler(PointerWheelChangedEvent,
                 new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
 
         // Highlight the first edition tab once the list is realized (merged games only).
