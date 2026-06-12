@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    Shield bundled submodules (e.g. Sachya) from Alua's Central Package Management.
+    Sachya is a standalone repo that pins its own package versions on its
+    PackageReferences. Nested under this repo it would otherwise inherit the
+    repo-root Directory.Build.props (ManagePackageVersionsCentrally=true) and fail
+    NU1008. MSBuild stops walking up the tree at this file, so the root props/CPM
+    do not apply to anything under external/.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>

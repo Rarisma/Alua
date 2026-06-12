@@ -151,5 +151,9 @@
       <UnoSplashScreen Include="Assets\Splash\icon.png" />
     </ItemGroup>
 
+    <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('osx'))">
+        <CodesignKey>AluaDev</CodesignKey>
+        <EnableCodeSigning>true</EnableCodeSigning>
+    </PropertyGroup>
 
 </Project>
