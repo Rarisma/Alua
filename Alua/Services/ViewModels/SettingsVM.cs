@@ -314,6 +314,16 @@ public partial class SettingsVM  : ObservableObject
         lock (_gamesLock)
         {
             ResolveLastPlayed(game);
+            // Never let an incoming game with no icon overwrite a previously-good one. A provider
+            // refresh can legitimately return a game with an empty Icon (e.g. RA's recently-played
+            // payload); without this guard that wipes the icon we already scanned, leaving the card
+            // blank until a full rescan.
+            if (string.IsNullOrWhiteSpace(game.Icon)
+                && Games.TryGetValue(game.Identifier, out var existing)
+                && !string.IsNullOrWhiteSpace(existing.Icon))
+            {
+                game.Icon = existing.Icon;
+            }
             Games[game.Identifier] = game;
             _hasUnsavedChanges = true;
         }

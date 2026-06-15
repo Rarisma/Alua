@@ -107,6 +107,7 @@ public sealed class CachedImage : Image
 
     public CachedImage()
     {
+        Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
@@ -122,6 +123,15 @@ public sealed class CachedImage : Image
         _lastDecodeW = 0;
         _lastDecodeH = 0;
     }
+
+    // Re-attach handler — the necessary counterpart to OnUnloaded. When the list churns during
+    // load (several ReplaceAll/Reset notifications plus Layout/ItemTemplate swaps), an element can
+    // be unloaded — which cancels its in-flight load and clears Source — and then reused for the
+    // SAME UriSource. A DependencyProperty raises no change for an unchanged value, so the property
+    // callback never re-fires and the element would stay permanently blank. Reloading on Loaded
+    // closes that gap. It is cheap when the image is already current: LoadImage's pre-check returns
+    // immediately when UriSource and the decode dimensions are unchanged.
+    private void OnLoaded(object sender, RoutedEventArgs e) => LoadImage();
 
     private static void OnSourcePropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -160,6 +170,15 @@ public sealed class CachedImage : Image
         // and the case where only _currentUri was already updated without storing the key).
         if (_currentCacheKey == cacheKey)
             return;
+
+        // The displayed bitmap now belongs to a DIFFERENT image. Drop it immediately, before the
+        // async load below, so a recycled ItemsRepeater container never keeps painting the previous
+        // item's icon (the "first card shows the wrong game's banner" glitch). Memory-cache hits
+        // re-assign synchronously on the same UI tick, so this does not flicker on scroll-back; only
+        // genuinely uncached loads briefly show blank, which is correct.
+        Source = null;
+        _currentCacheKey = null;
+        _currentUri = null;
 
         var scale = GetRasterizationScale();
 
@@ -310,17 +329,26 @@ public sealed class CachedImage : Image
             return localPath;
         }
 
-        // Deduplicate concurrent downloads for same URL
-        var downloadTask = _activeDownloads.GetOrAdd(cacheKey, _ => DownloadWithThrottleAsync(uri, localPath, ct));
+        // Deduplicate concurrent downloads for the same URL. The shared download runs under
+        // CancellationToken.None so one caller's cancellation — e.g. an ItemsRepeater container
+        // being recycled mid-flight — can't abort a download that other callers are awaiting,
+        // which previously left those other elements stuck on a stale/blank icon. Each caller
+        // instead observes its OWN token via WaitAsync, bailing out without killing shared work.
+        var downloadTask = _activeDownloads.GetOrAdd(cacheKey, key =>
+        {
+            var task = DownloadWithThrottleAsync(uri, localPath, CancellationToken.None);
+            // Evict only when the download itself settles, NOT when an individual caller stops
+            // awaiting — otherwise a cancelled caller could remove the entry while it is still
+            // running, letting a second caller start a duplicate download to the same temp file.
+            _ = task.ContinueWith(
+                finished => _activeDownloads.TryRemove(key, out _),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            return task;
+        });
 
-        try
-        {
-            return await downloadTask;
-        }
-        finally
-        {
-            _activeDownloads.TryRemove(cacheKey, out _);
-        }
+        return await downloadTask.WaitAsync(ct);
     }
 
     private static async Task<string?> DownloadWithThrottleAsync(Uri uri, string localPath, CancellationToken ct)

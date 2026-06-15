@@ -20,7 +20,6 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
     private bool _isPsnConnected;
     private bool _isPsnAuthenticating;
     
-    
     public bool IsXboxAuthenticated
     {
         get => _isXboxAuthenticated;

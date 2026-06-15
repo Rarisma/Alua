@@ -71,7 +71,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     return new Game
                     {
                         Name = completed.Title ?? "Unknown Game",
-                        Icon = "https://i.retroachievements.org/" + (completed.ImageIcon ?? ""),
+                        Icon = BuildIconUrl(completed.ImageIcon),
                         Author = string.Empty,
                         Platform = Platforms.RetroAchievements,
                         PlaytimeMinutes = playtime,
@@ -123,7 +123,11 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     return new Game
                     {
                         Name = game.Title ?? "Unknown Game",
-                        Icon = "https://i.retroachievements.org/" + (game.ImageIcon ?? ""),
+                        // The recently-played payload's ImageIcon is intermittently empty (right after a
+                        // session). BuildIconUrl then yields "" instead of the old unloadable bare-domain
+                        // URL, and SettingsVM.AddOrUpdateGame keeps the previously-scanned icon rather than
+                        // wiping it — so a refresh can never blank out an icon you already have.
+                        Icon = BuildIconUrl(game.ImageIcon),
                         Author = string.Empty,
                         Platform = Platforms.RetroAchievements,
                         PlaytimeMinutes = playtime,
@@ -185,7 +189,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
         var game = new Game
         {
             Name = gameTitle ?? "Unknown Game",
-            Icon = "https://i.retroachievements.org/" + (gameIcon ?? ""),
+            Icon = BuildIconUrl(gameIcon),
             Author = string.Empty,
             Platform = Platforms.RetroAchievements,
             PlaytimeMinutes = playtime,
@@ -205,6 +209,15 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// </summary>
     private static string? ParentIdentifierFor(int? parentGameID) =>
         parentGameID is > 0 ? ProviderIds.Retro + parentGameID.Value : null;
+
+    /// <summary>
+    /// Builds a RetroAchievements image URL, returning an empty string (no icon) when the source
+    /// path is missing. Crucially this never returns the bare domain "https://i.retroachievements.org/"
+    /// — an unloadable URL that the old "base + (path ?? "")" concatenation produced whenever a
+    /// game's image path was empty, surfacing as a blank or wrong (recycled) game icon.
+    /// </summary>
+    private static string BuildIconUrl(string? imagePath) =>
+        string.IsNullOrWhiteSpace(imagePath) ? string.Empty : "https://i.retroachievements.org/" + imagePath;
 
     /// <summary>
     /// Fetches achievement data for a game. The two independent API calls
