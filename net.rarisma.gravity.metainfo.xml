@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.rarisma.gravity</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>TODO-SPDX</project_license>   <!-- e.g. MIT, GPL-3.0-or-later -->
+
+  <name>Gravity</name>
+  <summary>Track achievements across Steam, PSN, Xbox, RetroAchievements and Game Center</summary>
+
+  <description>
+    <p>
+      Gravity is a cross-platform achievement tracker. It aggregates progress
+      from Steam, PlayStation Network, Xbox, RetroAchievements and Game Center
+      into a single view.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">net.rarisma.gravity.desktop</launchable>
+
+  <!-- Flathub requires at least one screenshot. Drop this block for self-hosted bundles if you prefer. -->
+  <screenshots>
+    <screenshot type="default">
+      <image>https://rari.uk/gravity/screenshot.png</image>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://rari.uk/gravity</url>
+
+  <releases>
+    <release version="1.0.0" date="2026-06-19"/>
+  </releases>
+
+  <content_rating type="oars-1.1"/>
+</component>

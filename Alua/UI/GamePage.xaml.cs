@@ -88,15 +88,23 @@ public sealed partial class GamePage : Page
         var showLocked = _showLocked;
         var hideHidden = _hideHidden;
         var missableOnly = _missableOnly;
+        // Only RetroAchievements has a per-achievement discussion page, so the "Message" link is shown
+        // only for RA editions. Re-evaluated on every rebuild, so switching edition tabs on a merged
+        // game that spans platforms updates the links correctly.
+        var isRetro = CurrentEdition?.Platform == Platforms.RetroAchievements;
 
         var filtered = await Task.Run(() =>
-            achievements
+        {
+            var list = achievements
                 .Where(a => showUnlocked || !a.IsUnlocked)
                 .Where(a => showLocked || a.IsUnlocked)
                 .Where(a => !hideHidden || !a.IsHidden || a.IsUnlocked)
                 .Where(a => !missableOnly || a.IsMissable)
-                .ToList()
-        );
+                .ToList();
+            foreach (var a in list)
+                a.IsRA = isRetro;
+            return list;
+        });
 
         _filteredAchievements.ReplaceAll(filtered);
     }
@@ -167,6 +175,25 @@ public sealed partial class GamePage : Page
         catch (Exception ex)
         {
             Log.Error(ex, "Cannot refresh game ID {GameId}", target.Identifier);
+        }
+    }
+
+    private async void OpenRAConvoClick(object sender, RoutedEventArgs e)
+    {
+        // Tag carries the achievement Id; open its RetroAchievements page in the default browser.
+        // Launcher.LaunchUriAsync works across desktop and mobile, unlike Process.Start which throws
+        // on .NET when handed a URL (UseShellExecute defaults to false).
+        if ((sender as FrameworkElement)?.Tag is not { } id)
+            return;
+
+        var uri = new Uri($"https://retroachievements.org/achievement/{id}");
+        try
+        {
+            await Windows.System.Launcher.LaunchUriAsync(uri);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open RetroAchievements link {Uri}", uri);
         }
     }
 }

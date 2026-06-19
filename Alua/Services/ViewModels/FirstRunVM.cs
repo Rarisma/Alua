@@ -264,7 +264,7 @@ public partial class FirstRunVM : ObservableObject
             var appVm = CommunityToolkit.Mvvm.DependencyInjection.Ioc.Default.GetService<AppVM>();
             if (appVm != null)
             {
-                appVm.RemoveProviderOfType<Providers.XboxService>();
+                appVm.RemoveProviderOfType<XboxService>();
                 Log.Information("Removed Xbox provider after sign out");
             }
         }
@@ -274,13 +274,40 @@ public partial class FirstRunVM : ObservableObject
         }
     }
     
+    /// <summary>True once a Steam Web API key has been saved (mirrors the Settings indicator).</summary>
+    public bool IsSteamConfigured => !string.IsNullOrWhiteSpace(_settingsVM.UserSteamApiKey);
+
+    /// <summary>True once a RetroAchievements Web API key has been saved.</summary>
+    public bool IsRetroConfigured => !string.IsNullOrWhiteSpace(_settingsVM.UserRetroApiKey);
+
+    /// <summary>
+    /// Open the Steam API key setup page — the same flow Settings uses.
+    /// </summary>
+    public void SetupSteam() =>
+        App.Frame.Navigate(typeof(ApiKeySetup), ApiKeyProvider.Steam);
+
+    /// <summary>
+    /// Open the RetroAchievements API key setup page — the same flow Settings uses.
+    /// </summary>
+    public void SetupRetro() =>
+        App.Frame.Navigate(typeof(ApiKeySetup), ApiKeyProvider.RetroAchievements);
+
+    /// <summary>
+    /// Re-reads the API-key "Connected" indicators, e.g. after returning from the setup page.
+    /// </summary>
+    public void RefreshApiKeyState()
+    {
+        OnPropertyChanged(nameof(IsSteamConfigured));
+        OnPropertyChanged(nameof(IsRetroConfigured));
+    }
+
     /// <summary>
     /// Continue to the main UI.
     /// </summary>
     public async Task Continue()
     {
-        if (string.IsNullOrWhiteSpace(SteamID) &&
-            string.IsNullOrWhiteSpace(RetroAchievementsUser) &&
+        if (string.IsNullOrWhiteSpace(_settingsVM.SteamID) &&
+            string.IsNullOrWhiteSpace(_settingsVM.RetroAchievementsUsername) &&
             !IsPsnAuthenticated &&
             !IsXboxAuthenticated)
         {
@@ -291,9 +318,6 @@ public partial class FirstRunVM : ObservableObject
 
         HasError = false;
         ErrorMessage = null;
-
-        _settingsVM.SteamID = SteamID;
-        _settingsVM.RetroAchievementsUsername = RetroAchievementsUser;
         _settingsVM.Initialised = true; // Mark first run as complete
         await _settingsVM.Save();
         

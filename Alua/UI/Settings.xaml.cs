@@ -477,6 +477,18 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
     /// Shows set up page again.
     /// </summary>
     private void ShowInitialPage() => App.Frame.Navigate(typeof(Initialize));
+
+    /// <summary>
+    /// Delete settings
+    /// </summary>
+    private void DeleteSettings()
+    {
+        // Must match the casing used by SettingsVM.Save (case-sensitive filesystems on Android/Linux).
+        var path = Path.Combine(ApplicationData.Current.LocalFolder.Path, "Settings.json");
+        if (File.Exists(path))
+            File.Delete(path);
+        Application.Current.Exit();
+    }
     
     /// <summary>
     /// Shows log for session in a dialog

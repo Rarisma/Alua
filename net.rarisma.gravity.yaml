@@ -1,0 +1,48 @@
+# Flatpak manifest for Gravity
+# app-id  = net.rarisma.gravity   (reverse-DNS identity)
+# command = Gravity               (the published binary / <AssemblyName>)
+# These are intentionally different — do not make them match.
+
+id: net.rarisma.gravity
+runtime: org.gnome.Platform      # provides webkit2gtk; verify version below is current/supported
+runtime-version: '48'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.dotnet9   # match your TFM (dotnet8/dotnet9/dotnet10)
+command: Gravity
+
+build-options:
+  append-path: /usr/lib/sdk/dotnet9/bin
+  append-ld-library-path: /usr/lib/sdk/dotnet9/lib
+  build-args:
+    - --share=network            # NuGet restore during build. REMOVE for Flathub (offline) — use nuget-sources.json instead.
+
+finish-args:
+  - --share=network              # Steam / PSN / Xbox / RetroAchievements / Game Center API calls
+  - --socket=fallback-x11        # Uno desktop shell is X11; runs via XWayland under Wayland
+  - --socket=wayland
+  - --device=dri
+  - --share=ipc
+  - --env=GDK_BACKEND=x11        # keep the WebView's GTK widget on the same backend as the host
+  - --talk-name=org.freedesktop.secrets   # only if you store auth tokens in the keyring; drop otherwise
+
+modules:
+  - name: dotnet-sdk
+    buildsystem: simple
+    build-commands:
+      - /usr/lib/sdk/dotnet9/bin/install.sh
+
+  - name: gravity
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: .                  # whole repo copied into the build sandbox
+    build-commands:
+      # Publish the full self-contained app folder into /app/lib/Gravity
+      - dotnet publish Gravity/Gravity.csproj -c Release -r linux-x64 --self-contained -o ${FLATPAK_DEST}/lib/Gravity
+      # Wrapper launches the real binary from its app folder (so it finds its DLLs/native libs)
+      - install -Dm755 gravity.sh ${FLATPAK_DEST}/bin/Gravity
+      # Desktop integration files
+      - install -Dm644 net.rarisma.gravity.desktop      -t ${FLATPAK_DEST}/share/applications/
+      - install -Dm644 net.rarisma.gravity.metainfo.xml -t ${FLATPAK_DEST}/share/metainfo/
+      - install -Dm644 icon.png ${FLATPAK_DEST}/share/icons/hicolor/256x256/apps/net.rarisma.gravity.png

@@ -27,7 +27,8 @@ public enum AchievementFlags
     /// Completing the set's win condition / beating the game (e.g. RetroAchievements "win_condition").
     /// </summary>
     WinCondition = 1 << 2,
-
+    
+    
     // Reserved for future provider-specific classifications (e.g. PSN trophy grades,
     // Xbox unlock metadata): allocate the next free bit (1 << 3, 1 << 4, ...).
 }

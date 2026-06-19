@@ -445,7 +445,10 @@ public partial class Library : Page
             RAFilter:           LibraryVM.RAFilter,
             PSNFilter:          LibraryVM.PSNFilter,
             XBFilter:           LibraryVM.XBFilter,
-            MergeEditions:      LibraryVM.MergeEditions,
+            // Merge editions is a persisted appearance setting (toggled on the Settings page), so read
+            // it straight from SettingsVM — same as MergedCompletionMode below. The debug "show only
+            // merged" toggle still lives on LibraryVM.
+            MergeEditions:      _settingsVM.MergeEditions,
             ShowOnlyMerged:     LibraryVM.ShowOnlyMerged,
             MergedCompletionMode: _settingsVM.MergedCompletionMode);
 

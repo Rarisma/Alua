@@ -47,9 +47,16 @@
                                MaxLines="3" TextTrimming="CharacterEllipsis"/>
                 </StackPanel>
 
-                <!-- Flags + Rarity -->
+                <!-- Extra's-->
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="4"
                             HorizontalAlignment="Right">
+
+                    <!-- RA convo link-->
+                    <Button Background="Transparent" Click="OpenRAConvoClick" Tag="{x:Bind Id}"
+                            Visibility="{x:Bind IsRA, Converter={StaticResource BoolToVisibility}}">
+                        <SymbolIcon Symbol="Message"/>
+                    </Button>
+
                     <!-- Missable badge (only providers that classify achievements set this) -->
                     <Border Visibility="{x:Bind IsMissable, Converter={StaticResource BoolToVisibility}}"
                             Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"

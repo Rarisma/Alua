@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Gravity
+Comment=Cross-platform achievement tracker
+Exec=Gravity
+Icon=net.rarisma.gravity
+Type=Application
+Categories=Game;Utility;
+Terminal=false

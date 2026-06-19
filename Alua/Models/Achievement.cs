@@ -62,6 +62,14 @@ public class Achievement
     /// <summary>True when this achievement can be permanently missed in a playthrough.</summary>
     [JsonIgnore]
     public bool IsMissable => Flags.HasFlag(AchievementFlags.Missable);
+    
+    /// <summary>
+    /// UI-only flag: true when this achievement belongs to a RetroAchievements set. The GamePage stamps
+    /// this when it builds the displayed list (the achievement itself carries no platform), so the
+    /// "discuss on RetroAchievements" link is shown only where it's meaningful. Not persisted.
+    /// </summary>
+    [JsonIgnore]
+    public bool IsRA { get; set; }
 
     /// <summary>True when this achievement marks a story/progression milestone.</summary>
     [JsonIgnore]

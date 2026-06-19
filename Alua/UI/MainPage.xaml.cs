@@ -57,7 +57,8 @@ public sealed partial class MainPage : Page
             _libraryVM.RAFilter = _settingsVM.RAFilter;
             _libraryVM.PSNFilter = _settingsVM.PSNFilter;
             _libraryVM.XBFilter = _settingsVM.XBFilter;
-            _libraryVM.MergeEditions = _settingsVM.MergeEditions;
+            // MergeEditions is read directly from SettingsVM in Library.ApplyFilters (it's a Settings-page
+            // toggle now), so it doesn't need mirroring onto LibraryVM here.
 
             App.Frame.Navigate(typeof(Library));
         }
@@ -165,7 +166,8 @@ public sealed partial class MainPage : Page
             _settingsVM.RAFilter = _libraryVM.RAFilter;
             _settingsVM.PSNFilter = _libraryVM.PSNFilter;
             _settingsVM.XBFilter = _libraryVM.XBFilter;
-            _settingsVM.MergeEditions = _libraryVM.MergeEditions;
+            // MergeEditions is owned by the Settings page (persisted on SettingsVM); don't mirror the
+            // stale LibraryVM value back over it here, or the Settings toggle gets clobbered.
 
             await _settingsVM.Save();
 

@@ -72,12 +72,6 @@
                                                   Content="Hide unstarted games"
                                                   Checked="Filter_Changed"
                                                   Unchecked="Filter_Changed"/>
-                                        <CheckBox x:Name="CheckMergeEditions"
-                                                  Content="Merge editions"
-                                                  ToolTipService.ToolTip="Collapse duplicate editions and subsets into one card with tabs"
-                                                  IsChecked="{x:Bind _libraryVM.MergeEditions, Mode=TwoWay}"
-                                                  Checked="Filter_Changed"
-                                                  Unchecked="Filter_Changed"/>
                                         <CheckBox x:Name="CheckShowOnlyMerged"
                                                   Content="Show only merged (debug)"
                                                   ToolTipService.ToolTip="Diagnostic: show only games that merged into multiple editions/subsets"

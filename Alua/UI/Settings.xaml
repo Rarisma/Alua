@@ -233,44 +233,53 @@
 
                 <StackPanel Visibility="{x:Bind _settingsVM.UISettingsVisibility, Mode=OneWay}" Tag="UISettings"
                             Margin="0,20" Spacing="8">
-                    <ComboBox x:Name="ProgressStyleCombo" Header="Progress style"
-                              HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
-                        <ComboBoxItem Content="Progress bar"/>
-                        <ComboBoxItem Content="Filled background"/>
-                        <ComboBoxItem Content="None"/>
-                    </ComboBox>
-                    <ComboBox Header="Platform icon"
-                              HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
-                        <ComboBoxItem Content="Bottom right corner"/>
-                        <ComboBoxItem Content="Below game banner"/>
-                        <ComboBoxItem Content="None"/>
-                    </ComboBox>
-                    <ToggleSwitch Header="Single column layout"
-                                  IsOn="{x:Bind _settingsVM.SingleColumnLayout, Mode=TwoWay}"
-                                  Toggled="AppearanceToggled"/>
 
-                    <ToggleSwitch Header="Compact cards" Toggled="AppearanceToggled"
-                                  IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"/>
 
-                    <ToggleSwitch Header="Show playtime on cards" Toggled="AppearanceToggled"
-                                  IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"/>
+                    <StackPanel HorizontalAlignment="Stretch" Orientation="Horizontal">
+                        <ToggleSwitch Header="Single column layout"
+                                      IsOn="{x:Bind _settingsVM.SingleColumnLayout, Mode=TwoWay}"
+                                      Toggled="AppearanceToggled"/>
+
+                        <ToggleSwitch Header="Compact cards" Toggled="AppearanceToggled"
+                                      IsOn="{x:Bind _settingsVM.CompactCards, Mode=TwoWay}"/>
+
+                        <ToggleSwitch Header="Show playtime" Toggled="AppearanceToggled"
+                                      IsOn="{x:Bind _settingsVM.ShowPlaytimeOnCard, Mode=TwoWay}"/>
+
+                        <ToggleSwitch Header="Merge Editions" Toggled="AppearanceToggled"
+                                      IsOn="{x:Bind _settingsVM.MergeEditions, Mode=TwoWay}"/>
+
+                        <ToggleSwitch Header="Show platform icon" Toggled="AppearanceToggled"
+                                      IsOn="{x:Bind _settingsVM.ShowPlatformBadge, Mode=TwoWay}"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Stretch">
+                        <ComboBox x:Name="TextAlignmentCombo" Header="Card text alignment"  Margin="10"
+                                  HorizontalAlignment="Stretch" SelectionChanged="TextAlignmentChanged">
+                            <ComboBoxItem Content="Left"/>
+                            <ComboBoxItem Content="Center"/>
+                            <ComboBoxItem Content="Right"/>
+                        </ComboBox>
+
+                        <ComboBox x:Name="MergedModeCombo" Header="Merged card completion"  Margin="10"
+                                  IsEnabled="{x:Bind _settingsVM.MergeEditions, Mode=OneWay}"
+                                  HorizontalAlignment="Stretch" SelectionChanged="MergedModeChanged">
+                            <ComboBoxItem Content="Best edition"/>
+                            <ComboBoxItem Content="Aggregate across editions"/>
+                        </ComboBox>
+
+                        <ComboBox x:Name="ProgressStyleCombo" Header="Progress style" Margin="10"
+                                  HorizontalAlignment="Stretch" SelectionChanged="ProgressStyleChanged">
+                            <ComboBoxItem Content="Progress bar"/>
+                            <ComboBoxItem Content="Filled background"/>
+                            <ComboBoxItem Content="None"/>
+                        </ComboBox>
+
+                    </StackPanel>
 
                     <Slider Header="Platform badge opacity" Minimum="0" Maximum="1" StepFrequency="0.1"
                             Value="{x:Bind _settingsVM.PlatformBadgeOpacity, Mode=TwoWay}"
                             ValueChanged="AppearanceSliderChanged" Width="240" HorizontalAlignment="Left"/>
-
-                    <ComboBox x:Name="TextAlignmentCombo" Header="Card text alignment"
-                              HorizontalAlignment="Stretch" SelectionChanged="TextAlignmentChanged">
-                        <ComboBoxItem Content="Left"/>
-                        <ComboBoxItem Content="Center"/>
-                        <ComboBoxItem Content="Right"/>
-                    </ComboBox>
-
-                    <ComboBox x:Name="MergedModeCombo" Header="Merged card completion"
-                              HorizontalAlignment="Stretch" SelectionChanged="MergedModeChanged">
-                        <ComboBoxItem Content="Best edition"/>
-                        <ComboBoxItem Content="Aggregate acro32ss editions"/>
-                    </ComboBox>
 
                     <!-- Live preview -->
                     <TextBlock Text="Preview" Margin="0,8,0,0"
@@ -298,6 +307,7 @@
                     <TextBlock Text="{x:Bind _settingsVM.Version}" Margin="10"/>
                     <TextBlock Text="{x:Bind _settingsVM.BuildString}" Margin="10"/>
                     <Button Content="Show init page" Click="{x:Bind ShowInitialPage}"/>
+                    <Button Content="Delete Settings" Click="{x:Bind DeleteSettings}"/>
                     <Button Content="Show logs" Click="{x:Bind ShowLogs}"/>
                     <Button Content="Full Rescan" Click="{x:Bind FullRescan}" Margin="0,5"/>
                     <ToggleSwitch Header="Count multi-platform games once in stats" Toggled="AppearanceToggled"

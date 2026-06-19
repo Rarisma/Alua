@@ -9,53 +9,53 @@
         <TextBlock Text="Please provide at least one account to get started." TextAlignment="Center" />
 
         <!-- Account input fields -->
-        <TextBox PlaceholderText="SteamID / Vanity URL Username" Text="{x:Bind Frvm.SteamID, Mode=TwoWay}" />
-        <TextBox PlaceholderText="RetroAchievements Username" Text="{x:Bind Frvm.RetroAchievementsUser, Mode=TwoWay}" />
+        <Button Click="{x:Bind FRVM.SetupSteam}" Width="300">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Image Source="/Assets/Icons/steam.png" Width="24" Height="24" />
+                <TextBlock Text="Steam" VerticalAlignment="Center"/>
+                <TextBlock Text="Connected" VerticalAlignment="Center"
+                           Visibility="{x:Bind FRVM.IsSteamConfigured, Mode=OneWay}"/>
+            </StackPanel>
+        </Button>
+
+        <Button Click="{x:Bind FRVM.SetupRetro}" Width="300">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Image Source="/Assets/Icons/RetroAchievements.png" Width="24" Height="24" />
+                <TextBlock Text="RetroAchievements" VerticalAlignment="Center"/>
+                <TextBlock Text="Connected" VerticalAlignment="Center"
+                           Visibility="{x:Bind FRVM.IsRetroConfigured, Mode=OneWay}"/>
+            </StackPanel>
+        </Button>
+
 
         <!-- PlayStation Network Authentication -->
-        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-            <Button Content="Sign in with PlayStation"
-                    Click="{x:Bind Frvm.AuthenticatePsn}"
-                    Visibility="{x:Bind Frvm.IsPsnAuthenticated,
-                    Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
-
-            <StackPanel Orientation="Horizontal" Spacing="10"
-                        Visibility="{x:Bind Frvm.IsPsnAuthenticated, Mode=OneWay}">
-                <TextBlock Text="PSN:" VerticalAlignment="Center"/>
-                <TextBlock Text="Connected" FontWeight="Bold" VerticalAlignment="Center"/>
-                <Button Content="Sign Out" Click="{x:Bind Frvm.SignOutPsn}"/>
+        <Button Click="{x:Bind FRVM.AuthenticatePsn}" Width="300">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Image Source="/Assets/Icons/PSN.png" Width="24" Height="24" />
+                <TextBlock Text="PlayStation" VerticalAlignment="Center"/>
+                <TextBlock Text="Connected" FontWeight="Bold" VerticalAlignment="Center"
+                           Visibility="{x:Bind FRVM.IsPsnAuthenticated, Mode=OneWay}"/>
             </StackPanel>
-        </StackPanel>
-
-        <ProgressRing IsActive="{x:Bind Frvm.IsPsnAuthenticating, Mode=OneWay}"
-                      HorizontalAlignment="Center"/>
+        </Button>
 
         <!-- Xbox Live Authentication -->
-        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Center">
-            <Button Content="Sign in with Microsoft"
-                    Click="{x:Bind Frvm.AuthenticateXbox}"
-                    Visibility="{x:Bind Frvm.IsXboxAuthenticated,
-                    Converter={StaticResource BoolNegationToVisibilityConverter}, Mode=OneWay}"/>
+        <Button Click="{x:Bind FRVM.AuthenticateXbox}" Width="300">
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Image Source="/Assets/Icons/xbox.png" Width="24" Height="24" />
 
-            <StackPanel Orientation="Horizontal" Spacing="10"
-                        Visibility="{x:Bind Frvm.IsXboxAuthenticated, Mode=OneWay}">
-                <TextBlock Text="Xbox:" VerticalAlignment="Center"/>
-                <TextBlock Text="{x:Bind Frvm.XboxGamertag, Mode=OneWay}"
-                          FontWeight="Bold" VerticalAlignment="Center"/>
-                <Button Content="Sign Out" Click="{x:Bind Frvm.SignOutXbox}" />
+                <TextBlock Text="Xbox" VerticalAlignment="Center"/>
+                <TextBlock Text="Connected" VerticalAlignment="Center"
+                           Visibility="{x:Bind FRVM.IsXboxAuthenticated, Mode=OneWay}"/>
             </StackPanel>
-        </StackPanel>
+        </Button>
 
-        <ProgressRing IsActive="{x:Bind Frvm.IsAuthenticating, Mode=OneWay}"
-                      HorizontalAlignment="Center"/>
-
-        <!-- steam guide on how to find your steam ID -->
-        <HyperlinkButton Content="How to find your SteamID" HorizontalAlignment="Center"
-                         NavigateUri="https://steamcommunity.com/sharedfiles/filedetails/?id=3516323179"/>
         <!-- Error text -->
-        <TextBlock Text="{x:Bind Frvm.ErrorMessage}" Foreground="Red"
-                   Visibility="{x:Bind Frvm.HasError}" TextAlignment="Center" />
+        <TextBlock Text="{x:Bind FRVM.ErrorMessage}" Foreground="Red"
+                   Visibility="{x:Bind FRVM.HasError}" TextAlignment="Center" />
+        <TextBlock Text="More providers can be configured later in settings." Foreground="Red"
+                   FontStyle="Italic"
+                   Visibility="{x:Bind FRVM.HasError}" TextAlignment="Center" />
 
-        <Button Content="Continue" Click="{x:Bind Frvm.Continue}" HorizontalAlignment="Center"/>
+        <Button Content="Continue" Click="{x:Bind FRVM.Continue}" HorizontalAlignment="Center"/>
     </StackPanel>
 </Page>

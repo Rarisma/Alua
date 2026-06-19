@@ -8,11 +8,18 @@ namespace Alua.UI;
 /// </summary>
 public partial class Initialize : Page
 {
-    public FirstRunVM Frvm;
+    public FirstRunVM FRVM;
 
     public Initialize()
     {
-        Frvm = Ioc.Default.GetRequiredService<FirstRunVM>();
+        FRVM = Ioc.Default.GetRequiredService<FirstRunVM>();
         InitializeComponent();
-    } 
+    }
+
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        // Returning from the API-key setup page may have configured Steam/RA; refresh the indicators.
+        FRVM.RefreshApiKeyState();
+    }
 }
