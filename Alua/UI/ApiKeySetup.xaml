@@ -18,8 +18,8 @@
                        Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"/>
         </StackPanel>
 
-        <!-- WebView -->
-        <WebView2 x:Name="SetupWebView" Grid.Row="1"/>
+        <!-- Webview is broken in linux -->
+        <Grid x:Name="WebViewHost" Grid.Row="1"/>
 
         <!-- Footer: key input + buttons -->
         <Grid Grid.Row="2" Padding="20,10" ColumnSpacing="10">

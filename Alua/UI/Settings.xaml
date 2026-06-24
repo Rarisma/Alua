@@ -3,6 +3,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:controls="clr-namespace:Alua.UI.Controls"
       xmlns:models="clr-namespace:Alua.Models"
+      xmlns:helpers="using:Alua.Helpers"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
@@ -189,7 +190,8 @@
                     </Expander>
 
                 <!-- PlayStation Network -->
-                <Expander Grid.Row="2" Grid.Column="0" Header="PlayStation Network" HorizontalAlignment="Stretch">
+                <Expander Grid.Row="2" Grid.Column="0" Header="PlayStation Network" HorizontalAlignment="Stretch"
+                          Visibility="{x:Bind helpers:Platform.HideOnLinux}">
                     <StackPanel Margin="0,20">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <Button Content="Sign in with PlayStation"
@@ -314,7 +316,6 @@
                                   IsOn="{x:Bind _settingsVM.CountMultiPlatformOnce, Mode=TwoWay}"/>
                 </StackPanel>
             </StackPanel>
-
         </NavigationView>
     </ScrollViewer>
 

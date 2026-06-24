@@ -237,9 +237,62 @@ jobs:
           path: alua-${{ matrix.art }}.apk
           if-no-files-found: error
 
+  # ---------- FLATPAK ----------
+  flatpak:
+    name: Flatpak (linux-x64)
+    runs-on: ubuntu-latest
+    steps:
+      # 1 ─ Checkout repository at the root (the manifest's relative paths — Alua/Alua.csproj,
+      #     gravity.sh, icon.png — resolve against $GITHUB_WORKSPACE)
+      - name: Checkout Alua
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      # 2 ─ Install flatpak + flatpak-builder and wire up the Flathub remote
+      - name: Install flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user \
+            flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      # 3 ─ Cache the downloaded runtimes/SDK + build objects between runs
+      - name: Cache flatpak-builder
+        uses: actions/cache@v4
+        with:
+          path: .flatpak-builder
+          key: flatpak-builder-${{ runner.os }}-${{ hashFiles('net.rarisma.gravity.yaml') }}
+          restore-keys: |
+            flatpak-builder-${{ runner.os }}-
+
+      # 4 ─ Build. The manifest opts into network (--share=network build-arg) for the NuGet
+      #     restore, so this works on CI as-is. rofiles-fuse is disabled (no FUSE on runners).
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --force-clean --user --disable-rofiles-fuse \
+            --install-deps-from=flathub \
+            --repo=flatpak-repo --default-branch=stable \
+            flatpak-build net.rarisma.gravity.yaml
+
+      # 5 ─ Export a single-file bundle
+      - name: Bundle
+        run: |
+          flatpak build-bundle flatpak-repo \
+            alua-linux-x64.flatpak net.rarisma.gravity stable
+
+      # 6 ─ Upload
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: alua-flatpak
+          path: alua-linux-x64.flatpak
+          if-no-files-found: error
+
   # ---------- RELEASE ----------
   release:
-    needs: build
+    needs: [build, flatpak]
     if: github.event_name == 'workflow_dispatch' && !inputs.skip_release
     runs-on: ubuntu-latest
     permissions:
@@ -258,6 +311,7 @@ jobs:
             alua-osx-arm64/alua-osx-arm64.pkg
             alua-linux-x64/alua-linux-x64.tar.gz
             alua-android-arm64/alua-android-arm64.apk
+            alua-flatpak/alua-linux-x64.flatpak
           draft: false
           prerelease: false
         env:

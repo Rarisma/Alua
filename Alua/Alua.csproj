@@ -1,6 +1,8 @@
 <Project Sdk="Uno.Sdk">
     <PropertyGroup>
         <TargetFrameworks>net10.0-desktop;net10.0-android;</TargetFrameworks>
+        <!-- Flatpak build .net desktop only -->
+        <TargetFrameworks Condition="'$(FlatpakBuild)' == 'true'">net10.0-desktop</TargetFrameworks>
         <OutputType>Exe</OutputType>
         <UnoSingleProject>true</UnoSingleProject>
 
@@ -64,6 +66,12 @@
     <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
         <TrimmerRootAssembly Include="Sachya" RootMode="All" />
     </ItemGroup>
+
+    <!-- Desktop binary is published as "Gravity" (internal name); the Flatpak command and wrapper
+         expect this. Scoped to desktop so the Android package (identified by ApplicationId) is unaffected. -->
+    <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'desktop'">
+        <AssemblyName>Gravity</AssemblyName>
+    </PropertyGroup>
 
     <!-- Desktop Release: trimming for smaller binary and faster startup -->
     <PropertyGroup Condition="'$(Configuration)' == 'Release' AND $([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'desktop'">

@@ -3,18 +3,22 @@
   <id>net.rarisma.gravity</id>
 
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>TODO-SPDX</project_license>   <!-- e.g. MIT, GPL-3.0-or-later -->
+  <project_license>AGPL-3.0-or-later</project_license>
 
-  <name>Gravity</name>
+  <name>Alua</name>
   <summary>Track achievements across Steam, PSN, Xbox, RetroAchievements and Game Center</summary>
 
   <description>
     <p>
-      Gravity is a cross-platform achievement tracker. It aggregates progress
+      Alua is a cross-platform achievement tracker. It aggregates progress
       from Steam, PlayStation Network, Xbox, RetroAchievements and Game Center
       into a single view.
     </p>
   </description>
+
+  <developer id="uk.rari">
+    <name>Rarisma</name>
+  </developer>
 
   <launchable type="desktop-id">net.rarisma.gravity.desktop</launchable>
 

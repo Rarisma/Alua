@@ -1,45 +1,84 @@
-# Flatpak manifest for Gravity
-# app-id  = net.rarisma.gravity   (reverse-DNS identity)
+# Flatpak manifest for Alua
+# id      = net.rarisma.gravity   (reverse-DNS identity / internal app-id)
 # command = Gravity               (the published binary / <AssemblyName>)
-# These are intentionally different — do not make them match.
+# name    = Alua                  (user-facing — see .desktop and .metainfo.xml)
+# The id/command use the internal "gravity" name; everything the user sees says "Alua".
 
 id: net.rarisma.gravity
-runtime: org.gnome.Platform      # provides webkit2gtk; verify version below is current/supported
-runtime-version: '48'
+runtime: org.gnome.Platform      # X11/GL/fontconfig + GTK for the Uno Skia desktop host
+runtime-version: '49'            # GNOME 49 (freedesktop 25.08 base); 48 is EOL
 sdk: org.gnome.Sdk
 sdk-extensions:
-  - org.freedesktop.Sdk.Extension.dotnet9   # match your TFM (dotnet8/dotnet9/dotnet10)
+  - org.freedesktop.Sdk.Extension.dotnet10   # matches net10.0 TFM
 command: Gravity
 
 build-options:
-  append-path: /usr/lib/sdk/dotnet9/bin
-  append-ld-library-path: /usr/lib/sdk/dotnet9/lib
-  build-args:
-    - --share=network            # NuGet restore during build. REMOVE for Flathub (offline) — use nuget-sources.json instead.
+  # Build straight from the SDK extension at /usr/lib/sdk/dotnet10. We deliberately do NOT run
+  # install-sdk.sh to copy it into /app: that copy omits the `packs/` folder (the targeting packs,
+  # e.g. Microsoft.NETCore.App.Ref), so an offline restore can't find them and fails. The extension's
+  # own tree HAS packs/, and the publish is self-contained (bundles its own runtime under
+  # /app/lib/Gravity), so /app never needs a .NET SDK at all.
+  append-path: /usr/lib/sdk/dotnet10/bin
+  append-ld-library-path: /usr/lib/sdk/dotnet10/lib
+  # No --share=network: the build is fully offline (Flathub requirement). All NuGet packages are
+  # pre-fetched via nuget-sources.json and restored from the local ./nuget-sources folder.
+  env:
+    DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: '1'
+    DOTNET_NOLOGO: 'true'
 
 finish-args:
   - --share=network              # Steam / PSN / Xbox / RetroAchievements / Game Center API calls
-  - --socket=fallback-x11        # Uno desktop shell is X11; runs via XWayland under Wayland
-  - --socket=wayland
+  - --socket=x11                 # Uno host is X11-only (.UseX11()); needs X11/XWayland always.
+                                 # NOT fallback-x11 — that withholds X11 on a Wayland session and the
+                                 # app crashes with "No platform host could be selected".
   - --device=dri
   - --share=ipc
-  - --env=GDK_BACKEND=x11        # keep the WebView's GTK widget on the same backend as the host
-  - --talk-name=org.freedesktop.secrets   # only if you store auth tokens in the keyring; drop otherwise
+  - --env=GDK_BACKEND=x11        # the Uno X11/Skia host expects the X11 GDK backend (matches Program.cs)
+  - --talk-name=org.freedesktop.secrets   # SecureStorage uses the keyring for API keys / tokens
 
 modules:
-  - name: dotnet-sdk
-    buildsystem: simple
-    build-commands:
-      - /usr/lib/sdk/dotnet9/bin/install.sh
-
   - name: gravity
     buildsystem: simple
     sources:
       - type: dir
         path: .                  # whole repo copied into the build sandbox
+      # Offline NuGet feed: flatpak-builder fetches every package (URL + sha512) into ./nuget-sources.
+      # Regenerate after changing dependencies — see the comment on the publish command below.
+      - nuget-sources.json
+      # Offline nuget.config written into the build dir (NOT committed to the repo, so normal dev
+      # builds still use nuget.org). It points NuGet at the local feed for BOTH PackageReference
+      # restore AND MSBuild project-SDK resolution (Uno.Sdk in global.json) — the latter reads
+      # nuget.config, not the publish --source flag, so it must be configured here.
+      - type: inline
+        dest-filename: nuget.config
+        contents: |
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <config>
+              <add key="globalPackagesFolder" value="nuget-packages" />
+            </config>
+            <packageSources>
+              <clear />
+              <add key="flatpak" value="nuget-sources" />
+            </packageSources>
+          </configuration>
     build-commands:
-      # Publish the full self-contained app folder into /app/lib/Gravity
-      - dotnet publish Gravity/Gravity.csproj -c Release -r linux-x64 --self-contained -o ${FLATPAK_DEST}/lib/Gravity
+      # Publish the full self-contained app folder into /app/lib/Gravity.
+      # -f is required: Alua.csproj multi-targets (net10.0-desktop;net10.0-android) and the
+      # bare "dotnet publish" cannot pick a TFM. AssemblyName=Gravity (desktop) names the binary.
+      # Offline restore is driven by the injected nuget.config (above), which covers both restore
+      #   and Uno.Sdk resolution. No --source flag / no network.
+      # -p:FlatpakBuild=true collapses Alua to desktop-only (see Alua.csproj) so restore never
+      #   evaluates net10.0-android (the SDK extension has no android workload → NETSDK1139). This is
+      #   scoped to Alua's csproj, so it does NOT force the desktop platform onto Sachya (net9.0).
+      # -p:AllowMissingPrunePackageData=true: the SDK extension lacks the trimming prune data that the
+      #   csproj's PublishTrimmed=full needs (NETSDK1226); let trimming proceed without it.
+      #
+      # Regenerate nuget-sources.json when dependencies change:  ./tools/regen-nuget-sources.sh
+      # (it harvests with the Flatpak SDK in a sandbox — a host-SDK restore resolves a different
+      #  package set and produces an incomplete feed).
+      - dotnet publish Alua/Alua.csproj -c Release -f net10.0-desktop -r linux-x64 --self-contained -p:FlatpakBuild=true -p:AllowMissingPrunePackageData=true -o ${FLATPAK_DEST}/lib/Gravity
       # Wrapper launches the real binary from its app folder (so it finds its DLLs/native libs)
       - install -Dm755 gravity.sh ${FLATPAK_DEST}/bin/Gravity
       # Desktop integration files

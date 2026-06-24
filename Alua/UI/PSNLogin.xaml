@@ -13,19 +13,33 @@
         <!-- Header -->
         <StackPanel Grid.Row="0" Padding="20,15" Spacing="5">
             <TextBlock Text="Sign in with PlayStation" FontSize="20" FontWeight="Bold"/>
-            <TextBlock Text="Sign in on the PlayStation Store below, then click Done."
+            <TextBlock x:Name="HeaderInstructions"
+                       Text="Sign in on the PlayStation Store below, then click Done."
+                       TextWrapping="Wrap"
                        Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"/>
         </StackPanel>
 
-        <!-- WebView -->
-        <WebView2 x:Name="LoginWebView" Grid.Row="1"/>
+        <!-- Sign-in area: embedded WebView2 on Windows/macOS, system-browser handoff on Linux.
+             Populated in code-behind so the WebView2 native control is never created on Linux. -->
+        <Grid x:Name="WebViewHost" Grid.Row="1"/>
 
-        <!-- Footer buttons -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right"
-                    Padding="20,10" Spacing="10">
-            <Button Content="Cancel" Click="{x:Bind OnCancel}"/>
-            <Button Content="Done" Style="{StaticResource AccentButtonStyle}" Click="{x:Bind OnDone}"/>
-            <ProgressRing x:Name="Progress" IsActive="False" Width="24" Height="24" VerticalAlignment="Center"/>
-        </StackPanel>
+        <!-- Footer: NPSSO paste box (Linux only) + buttons -->
+        <Grid Grid.Row="2" Padding="20,10" ColumnSpacing="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBox x:Name="NpssoBox" Grid.Column="0" Visibility="Collapsed"
+                     PlaceholderText="Paste the npsso value here"
+                     Header="NPSSO token"/>
+            <Button Grid.Column="1" Content="Cancel" Click="{x:Bind OnCancel}" VerticalAlignment="Bottom"/>
+            <Button Grid.Column="2" Content="Done" Style="{StaticResource AccentButtonStyle}"
+                    Click="{x:Bind OnDone}" VerticalAlignment="Bottom"/>
+            <ProgressRing Grid.Column="3" x:Name="Progress" IsActive="False"
+                          Width="24" Height="24" VerticalAlignment="Bottom"/>
+        </Grid>
     </Grid>
 </Page>

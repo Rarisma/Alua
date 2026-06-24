@@ -2,6 +2,7 @@
     x:Class="Alua.UI.Initialize"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="using:Alua.Helpers"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <StackPanel Spacing="20" Padding="30" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -29,7 +30,7 @@
 
 
         <!-- PlayStation Network Authentication -->
-        <Button Click="{x:Bind FRVM.AuthenticatePsn}" Width="300">
+        <Button Click="{x:Bind FRVM.AuthenticatePsn}" Width="300" Visibility="{x:Bind helpers:Platform.HideOnLinux}">
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <Image Source="/Assets/Icons/PSN.png" Width="24" Height="24" />
                 <TextBlock Text="PlayStation" VerticalAlignment="Center"/>
