@@ -41,8 +41,8 @@ public sealed partial class GamePage : Page
         _refreshTimer.AutoReset = true;
         _refreshTimer.Elapsed += async (s, e) => await Refresh();
         _refreshTimer.Start();
+        Unloaded += (_, _) => _refreshTimer.Dispose();
         
-        // Override scroll handling for faster trackpad scrolling on desktop
         if (!_isPhone)
             achievementsScrollViewer.AddHandler(PointerWheelChangedEvent,
                 new PointerEventHandler(OnScrollViewerPointerWheelChanged), true);
