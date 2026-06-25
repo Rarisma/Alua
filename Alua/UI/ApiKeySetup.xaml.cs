@@ -1,8 +1,10 @@
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Alua.Models;
+using Alua.Services;
 using Alua.Services.ViewModels;
 using CommunityToolkit.Mvvm.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Microsoft.Web.WebView2.Core;
@@ -31,10 +33,20 @@ public sealed partial class ApiKeySetup : Page
     private readonly SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
     private ApiKeyProvider _provider = ApiKeyProvider.Steam;
 
+    // Null on Linux: Uno's X11 embedded WebView does not render reliably under XWayland, so Linux
+    // uses the system browser + manual key entry and this control is never constructed.
+    private WebView2? SetupWebView;
+
     public ApiKeySetup()
     {
         InitializeComponent();
-        SetupWebView.NavigationCompleted += OnNavigationCompleted;
+
+        if (!OperatingSystem.IsLinux())
+        {
+            SetupWebView = new WebView2();
+            SetupWebView.NavigationCompleted += OnNavigationCompleted;
+            WebViewHost.Children.Add(SetupWebView);
+        }
     }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
@@ -48,23 +60,70 @@ public sealed partial class ApiKeySetup : Page
 
     private void Configure()
     {
+        string url;
         switch (_provider)
         {
-            case ApiKeyProvider.Steam:
-                TitleText.Text = "Set up Steam API key";
-                InstructionsText.Text =
-                    "Sign in to Steam below. Enter any domain name (e.g. \"localhost\") and agree to the terms, then copy the displayed key into the box.";
-                ApiKeyBox.Text = _settingsVM.UserSteamApiKey ?? string.Empty;
-                SetupWebView.Source = new Uri(SteamApiKeyUrl);
-                break;
             case ApiKeyProvider.RetroAchievements:
                 TitleText.Text = "Set up RetroAchievements API key";
-                InstructionsText.Text =
-                    "Sign in to RetroAchievements below. Scroll to the \"Keys\" section and copy your Web API Key into the box.";
+                InstructionsText.Text = SetupWebView is null
+                    ? "Open RetroAchievements in your browser and sign in, go to the \"Keys\" section, then paste your Web API Key into the box below."
+                    : "Sign in to RetroAchievements below. Scroll to the \"Keys\" section and copy your Web API Key into the box.";
                 ApiKeyBox.Text = _settingsVM.UserRetroApiKey ?? string.Empty;
-                SetupWebView.Source = new Uri(RetroApiKeyUrl);
+                url = RetroApiKeyUrl;
+                break;
+            default: // Steam
+                TitleText.Text = "Set up Steam API key";
+                InstructionsText.Text = SetupWebView is null
+                    ? "Open Steam in your browser and sign in. Enter any domain name (e.g. \"localhost\") and agree to the terms, then paste the displayed key into the box below."
+                    : "Sign in to Steam below. Enter any domain name (e.g. \"localhost\") and agree to the terms, then copy the displayed key into the box.";
+                ApiKeyBox.Text = _settingsVM.UserSteamApiKey ?? string.Empty;
+                url = SteamApiKeyUrl;
                 break;
         }
+
+        if (SetupWebView is not null)
+        {
+            SetupWebView.Source = new Uri(url);
+        }
+        else
+        {
+            // Linux: a text prompt stands in for the WebView. Show a button that opens the
+            // provider's page in the system browser; the user pastes the key into ApiKeyBox.
+            BuildBrowserHandoff(url);
+            SystemBrowser.Open(url);
+        }
+    }
+
+    /// <summary>
+    /// Linux fallback shown in place of the embedded WebView: the provider URL and a button that
+    /// (re)opens it in the system browser. The user pastes the key into <c>ApiKeyBox</c>.
+    /// </summary>
+    private void BuildBrowserHandoff(string url)
+    {
+        var openButton = new Button
+        {
+            Content = "Open in browser",
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        openButton.Click += (_, _) => SystemBrowser.Open(url);
+
+        var panel = new StackPanel
+        {
+            Spacing = 12,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = url,
+            TextWrapping = TextWrapping.Wrap,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Foreground = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemControlForegroundBaseMediumBrush"]
+        });
+        panel.Children.Add(openButton);
+
+        WebViewHost.Children.Clear();
+        WebViewHost.Children.Add(panel);
     }
 
     private async void OnNavigationCompleted(WebView2 sender, CoreWebView2NavigationCompletedEventArgs args)
@@ -89,6 +148,9 @@ public sealed partial class ApiKeySetup : Page
 
     private async Task<string?> TryExtractKeyAsync()
     {
+        if (SetupWebView is null)
+            return null; // Linux: no embedded webview to scrape; user pastes the key manually.
+
         // Pull the page body as text, then regex out the key. Both providers
         // render the key inline once the user is signed in, so this is enough
         // without coupling to brittle DOM selectors.
@@ -183,6 +245,9 @@ public sealed partial class ApiKeySetup : Page
     /// </summary>
     private async Task<string?> TryExtractSteamIdAsync()
     {
+        if (SetupWebView is null)
+            return null; // Linux: prompt the user for their SteamID instead.
+
         var navDone = new TaskCompletionSource<bool>();
         void Handler(WebView2 s, CoreWebView2NavigationCompletedEventArgs a) => navDone.TrySetResult(a.IsSuccess);
         SetupWebView.NavigationCompleted += Handler;
@@ -211,6 +276,9 @@ public sealed partial class ApiKeySetup : Page
     /// </summary>
     private async Task<string?> TryExtractRetroUserAsync()
     {
+        if (SetupWebView is null)
+            return null; // Linux: prompt the user for their RA username instead.
+
         try
         {
             const string script =

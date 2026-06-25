@@ -9,13 +9,19 @@
     <PackageVersion Include="AutoMapper" Version="16.1.1" />
     <PackageVersion Include="Codepotatoes.Scraper.HowLongToBeat" Version="1.5.1" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.Identity.Client" Version="4.85.0" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Abstractions" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Extensions.Caching.Memory" Version="10.0.9" />
+    <PackageVersion Include="Microsoft.Identity.Client" Version="4.85.1" />
     <PackageVersion Include="Uno.Fonts.Fluent" Version="2.8.1" />
   </ItemGroup>
-  <!-- Pin transitive dependency to fix CVE (GHSA-xrw6-gwf8-vvr9) -->
+  <!--
+    Pin transitive dependency (pulled in by Uno.WinUI.Runtime.Skia.X11) to fix CVE
+    GHSA-xrw6-gwf8-vvr9. Must stay on the 0.21.x line: Uno's X11 LinuxSystemThemeHelper
+    hard-references the Tmds.DBus.Protocol.Address type, which was removed in 0.22.0+.
+    0.21.3 is both a patched version for the CVE and retains that type. Do NOT bump to
+    0.92.x/0.94.x — that throws TypeLoadException for Address at startup on Linux.
+  -->
   <ItemGroup>
-    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.2" />
+    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
   </ItemGroup>
 </Project>

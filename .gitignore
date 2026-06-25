@@ -412,3 +412,9 @@ Alua/.env
 .DS_Store
 Alua/appsettings.json
 /Alua/.idea
+
+# Flatpak local build output (flatpak-builder)
+/.flatpak-build/
+/.flatpak-builder/
+/.flatpak-repo/
+/*.flatpak
