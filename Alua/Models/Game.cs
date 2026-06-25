@@ -109,7 +109,7 @@ public partial class Game : ObservableObject
     /// <see cref="Alua.Services.GameGrouping"/>; empty for unmerged games. Never persisted.
     /// </summary>
     [JsonIgnore]
-    public List<Game> Editions { get; set; } = new();
+    public ObservableCollection<Game> Editions { get; set; } = new();
 
     /// <summary>
     /// True when this card stands in for more than one game and should show edition tabs.

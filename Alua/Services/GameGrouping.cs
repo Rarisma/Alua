@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using Alua.Models;
 using Alua.Services.ViewModels;
@@ -120,7 +121,7 @@ public static class GameGrouping
         // to the previous Editions list, and clearing it would empty that page's tab strip.
         foreach (var g in games)
         {
-            g.Editions = new List<Game>();
+            g.Editions = new ObservableCollection<Game>();
             g.MergedDisplayName = null;
             g.DisplayUnlocked = null;
             g.DisplayTotal = null;
@@ -178,7 +179,7 @@ public static class GameGrouping
                 .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
                 .First().Name;
 
-            primary.Editions = ordered;
+            primary.Editions = ordered.ToObservableCollection();
 
             // In Aggregate mode the card reports completion summed across the group's editions; in
             // Best mode it leaves the display counts null so the card uses the primary's own counts.
