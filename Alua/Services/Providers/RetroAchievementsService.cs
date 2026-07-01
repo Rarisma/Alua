@@ -42,7 +42,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// Scan games that have been completed by the user on RetroAchievements.
     /// </summary>
     /// <returns>list of Alua game objects</returns>
-    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         if (string.IsNullOrWhiteSpace(_username))
         {
@@ -82,8 +82,9 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                         LastPlayed = completed.MostRecentAwardedDate?.UtcDateTime
                     };
                 },
-                (current, total) => appVm.LoadingGamesSummary = $"Scanned RetroAchievements ({current}/{total})",
-                cancellationToken
+                progressCallback: (current, total) => appVm.LoadingGamesSummary = $"Scanned RetroAchievements ({current}/{total})",
+                onItemCompleted: onGameReady,
+                cancellationToken: cancellationToken
             );
 
             return games;
@@ -102,7 +103,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// (quicker than full library scan).
     /// </summary>
     /// <returns></returns>
-    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5);
 
@@ -144,6 +145,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     return null;
                 }
             },
+            onItemCompleted: onGameReady,
             cancellationToken: cancellationToken
         );
 

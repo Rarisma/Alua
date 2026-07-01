@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Alua.Models;
 using Alua.Services;
 using Alua.Services.ViewModels;
@@ -183,12 +184,18 @@ public partial class Library : Page
 
         try
         {
-            // Run all providers in parallel for faster scanning
+            var hltbService = Ioc.Default.GetRequiredService<HowLongToBeatService>();
+            var (onGameReady, pendingHltbFetches) = CreateHltbGameReadyCallback(hltbService, ct);
+
+            // Run all providers in parallel for faster scanning. Each provider invokes
+            // onGameReady as soon as one of its games finishes scanning, so HLTB lookups start
+            // immediately and overlap with the rest of the scan instead of running as a
+            // separate pass afterward.
             var providerTasks = _appVm.Providers.Select(async provider =>
             {
                 ct.ThrowIfCancellationRequested();
                 Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
-                var games = await provider.GetLibrary(ct);
+                var games = await provider.GetLibrary(ct, onGameReady);
                 Log.Information("Found {Count} games from {Provider}", games.Length, provider.GetType().Name);
                 return games;
             });
@@ -211,15 +218,10 @@ public partial class Library : Page
                 }
             }
 
-            // Fetch HowLongToBeat data for all games in parallel
-            _appVm.LoadingGamesSummary = "Fetching HowLongToBeat data...";
-
-            var gamesToFetch = _settingsVM.Games.Values
-                .Where(g => !g.HowLongToBeatLastFetched.HasValue ||
-                            (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
-                .ToList();
-
-            await FetchHltbDataAsync(gamesToFetch, ct);
+            // Most HLTB lookups already completed while later providers/games were still being
+            // scanned; this just waits out whatever tail is left.
+            _appVm.LoadingGamesSummary = "Finishing HowLongToBeat lookups...";
+            await Task.WhenAll(pendingHltbFetches);
 
             // Save scan results
             await _settingsVM.Save();
@@ -288,12 +290,17 @@ public partial class Library : Page
                 return;
             }
 
-            // Regular refresh logic - get recent games from providers IN PARALLEL
+            var hltbService = Ioc.Default.GetRequiredService<HowLongToBeatService>();
+            var (onGameReady, pendingHltbFetches) = CreateHltbGameReadyCallback(hltbService, ct);
+
+            // Regular refresh logic - get recent games from providers IN PARALLEL. Each provider
+            // invokes onGameReady as soon as one of its games finishes scanning, so HLTB lookups
+            // start immediately and overlap with the rest of the refresh.
             var providerTasks = _appVm.Providers.Select(async provider =>
             {
                 ct.ThrowIfCancellationRequested();
                 Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
-                var providerGames = await provider.RefreshLibrary(ct);
+                var providerGames = await provider.RefreshLibrary(ct, onGameReady);
                 Log.Information("Found {Count} games from {Provider}", providerGames.Length, provider.GetType().Name);
                 return providerGames;
             });
@@ -312,18 +319,13 @@ public partial class Library : Page
                 }
             }
 
-            // Fetch HowLongToBeat data for new/updated games in parallel
-            var gamesToFetch = games
-                .Where(g => !g.HowLongToBeatLastFetched.HasValue ||
-                            (DateTime.UtcNow - g.HowLongToBeatLastFetched.Value).TotalDays >= 7)
-                .ToList();
-
-            if (gamesToFetch.Count > 0)
+            // Most HLTB lookups already completed while later providers/games were still being
+            // scanned; this just waits out whatever tail is left.
+            if (!pendingHltbFetches.IsEmpty)
             {
-                _appVm.LoadingGamesSummary = "Fetching HowLongToBeat data...";
-                Log.Information("Fetching HLTB data for {Count} refreshed games", gamesToFetch.Count);
-                await FetchHltbDataAsync(gamesToFetch, ct);
+                _appVm.LoadingGamesSummary = "Finishing HowLongToBeat lookups...";
             }
+            await Task.WhenAll(pendingHltbFetches);
 
             // Save and repopulate FilteredGames with all games from memory
             await _settingsVM.Save();
@@ -350,40 +352,26 @@ public partial class Library : Page
     }
 
     /// <summary>
-    /// Fetches HowLongToBeat data for each game in <paramref name="gamesToFetch"/>,
-    /// limiting concurrency to 5 at a time. Resolves the HLTB service from DI
-    /// (it is a singleton — do NOT dispose it here).
-    /// Progress is reported via <see cref="AppVM.LoadingGamesSummary"/>.
+    /// Builds a per-game HLTB callback for a single Scan()/Refresh() pass. Each call to the
+    /// returned action starts a semaphore-gated background fetch immediately — so lookups
+    /// overlap with whichever other providers/games are still being scanned — and adds its
+    /// task to the returned bag so the caller can await completion before saving.
+    /// FetchAndUpdateGameData mutates the Game in place (it is already in the Games
+    /// dictionary by the time the caller awaits the bag), so no further AddOrUpdateGame call
+    /// is needed once a fetch completes.
     /// </summary>
-    private async Task FetchHltbDataAsync(IReadOnlyCollection<Game> gamesToFetch, CancellationToken ct)
+    private (Action<Game> OnGameReady, ConcurrentBag<Task> Pending) CreateHltbGameReadyCallback(
+        HowLongToBeatService hltbService, CancellationToken ct)
     {
-        if (gamesToFetch.Count == 0)
-            return;
+        var semaphore = new SemaphoreSlim(5, 5);
+        var pending = new ConcurrentBag<Task>();
 
-        Log.Information("Fetching HLTB data for {Count} games", gamesToFetch.Count);
-
-        // Resolve the singleton from DI — do NOT dispose
-        var hltbService = Ioc.Default.GetRequiredService<HowLongToBeatService>();
-
-        // Limit concurrent requests to 5
-        using var semaphore = new SemaphoreSlim(5, 5);
-        var completedCount = 0;
-        var totalCount = gamesToFetch.Count;
-
-        var tasks = gamesToFetch.Select(async game =>
+        async Task FetchOneAsync(Game game)
         {
             await semaphore.WaitAsync(ct);
             try
             {
-                ct.ThrowIfCancellationRequested();
-                // FetchAndUpdateGameData mutates the Game in place (it is already in the
-                // Games dictionary). We do NOT call AddOrUpdateGame per task here: doing so
-                // under BeginBatchUpdate from these concurrent background tasks both races the
-                // batch-depth counter and fires the Games notification off the UI thread.
                 await hltbService.FetchAndUpdateGameData(game, ct);
-
-                var current = Interlocked.Increment(ref completedCount);
-                _appVm.LoadingGamesSummary = $"Fetching HowLongToBeat data ({current}/{totalCount})";
             }
             catch (OperationCanceledException)
             {
@@ -397,13 +385,11 @@ public partial class Library : Page
             {
                 semaphore.Release();
             }
-        });
+        }
 
-        await Task.WhenAll(tasks);
+        void OnGameReady(Game game) => pending.Add(FetchOneAsync(game));
 
-        // Persist + fire a single Games notification once, back on the UI thread (this
-        // continuation resumes on the captured context), rather than per-game off-thread.
-        _settingsVM.AddOrUpdateGames(gamesToFetch);
+        return (OnGameReady, pending);
     }
 
     /// <summary>

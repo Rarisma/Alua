@@ -1,4 +1,5 @@
 using Microsoft.Identity.Client;
+using Microsoft.Identity.Client.Extensibility;
 using Serilog;
 using System.IO;
 using System.Text.Json;
@@ -91,10 +92,16 @@ public class MicrosoftAuthService
             // Perform interactive authentication
             Log.Information("Starting interactive Microsoft authentication");
 
-            var interactiveResult = await _msalClient
-                .AcquireTokenInteractive(Scopes)
-                .WithUseEmbeddedWebView(false) // Use system browser for better compatibility
-                .ExecuteAsync();
+            var interactiveBuilder = _msalClient.AcquireTokenInteractive(Scopes);
+
+            // Windows/macOS desktop: host sign-in in an integrated in-app WebView
+            // (WebViewCustomWebUi). Linux keeps the system browser — Uno's X11 WebView is
+            // unreliable under XWayland — and Android uses MSAL's native browser/custom-tabs flow.
+            interactiveBuilder = UseIntegratedWebView()
+                ? interactiveBuilder.WithCustomWebUi(new WebViewCustomWebUi())
+                : interactiveBuilder.WithUseEmbeddedWebView(false);
+
+            var interactiveResult = await interactiveBuilder.ExecuteAsync();
             lock (_cachedResultLock) { _cachedResult = interactiveResult; }
 
             Log.Information("Interactive authentication successful. Account: {Account}",
@@ -113,6 +120,13 @@ public class MicrosoftAuthService
             return null;
         }
     }
+
+    /// <summary>
+    /// The integrated in-app WebView is used only where Uno's WebView2 renders reliably:
+    /// Windows and macOS desktop. Linux (XWayland) and Android fall back to their prior flows.
+    /// </summary>
+    private static bool UseIntegratedWebView()
+        => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
     
     /// <summary>
     /// Refreshes the access token using the refresh token

@@ -39,10 +39,16 @@ public class RateLimitedExecutor : IDisposable
     /// <summary>
     /// Executes multiple operations in parallel with rate limiting.
     /// </summary>
+    /// <param name="onItemCompleted">
+    /// Invoked once per item, immediately after that item's <paramref name="operation"/>
+    /// finishes (before <paramref name="progressCallback"/>). Lets callers start per-item
+    /// follow-up work without waiting for the whole batch to complete.
+    /// </param>
     public async Task<T[]> ExecuteAllAsync<TSource, T>(
         IEnumerable<TSource> items,
         Func<TSource, CancellationToken, Task<T>> operation,
         Action<int, int>? progressCallback = null,
+        Action<T>? onItemCompleted = null,
         CancellationToken cancellationToken = default)
     {
         var itemList = items.ToList();
@@ -56,6 +62,7 @@ public class RateLimitedExecutor : IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = await operation(item, cancellationToken);
+                onItemCompleted?.Invoke(result);
                 var current = Interlocked.Increment(ref completedCount);
                 progressCallback?.Invoke(current, totalCount);
                 return result;
@@ -72,10 +79,17 @@ public class RateLimitedExecutor : IDisposable
     /// <summary>
     /// Executes multiple operations in parallel with rate limiting, allowing null results.
     /// </summary>
+    /// <param name="onItemCompleted">
+    /// Invoked once per item that completes successfully (non-null result only), immediately
+    /// after that item's <paramref name="operation"/> finishes (before
+    /// <paramref name="progressCallback"/>). Lets callers start per-item follow-up work
+    /// without waiting for the whole batch to complete.
+    /// </param>
     public async Task<T?[]> ExecuteAllWithNullableAsync<TSource, T>(
         IEnumerable<TSource> items,
         Func<TSource, CancellationToken, Task<T?>> operation,
         Action<int, int>? progressCallback = null,
+        Action<T>? onItemCompleted = null,
         CancellationToken cancellationToken = default)
         where T : class
     {
@@ -90,6 +104,8 @@ public class RateLimitedExecutor : IDisposable
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = await operation(item, cancellationToken);
+                if (result != null)
+                    onItemCompleted?.Invoke(result);
                 var current = Interlocked.Increment(ref completedCount);
                 progressCallback?.Invoke(current, totalCount);
                 return result;

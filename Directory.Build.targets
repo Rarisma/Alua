@@ -10,4 +10,28 @@
           SkipUnchangedFiles="true" />
   </Target>
 
+  <!-- Sign the desktop apphost with a stable certificate identity so macOS Keychain
+       "Always Allow" grants survive rebuilds. The .NET SDK's default ad-hoc signature
+       changes hash every build, which makes macOS treat each rebuild as a new app and
+       re-prompt for keychain access. Auto-detects the first codesigning identity in the
+       keychain; override with -p:MacCodesignIdentity=<hash-or-name>, disable with
+       -p:MacAutoCodesign=false. Skipped silently (signature stays ad-hoc) when no
+       identity is installed, so CI and contributor machines are unaffected. -->
+  <Target Name="SignMacOSAppHost" AfterTargets="Build"
+          Condition="$([MSBuild]::IsOSPlatform('OSX')) AND '$(TargetFramework)' == 'net10.0-desktop' AND '$(MacAutoCodesign)' != 'false' AND Exists('$(TargetDir)$(AssemblyName)')">
+    <Exec Condition="'$(MacCodesignIdentity)' == ''"
+          Command="security find-identity -v -p codesigning 2&gt;/dev/null | awk '$1 ~ /^[0-9]+\)$/ { print $2; exit }'"
+          ConsoleToMSBuild="true" IgnoreExitCode="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_MacCodesignIdentity" />
+    </Exec>
+    <PropertyGroup>
+      <_MacCodesignIdentity Condition="'$(MacCodesignIdentity)' != ''">$(MacCodesignIdentity)</_MacCodesignIdentity>
+    </PropertyGroup>
+    <Exec Condition="'$(_MacCodesignIdentity)' != ''"
+          Command="codesign --force --sign &quot;$(_MacCodesignIdentity)&quot; --identifier net.rarisma.gravity &quot;$(TargetDir)$(AssemblyName)&quot;"
+          StandardOutputImportance="low" StandardErrorImportance="low" />
+    <Message Condition="'$(_MacCodesignIdentity)' == ''" Importance="low"
+             Text="SignMacOSAppHost: no codesigning identity found; apphost keeps its ad-hoc signature." />
+  </Target>
+
 </Project>

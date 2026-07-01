@@ -15,7 +15,17 @@ public interface IAchievementProvider<TSelf>: IAchievementProvider  where TSelf 
 
 public interface IAchievementProvider
 {
-    Task<Game[]> GetLibrary(CancellationToken cancellationToken = default);
-    Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default);
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="onGameReady">
+    /// Invoked once per game as soon as that game's achievements/trophies finish fetching
+    /// (before the rest of the library is done). Lets callers start per-game follow-up work
+    /// (e.g. HowLongToBeat lookups) without waiting for the whole provider to complete.
+    /// </param>
+    Task<Game[]> GetLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null);
+
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <param name="onGameReady">See <see cref="GetLibrary"/>.</param>
+    Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null);
+
     Task<Game>   RefreshTitle(string identifier, CancellationToken cancellationToken = default);
 }

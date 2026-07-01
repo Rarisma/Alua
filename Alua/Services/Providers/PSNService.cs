@@ -57,10 +57,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Gets the users whole PSN library with trophy data
     /// </summary>
     /// <returns>Array of Games</returns>
-    public Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
-        => GetLibraryCore(cancellationToken, isRetry: false);
+    public Task<Game[]> GetLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
+        => GetLibraryCore(cancellationToken, isRetry: false, onGameReady);
 
-    private async Task<Game[]> GetLibraryCore(CancellationToken cancellationToken, bool isRetry)
+    private async Task<Game[]> GetLibraryCore(CancellationToken cancellationToken, bool isRetry, Action<Game>? onGameReady = null)
     {
         try
         {
@@ -99,8 +99,9 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                         return ConvertToAluaGame(title);
                     }
                 },
-                (current, total) => _appVm.LoadingGamesSummary = $"Scanning PSN ({current}/{total})",
-                cancellationToken
+                progressCallback: (current, total) => _appVm.LoadingGamesSummary = $"Scanning PSN ({current}/{total})",
+                onItemCompleted: onGameReady,
+                cancellationToken: cancellationToken
             );
 
             return games.Where(g => g != null).Cast<Game>().ToArray();
@@ -109,7 +110,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         {
             Log.Warning("PSN access token expired, attempting re-authentication from stored NPSSO");
             if (!isRetry && await TryRecreateClient())
-                return await GetLibraryCore(cancellationToken, isRetry: true);
+                return await GetLibraryCore(cancellationToken, isRetry: true, onGameReady);
 
             _appVm.SetError(ProviderError.AuthExpired("PlayStation").UserMessage);
             return [];
@@ -125,10 +126,10 @@ public sealed class PSNService : IAchievementProvider<PSNService>
     /// Refreshes the users library and returns recently updated games with trophy data
     /// </summary>
     /// <returns>Array of games with trophy information</returns>
-    public Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
-        => RefreshLibraryCore(cancellationToken, isRetry: false);
+    public Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
+        => RefreshLibraryCore(cancellationToken, isRetry: false, onGameReady);
 
-    private async Task<Game[]> RefreshLibraryCore(CancellationToken cancellationToken, bool isRetry)
+    private async Task<Game[]> RefreshLibraryCore(CancellationToken cancellationToken, bool isRetry, Action<Game>? onGameReady = null)
     {
         try
         {
@@ -158,8 +159,9 @@ public sealed class PSNService : IAchievementProvider<PSNService>
                         return ConvertToAluaGame(title);
                     }
                 },
-                (current, total) => _appVm.LoadingGamesSummary = $"Refreshing PSN ({current}/{total})",
-                cancellationToken
+                progressCallback: (current, total) => _appVm.LoadingGamesSummary = $"Refreshing PSN ({current}/{total})",
+                onItemCompleted: onGameReady,
+                cancellationToken: cancellationToken
             );
 
             return games.Where(g => g != null).Cast<Game>().ToArray();
@@ -168,7 +170,7 @@ public sealed class PSNService : IAchievementProvider<PSNService>
         {
             Log.Warning("PSN access token expired, attempting re-authentication from stored NPSSO");
             if (!isRetry && await TryRecreateClient())
-                return await RefreshLibraryCore(cancellationToken, isRetry: true);
+                return await RefreshLibraryCore(cancellationToken, isRetry: true, onGameReady);
 
             _appVm.SetError(ProviderError.AuthExpired("PlayStation").UserMessage);
             return [];

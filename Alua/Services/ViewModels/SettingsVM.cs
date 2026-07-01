@@ -314,16 +314,30 @@ public partial class SettingsVM  : ObservableObject
         lock (_gamesLock)
         {
             ResolveLastPlayed(game);
-            // Never let an incoming game with no icon overwrite a previously-good one. A provider
-            // refresh can legitimately return a game with an empty Icon (e.g. RA's recently-played
-            // payload); without this guard that wipes the icon we already scanned, leaving the card
-            // blank until a full rescan.
-            if (string.IsNullOrWhiteSpace(game.Icon)
-                && Games.TryGetValue(game.Identifier, out var existing)
-                && !string.IsNullOrWhiteSpace(existing.Icon))
+
+            if (Games.TryGetValue(game.Identifier, out var existing))
             {
-                game.Icon = existing.Icon;
+                // Never let an incoming game with no icon overwrite a previously-good one. A provider
+                // refresh can legitimately return a game with an empty Icon (e.g. RA's recently-played
+                // payload); without this guard that wipes the icon we already scanned, leaving the card
+                // blank until a full rescan.
+                if (string.IsNullOrWhiteSpace(game.Icon) && !string.IsNullOrWhiteSpace(existing.Icon))
+                {
+                    game.Icon = existing.Icon;
+                }
+
+                // Providers never populate HLTB fields themselves (a separate fetch phase does),
+                // so a freshly-scanned game always has them null. Without carrying the old values
+                // forward here, the 7-day "already fetched" check in
+                // HowLongToBeatService.FetchAndUpdateGameData would never see a real timestamp and
+                // every scan/refresh would re-query HLTB for every game.
+                game.HowLongToBeatMain = existing.HowLongToBeatMain;
+                game.HowLongToBeatMainExtras = existing.HowLongToBeatMainExtras;
+                game.HowLongToBeatCompletionist = existing.HowLongToBeatCompletionist;
+                game.HowLongToBeatAllStyles = existing.HowLongToBeatAllStyles;
+                game.HowLongToBeatLastFetched = existing.HowLongToBeatLastFetched;
             }
+
             Games[game.Identifier] = game;
             _hasUnsavedChanges = true;
         }
@@ -339,26 +353,6 @@ public partial class SettingsVM  : ObservableObject
                 _uiDispatcher.TryEnqueue(() => OnPropertyChanged(nameof(Games)));
             else
                 OnPropertyChanged(nameof(Games));
-        }
-    }
-
-    /// <summary>
-    /// Adds multiple games efficiently with a single notification.
-    /// </summary>
-    public void AddOrUpdateGames(IEnumerable<Game> games)
-    {
-        using (BeginBatchUpdate())
-        {
-            lock (_gamesLock)
-            {
-                foreach (var game in games)
-                {
-                    ResolveLastPlayed(game);
-                    Games[game.Identifier] = game;
-                }
-            }
-            _gamesPendingNotification = true;
-            _hasUnsavedChanges = true;
         }
     }
 

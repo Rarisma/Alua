@@ -95,7 +95,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// Gets a users whole library
     /// </summary>
     /// <returns>Game array</returns>
-    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         try
         {
@@ -117,7 +117,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
             }
 
             Log.Information("Found {Count} titles in library", titles.Count);
-            var result = await ConvertToAluaAsync(titles, cancellationToken);
+            var result = await ConvertToAluaAsync(titles, cancellationToken, onGameReady);
             Log.Information("GetLibrary completed successfully, returning {Count} games", result.Length);
             return result;
         }
@@ -132,7 +132,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// Gets recently played games in a users library
     /// </summary>
     /// <returns>Game Array</returns>
-    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         try
         {
@@ -161,7 +161,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
 
             Log.Information("Found {Count} recent titles to refresh after filtering", recentTitles.Count);
 
-            var result = await ConvertToAluaAsync(recentTitles, cancellationToken);
+            var result = await ConvertToAluaAsync(recentTitles, cancellationToken, onGameReady);
             Log.Information("RefreshLibrary completed, returning {Count} games", result.Length);
             return result;
         }
@@ -354,7 +354,7 @@ public sealed class XboxService : IAchievementProvider<XboxService>
     /// <summary>
     /// Converts title history entries to Alua Game objects with rate-limited achievement fetching.
     /// </summary>
-    private async Task<Game[]> ConvertToAluaAsync(List<TitleHistory> src, CancellationToken cancellationToken = default)
+    private async Task<Game[]> ConvertToAluaAsync(List<TitleHistory> src, CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         Log.Information("Starting ConvertToAluaAsync with {Count} titles", src.Count);
 
@@ -388,8 +388,9 @@ public sealed class XboxService : IAchievementProvider<XboxService>
                     LastPlayed = title.Details?.LastTimePlayed
                 };
             },
-            (current, total) => _appVm.LoadingGamesSummary = $"Scanned Xbox ({current}/{total})",
-            cancellationToken
+            progressCallback: (current, total) => _appVm.LoadingGamesSummary = $"Scanned Xbox ({current}/{total})",
+            onItemCompleted: onGameReady,
+            cancellationToken: cancellationToken
         );
 
         Log.Information("ConvertToAluaAsync completed. Converted {Count} games", games.Length);

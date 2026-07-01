@@ -18,19 +18,19 @@ public static class SecureStorage
     // Do NOT change this value — changing it would orphan existing Keychain entries for existing users.
     private const string ServiceName = "net.rarisma.gravity";
 
-    // Serializes concurrent Windows DPAPI and Linux/Android file-fallback read-modify-write operations.
+    // Serializes read-modify-write operations on the consolidated stores
+    // (Apple keychain blob, Windows DPAPI file, Linux/Android file fallback).
     private static readonly SemaphoreSlim _ioLock = new(1, 1);
 
     public static async Task<string?> GetAsync(string key)
     {
         try
         {
-            if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
-                return KeychainGet(key);
-
             await _ioLock.WaitAsync();
             try
             {
+                if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
+                    return AppleGet(key);
                 if (OperatingSystem.IsWindows())
                     return WindowsGet(key);
                 return FileFallbackGet(key);
@@ -57,16 +57,12 @@ public static class SecureStorage
                 return;
             }
 
-            if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
-            {
-                KeychainSet(key, value);
-                return;
-            }
-
             await _ioLock.WaitAsync();
             try
             {
-                if (OperatingSystem.IsWindows())
+                if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
+                    AppleSet(key, value);
+                else if (OperatingSystem.IsWindows())
                     WindowsSet(key, value);
                 else
                     FileFallbackSet(key, value);
@@ -86,16 +82,12 @@ public static class SecureStorage
     {
         try
         {
-            if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
-            {
-                KeychainDelete(key);
-                return;
-            }
-
             await _ioLock.WaitAsync();
             try
             {
-                if (OperatingSystem.IsWindows())
+                if (OperatingSystem.IsMacOS() || OperatingSystem.IsIOS())
+                    AppleDelete(key);
+                else if (OperatingSystem.IsWindows())
                     WindowsDelete(key);
                 else
                     FileFallbackDelete(key);
@@ -112,6 +104,69 @@ public static class SecureStorage
     }
 
     #region macOS / iOS Keychain
+
+    // All secrets live in ONE keychain item (a JSON dictionary under this account) rather
+    // than one item per secret: keychain authorization prompts are per item, so a
+    // consolidated item means at most one prompt per session instead of one per secret.
+    // Legacy per-secret items are migrated into the blob (and deleted) on first read.
+    private const string ConsolidatedAccount = "alua_secrets_v1";
+
+    // Session cache of the decoded blob; guarded by _ioLock.
+    private static Dictionary<string, string>? _appleSecrets;
+
+    private static Dictionary<string, string> AppleLoad()
+    {
+        if (_appleSecrets is not null)
+            return _appleSecrets;
+        var json = KeychainGet(ConsolidatedAccount);
+        _appleSecrets = json is null
+            ? new Dictionary<string, string>()
+            : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json)
+              ?? new Dictionary<string, string>();
+        return _appleSecrets;
+    }
+
+    private static bool AppleSave(Dictionary<string, string> data)
+    {
+        var saved = KeychainSet(ConsolidatedAccount, System.Text.Json.JsonSerializer.Serialize(data));
+        _appleSecrets = data;
+        return saved;
+    }
+
+    private static string? AppleGet(string key)
+    {
+        var data = AppleLoad();
+        if (data.TryGetValue(key, out var value))
+            return value;
+
+        // Not in the blob — migrate a legacy per-secret item if one exists.
+        var legacy = KeychainGet(key);
+        if (legacy is null)
+            return null;
+        data[key] = legacy;
+        if (AppleSave(data))
+        {
+            KeychainDelete(key);
+            Log.Information("Migrated keychain secret {Key} into consolidated item", key);
+        }
+        return legacy;
+    }
+
+    private static void AppleSet(string key, string value)
+    {
+        var data = AppleLoad();
+        data[key] = value;
+        if (AppleSave(data))
+            KeychainDelete(key); // drop any legacy per-secret item so it can't resurrect a stale value
+    }
+
+    private static void AppleDelete(string key)
+    {
+        var data = AppleLoad();
+        if (data.Remove(key))
+            AppleSave(data);
+        KeychainDelete(key); // also covers a legacy per-secret item that was never migrated
+    }
 
     private const string SecurityFramework = "/System/Library/Frameworks/Security.framework/Security";
     private const string CoreFoundation = "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation";
@@ -236,7 +291,7 @@ public static class SecureStorage
         }
     }
 
-    private static void KeychainSet(string key, string value)
+    private static bool KeychainSet(string key, string value)
     {
         var bytes = Encoding.UTF8.GetBytes(value);
         var dataRef = CFDataCreate(IntPtr.Zero, bytes, bytes.Length);
@@ -262,6 +317,7 @@ public static class SecureStorage
             {
                 Log.Warning("Keychain SecItemUpdate failed for {Key}: {Status}", key, status);
             }
+            return status == 0;
         }
         finally
         {

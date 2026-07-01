@@ -73,7 +73,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// per-game pre-check is needed here.
     /// </summary>
     /// <returns>Game array</returns>
-    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         try
         {
@@ -121,7 +121,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             // Combine owned and candidate family shared games
             var allGames = owned.response.games.Concat(familySharedGames).ToList();
 
-            return await ConvertToAluaAsync(allGames, cancellationToken);
+            return await ConvertToAluaAsync(allGames, cancellationToken, onGameReady);
         }
         catch (Exception ex)
         {
@@ -134,7 +134,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// Gets recently played games in a users library
     /// </summary>
     /// <returns>Game Array</returns>
-    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         try
         {
@@ -165,7 +165,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
             // Re-fetch via GetOwnedGamesAsync to get rtime_last_played
             var appIds = recent.response.games.Select(g => g.appid).ToArray();
             var owned = await _apiClient.GetOwnedGamesAsync(_steamId, includeAppInfo: true, includePlayedFreeGames: true, appIds);
-            return await ConvertToAluaAsync(owned.response.games, cancellationToken);
+            return await ConvertToAluaAsync(owned.response.games, cancellationToken, onGameReady);
         }
         catch (Exception ex)
         {
@@ -400,7 +400,7 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
     /// Bridges sachya data to alua. Parallelized with rate limiting.
     /// Filters out non-game apps (software, DLC, etc.) using the blacklist.
     /// </summary>
-    private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src, CancellationToken cancellationToken = default)
+    private async Task<Game[]> ConvertToAluaAsync(List<Sachya.Definitions.Steam.Game> src, CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         if (src.Count == 0) return [];
 
@@ -439,8 +439,9 @@ public sealed partial class SteamService : IAchievementProvider<SteamService>
 
                 return game;
             },
-            (current, total) => _appVm.LoadingGamesSummary = $"Scanned Steam games ({current}/{total})",
-            cancellationToken
+            progressCallback: (current, total) => _appVm.LoadingGamesSummary = $"Scanned Steam games ({current}/{total})",
+            onItemCompleted: onGameReady,
+            cancellationToken: cancellationToken
         );
 
         return games;
