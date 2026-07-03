@@ -42,7 +42,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// Scan games that have been completed by the user on RetroAchievements.
     /// </summary>
     /// <returns>list of Alua game objects</returns>
-    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> GetLibrary(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_username))
         {
@@ -53,7 +53,6 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
         {
             // Retrieve completed games using the legacy endpoint.
             var completedGames = await _apiClient.GetUserCompletionProgressAsync(_username, cancellationToken: cancellationToken);
-            var appVm = Ioc.Default.GetRequiredService<ViewModels.AppVM>();
 
             if (completedGames.Results.Count == 0)
                 return [];
@@ -82,7 +81,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                         LastPlayed = completed.MostRecentAwardedDate?.UtcDateTime
                     };
                 },
-                (current, total) => appVm.LoadingGamesSummary = $"Scanned RetroAchievements ({current}/{total})",
+                (current, total) => progress?.Report(new ScanProgress(current, total)),
                 cancellationToken
             );
 
@@ -102,7 +101,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// (quicker than full library scan).
     /// </summary>
     /// <returns></returns>
-    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default)
+    public async Task<Game[]> RefreshLibrary(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
     {
         var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5);
 
@@ -144,6 +143,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     return null;
                 }
             },
+            (current, total) => progress?.Report(new ScanProgress(current, total)),
             cancellationToken: cancellationToken
         );
 

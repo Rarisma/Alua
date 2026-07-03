@@ -15,7 +15,7 @@ public interface IAchievementProvider<TSelf>: IAchievementProvider  where TSelf 
 
 public interface IAchievementProvider
 {
-    Task<Game[]> GetLibrary(CancellationToken cancellationToken = default);
-    Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default);
+    Task<Game[]> GetLibrary(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default);
+    Task<Game[]> RefreshLibrary(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default);
     Task<Game>   RefreshTitle(string identifier, CancellationToken cancellationToken = default);
 }

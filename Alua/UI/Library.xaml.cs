@@ -181,19 +181,47 @@ public partial class Library : Page
         // Snapshot current games so we can restore on failure/cancellation
         var previousGames = _settingsVM.Games;
 
+        // Seed per-provider status items
+        _appVm.ProviderScanStatuses.Clear();
+        foreach (var provider in _appVm.Providers)
+        {
+            _appVm.ProviderScanStatuses.Add(AppVM.ProviderScanStatus.Create(provider));
+        }
+
         try
         {
-            // Run all providers in parallel for faster scanning
-            var providerTasks = _appVm.Providers.Select(async provider =>
+            // Run each provider sequentially so we get a clean per-provider progress bar
+            var results = new List<Game[]>();
+            for (int i = 0; i < _appVm.Providers.Count; i++)
             {
+                var provider = _appVm.Providers[i];
                 ct.ThrowIfCancellationRequested();
-                Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
-                var games = await provider.GetLibrary(ct);
-                Log.Information("Found {Count} games from {Provider}", games.Length, provider.GetType().Name);
-                return games;
-            });
 
-            var results = await Task.WhenAll(providerTasks);
+                var status = _appVm.ProviderScanStatuses[i];
+                status.Status = "Scanning...";
+                status.Progress = 0.05; // visible but not full until the first game completes
+
+                // Progress<T> captures this (UI-thread) SynchronizationContext, so per-game
+                // reports from the provider's background workers marshal back here safely.
+                var reporter = new Progress<ScanProgress>(p =>
+                {
+                    status.Progress = p.Total > 0 ? (double)p.Current / p.Total : 0.05;
+                    status.Status = $"Scanning... ({p.Current}/{p.Total})";
+                });
+
+                Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
+                var games = await provider.GetLibrary(reporter, ct);
+
+                status.GameCount = games.Length;
+                status.Status = games.Length > 0
+                    ? $"Found {games.Length} games"
+                    : "No games found";
+                status.Progress = 1.0;
+
+                Log.Information("Found {Count} games from {Provider}", games.Length, provider.GetType().Name);
+                results.Add(games);
+            }
+
             ct.ThrowIfCancellationRequested();
 
             // Stage all results into a fresh dictionary before committing
@@ -221,6 +249,9 @@ public partial class Library : Page
 
             await FetchHltbDataAsync(gamesToFetch, ct);
 
+            // Clear per-provider statuses after HLTB fetch completes
+            _appVm.ProviderScanStatuses.Clear();
+
             // Save scan results
             await _settingsVM.Save();
             Log.Information("loaded {0} games, {1} achievements",
@@ -236,6 +267,7 @@ public partial class Library : Page
         {
             Log.Information("Scan operation was cancelled");
             _appVm.LoadingGamesSummary = "Scan cancelled";
+            _appVm.ProviderScanStatuses.Clear();
             // Restore the previous game list so no data is lost on cancel
             _settingsVM.Games = previousGames;
             RefreshFiltered();
@@ -244,6 +276,7 @@ public partial class Library : Page
         {
             Log.Error(ex, "Scan failed");
             _appVm.LoadingGamesSummary = "Scan failed";
+            _appVm.ProviderScanStatuses.Clear();
             // Restore the previous game list so no data is lost on error
             _settingsVM.Games = previousGames;
             RefreshFiltered();
@@ -268,10 +301,15 @@ public partial class Library : Page
 
         _appVm.IsScanningOrRefreshing = true;
 
+        // Seed per-provider status items
+        _appVm.ProviderScanStatuses.Clear();
+        foreach (var provider in _appVm.Providers)
+        {
+            _appVm.ProviderScanStatuses.Add(AppVM.ProviderScanStatus.Create(provider));
+        }
+
         try
         {
-            _appVm.LoadingGamesSummary = "Preparing to refresh games...";
-
             // If this is the initial load and we have games in memory, load from memory instead of providers
             if (!_appVm.InitialLoadCompleted && _settingsVM.Games.Count > 0)
             {
@@ -284,21 +322,43 @@ public partial class Library : Page
                 _appVm.FilteredGames.ReplaceAll(_settingsVM.Games.Values);
 
                 _appVm.LoadingGamesSummary = "";
+                _appVm.ProviderScanStatuses.Clear();
                 ApplyFilters();
                 return;
             }
 
-            // Regular refresh logic - get recent games from providers IN PARALLEL
-            var providerTasks = _appVm.Providers.Select(async provider =>
+            // Regular refresh logic - run each provider sequentially for per-provider progress
+            var results = new List<Game[]>();
+            for (int i = 0; i < _appVm.Providers.Count; i++)
             {
+                var provider = _appVm.Providers[i];
                 ct.ThrowIfCancellationRequested();
-                Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
-                var providerGames = await provider.RefreshLibrary(ct);
-                Log.Information("Found {Count} games from {Provider}", providerGames.Length, provider.GetType().Name);
-                return providerGames;
-            });
 
-            var results = await Task.WhenAll(providerTasks);
+                var status = _appVm.ProviderScanStatuses[i];
+                status.Status = "Refreshing...";
+                status.Progress = 0.05; // visible but not full until the first game completes
+
+                // Progress<T> captures this (UI-thread) SynchronizationContext, so per-game
+                // reports from the provider's background workers marshal back here safely.
+                var reporter = new Progress<ScanProgress>(p =>
+                {
+                    status.Progress = p.Total > 0 ? (double)p.Current / p.Total : 0.05;
+                    status.Status = $"Refreshing... ({p.Current}/{p.Total})";
+                });
+
+                Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
+                var providerGames = await provider.RefreshLibrary(reporter, ct);
+
+                status.GameCount = providerGames.Length;
+                status.Status = providerGames.Length > 0
+                    ? $"Updated {providerGames.Length} games"
+                    : "No updates";
+                status.Progress = 1.0;
+
+                Log.Information("Found {Count} games from {Provider}", providerGames.Length, provider.GetType().Name);
+                results.Add(providerGames);
+            }
+
             ct.ThrowIfCancellationRequested();
 
             var games = results.SelectMany(g => g).ToList();
@@ -325,6 +385,9 @@ public partial class Library : Page
                 await FetchHltbDataAsync(gamesToFetch, ct);
             }
 
+            // Clear per-provider statuses after HLTB fetch completes
+            _appVm.ProviderScanStatuses.Clear();
+
             // Save and repopulate FilteredGames with all games from memory
             await _settingsVM.Save();
 
@@ -338,6 +401,7 @@ public partial class Library : Page
         {
             Log.Information("Refresh operation was cancelled");
             _appVm.LoadingGamesSummary = "Refresh cancelled";
+            _appVm.ProviderScanStatuses.Clear();
             // Still refresh with whatever games we have
             RefreshFiltered();
         }
