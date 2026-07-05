@@ -12,6 +12,57 @@ namespace Alua.Services.ViewModels;
 /// </summary>
 public partial class AppVM : ObservableRecipient
 {
+    /// <summary>
+    /// Tracks the scanning/refresh progress of a single provider.
+    /// </summary>
+    public sealed partial class ProviderScanStatus : ObservableObject
+    {
+        [ObservableProperty] private string _providerName = string.Empty;
+        [ObservableProperty] private int _gameCount;
+        [ObservableProperty] private string _status = string.Empty;
+        [ObservableProperty] private double _progress;
+
+        /// <summary>True when games have been found (GameCount > 0).</summary>
+        public bool HasGames => GameCount > 0;
+
+        /// <inheritdoc/>
+        public new void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+        {
+            base.OnPropertyChanged(propertyName!);
+            // Also notify HasGames when GameCount changes so the UI updates
+            if (propertyName == nameof(GameCount))
+            {
+                OnPropertyChanged(nameof(HasGames));
+            }
+        }
+
+        /// <summary>
+        /// Derives a human-readable provider name from the provider type.
+        /// </summary>
+        private static string GetDisplayName(Type providerType)
+        {
+            return providerType.Name switch
+            {
+                "SteamService" => "Steam",
+                "PSNService" => "PlayStation",
+                "XboxService" => "Xbox",
+                "RetroAchievementsService" => "RetroAchievements",
+                _ => providerType.Name.Replace("Service", "")
+            };
+        }
+
+        /// <summary>Creates a new status item for the given provider.</summary>
+        public static ProviderScanStatus Create(IAchievementProvider provider)
+        {
+            var status = new ProviderScanStatus
+            {
+                ProviderName = GetDisplayName(provider.GetType()),
+                Status = "Scanning..."
+            };
+            return status;
+        }
+    }
+
     private readonly object _providersLock = new();
     private readonly SettingsVM _settingsVM;
 
@@ -26,6 +77,10 @@ public partial class AppVM : ObservableRecipient
 
     [ObservableProperty]
     private bool _isScanningOrRefreshing;
+
+    /// <summary>Per-provider scan/refresh status items bound in the loading overlay.</summary>
+    [ObservableProperty]
+    private ObservableCollection<ProviderScanStatus> _providerScanStatuses = new();
 
     [ObservableProperty]
     private bool _initialLoadCompleted;

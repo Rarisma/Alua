@@ -8,6 +8,7 @@
       xmlns:utu="using:Uno.Toolkit.UI"
       Loaded="OnLoaded"
       xmlns:controls="clr-namespace:Alua.UI.Controls"
+      xmlns:vm="clr-namespace:Alua.Services.ViewModels"
       Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
     <Page.Resources>
@@ -177,12 +178,50 @@
                 <utu:LoadableSource Source="{x:Bind ScanCommand}" />
             </utu:CompositeLoadableSource>
         </utu:LoadingView.Source>
-        <!-- Show loading spinner when refreshing or scanning new libraries -->
+        <!-- Show loading overlay with per-provider progress bars -->
         <utu:LoadingView.LoadingContent>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12">
-                <ProgressRing IsActive="True" Width="48" Height="48"/>
-                <TextBlock Text="Updating games..." HorizontalAlignment="Center"/>
-                <TextBlock Text="{x:Bind _appVm.LoadingGamesSummary, Mode=OneWay}" HorizontalAlignment="Center"/>
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="12" MaxWidth="400">
+                <TextBlock Text="Updating games..." HorizontalAlignment="Center" Style="{ThemeResource SubtitleTextBlockStyle}"/>
+                
+                <!-- Per-provider progress list -->
+                <ItemsRepeater ItemsSource="{x:Bind _appVm.ProviderScanStatuses, Mode=OneWay}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Orientation="Vertical" Spacing="4"/>
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AppVM+ProviderScanStatus">
+                            <StackPanel Spacing="2">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <TextBlock Text="{x:Bind ProviderName}"
+                                               Style="{ThemeResource BodyTextBlockStyle}"
+                                               FontWeight="SemiBold"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{x:Bind Status}"
+                                               Style="{ThemeResource CaptionTextBlockStyle}"
+                                               HorizontalAlignment="Right"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                                </Grid>
+                                <ProgressBar Minimum="0" Maximum="1"
+                                             Value="{x:Bind Progress}"
+                                             Height="4"
+                                             CornerRadius="2"/>
+                                <TextBlock Style="{ThemeResource CaptionTextBlockStyle}"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Visibility="{x:Bind HasGames, Converter={StaticResource BoolToVisibility}}">
+                                    <Run Text="{x:Bind GameCount}"/>
+                                    <Run Text=" games"/>
+                                </TextBlock>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+                
+                <!-- Additional summary text (e.g. HLTB fetch) -->
+                <TextBlock Text="{x:Bind _appVm.LoadingGamesSummary, Mode=OneWay}"
+                           HorizontalAlignment="Center"
+                           Style="{ThemeResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
+                
                 <!-- Cancel button shown during operations -->
                 <Button Content="Cancel"
                         Command="{x:Bind CancelCommand}"
