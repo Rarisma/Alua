@@ -70,6 +70,8 @@ public class Achievement
     /// </summary>
     [JsonIgnore]
     public bool IsRA { get; set; }
+    [JsonIgnore]
+    public bool IsPSN { get; set; }
 
     /// <summary>True when this achievement marks a story/progression milestone.</summary>
     [JsonIgnore]

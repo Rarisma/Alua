@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+using System.Resources;
 using Alua.Helpers;
 using Alua.Services.Providers;
 using Alua.Services.ViewModels;
@@ -39,7 +41,10 @@ public sealed partial class GamePage : Page
         _currentEdition = AppVM.SelectedGame;
         _refreshTimer = new Timer(60000);
         _refreshTimer.AutoReset = true;
-        _refreshTimer.Elapsed += async (s, e) => await Refresh();
+        // Elapsed fires on a thread-pool thread; marshal onto the UI thread so Refresh's model and
+        // UI mutations (SelectedGame PropertyChanged, the achievements ReplaceAll) run with thread
+        // affinity — matching the button and pull-to-refresh paths, which already start on the UI thread.
+        _refreshTimer.Elapsed += (_, _) => DispatcherQueue.TryEnqueue(async () => await Refresh());
         _refreshTimer.Start();
         Unloaded += (_, _) => _refreshTimer.Dispose();
         
@@ -81,7 +86,10 @@ public sealed partial class GamePage : Page
         RefreshFiltered();
     }
 
-    private async void RefreshFiltered()
+    // Fire-and-forget entry point for the synchronous callers (constructor, filter/tab handlers).
+    private async void RefreshFiltered() => await RefreshFilteredAsync();
+
+    private async Task RefreshFilteredAsync()
     {
         var achievements = CurrentEdition?.Achievements ?? new();
         var showUnlocked = _showUnlocked;
@@ -102,7 +110,11 @@ public sealed partial class GamePage : Page
                 .Where(a => !missableOnly || a.IsMissable)
                 .ToList();
             foreach (var a in list)
+            {
                 a.IsRA = isRetro;
+                a.IsPSN = CurrentEdition?.Platform == Platforms.PlayStation;
+            }
+
             return list;
         });
 
@@ -153,11 +165,14 @@ public sealed partial class GamePage : Page
                 // new data, without collapsing the merge (SelectedGame stays the representative,
                 // keeping its Editions list and group display name). Re-grouping on the next
                 // library refresh reconciles everything from the persisted dictionary.
-                var editions = AppVM.SelectedGame.Editions;
-                var idx = editions.FindIndex(e => e.Identifier == game.Identifier);
+                ObservableCollection<Game> editions = AppVM.SelectedGame.Editions;
+                var idx = -1;                                                                                                           
+                for (var i = 0; i < editions.Count; i++)                                                                                
+                    if (editions[i].Identifier == game.Identifier) { idx = i; break; }
                 if (idx >= 0)
                     editions[idx] = game;
                 _currentEdition = game;
+                EditionTabs.SelectedIndex = idx;
             }
             else
             {
@@ -165,12 +180,14 @@ public sealed partial class GamePage : Page
                 _currentEdition = game;
             }
 
+            // Refresh always runs on the UI thread (button, pull-to-refresh, and the timer which
+            // marshals via DispatcherQueue), so the binding refresh and list rebuild are thread-safe.
             // Force x:Bind compiled bindings rooted at this page (CurrentEdition.*) to pick up the
             // new edition reference. Bindings.Update() also covers any OneTime bindings that remain.
-            DispatcherQueue.TryEnqueue(() => Bindings.Update());
+            Bindings.Update();
+            await RefreshFilteredAsync();
 
             await SettingsVM.Save();
-            RefreshFiltered();
         }
         catch (Exception ex)
         {
