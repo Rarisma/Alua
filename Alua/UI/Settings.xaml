@@ -314,7 +314,7 @@
                     <ItemsControl x:Name="PreviewItems"
                                   ItemsSource="{x:Bind PreviewGames}"
                                   ItemTemplate="{StaticResource PreviewCardTemplate}"
-                                  HorizontalAlignment="Left" MaxWidth="360"
+                                  HorizontalAlignment="Stretch"
                                   Visibility="{x:Bind HasPreviewGames, Converter={StaticResource BoolToVisibility}}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

@@ -218,6 +218,9 @@ public partial class Library : Page
             _appVm.LoadingGamesSummary = "Finishing HowLongToBeat lookups...";
             await Task.WhenAll(pendingHltbFetches);
 
+            // Clear per-provider statuses after HLTB fetch completes
+            _appVm.ProviderScanStatuses.Clear();
+
             // Save scan results
             await _settingsVM.Save();
             Log.Information("loaded {0} games, {1} achievements",
@@ -233,6 +236,7 @@ public partial class Library : Page
         {
             Log.Information("Scan operation was cancelled");
             _appVm.LoadingGamesSummary = "Scan cancelled";
+            _appVm.ProviderScanStatuses.Clear();
             // Restore the previous game list so no data is lost on cancel
             _settingsVM.Games = previousGames;
             RefreshFiltered();
@@ -241,6 +245,7 @@ public partial class Library : Page
         {
             Log.Error(ex, "Scan failed");
             _appVm.LoadingGamesSummary = "Scan failed";
+            _appVm.ProviderScanStatuses.Clear();
             // Restore the previous game list so no data is lost on error
             _settingsVM.Games = previousGames;
             RefreshFiltered();
@@ -319,6 +324,9 @@ public partial class Library : Page
             }
             await Task.WhenAll(pendingHltbFetches);
 
+            // Clear per-provider statuses after HLTB fetch completes
+            _appVm.ProviderScanStatuses.Clear();
+
             // Save and repopulate FilteredGames with all games from memory
             await _settingsVM.Save();
 
@@ -332,6 +340,7 @@ public partial class Library : Page
         {
             Log.Information("Refresh operation was cancelled");
             _appVm.LoadingGamesSummary = "Refresh cancelled";
+            _appVm.ProviderScanStatuses.Clear();
             // Still refresh with whatever games we have
             RefreshFiltered();
         }
