@@ -46,7 +46,7 @@ public partial class SettingsVM  : ObservableObject
     /// Generally a reference to a song.
     /// </summary>
     [JsonIgnore]
-    public string BuildString = "Robot Voices";
+    public string BuildString = "Ball So Hard";
 
     /// <summary>
     /// Minimum settings-file version. Below this, MigrateSettings runs to bring the file forward.
