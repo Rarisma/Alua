@@ -12,6 +12,24 @@ namespace Alua.Services.ViewModels;
 /// </summary>
 public partial class AppVM : ObservableRecipient
 {
+    /// <summary>
+    /// Tracks the scanning/refresh progress of a single provider.
+    /// </summary>
+    public sealed partial class ProviderScanStatus : ObservableObject
+    {
+        [ObservableProperty] private string _providerName = string.Empty;
+        [ObservableProperty] [NotifyPropertyChangedFor(nameof(HasGames))] private int _gameCount;
+        [ObservableProperty] private string _status = string.Empty;
+        [ObservableProperty] private double _progress;
+
+        /// <summary>True when games have been found (GameCount > 0).</summary>
+        public bool HasGames => GameCount > 0;
+
+        /// <summary>Creates a new status item for the given provider.</summary>
+        public static ProviderScanStatus Create(IAchievementProvider provider) =>
+            new() { ProviderName = provider.Platform.ToString() };
+    }
+
     private readonly object _providersLock = new();
     private readonly SettingsVM _settingsVM;
 
@@ -26,6 +44,9 @@ public partial class AppVM : ObservableRecipient
 
     [ObservableProperty]
     private bool _isScanningOrRefreshing;
+
+    /// <summary>Per-provider scan/refresh status items bound in the loading overlay.</summary>
+    public ObservableCollection<ProviderScanStatus> ProviderScanStatuses { get; } = new();
 
     [ObservableProperty]
     private bool _initialLoadCompleted;

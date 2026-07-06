@@ -27,3 +27,14 @@ public enum MergedCompletionMode
     /// Aggregate completion across all editions in the group.
     Aggregate
 }
+
+/// <summary>How duplicate / re-released editions of a game are shown on the library grid.</summary>
+public enum EditionDisplayMode
+{
+    /// <summary>Every edition is its own card. RA subsets still attach to their parent.</summary>
+    DontMerge,
+    /// <summary>Editions collapse into one card; the most-progressed edition is primary.</summary>
+    Merge,
+    /// <summary>Editions collapse into one card; the highest-priority platform is primary.</summary>
+    PriorityOnly
+}

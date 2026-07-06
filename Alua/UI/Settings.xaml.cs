@@ -13,6 +13,7 @@ namespace Alua.UI;
 public sealed partial class Settings : Page, INotifyPropertyChanged
 {
     private SettingsVM _settingsVM = Ioc.Default.GetRequiredService<SettingsVM>();
+    private readonly AggregateStatisticsService _statsService = Ioc.Default.GetRequiredService<AggregateStatisticsService>();
     private MicrosoftAuthService _msAuthService;
     private PSNAuthService _psnAuthService;
     private bool _isXboxAuthenticated;
@@ -96,8 +97,58 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         // Check PSN connection state
         IsPsnConnected = !string.IsNullOrWhiteSpace(_settingsVM.PsnSSO);
 
+        _statsService.PropertyChanged += StatsServiceOnPropertyChanged;
+        Unloaded += (_, _) => _statsService.PropertyChanged -= StatsServiceOnPropertyChanged;
+
         // Defer async auth restore to Loaded so it runs on the UI thread
         Loaded += OnLoaded;
+    }
+
+    private void StatsServiceOnPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OverallMetricRows)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PlatformMetricSections)));
+    }
+
+    private sealed record MetricRow(string Label, string Value);
+
+    private sealed record PlatformMetricSection(string PlatformName, IReadOnlyList<MetricRow> Rows);
+
+    private IReadOnlyList<MetricRow> OverallMetricRows => BuildRows(_statsService.Overall);
+
+    private IReadOnlyList<PlatformMetricSection> PlatformMetricSections =>
+        _statsService.PerProvider
+            .OrderBy(kv => kv.Key)
+            .Select(kv => new PlatformMetricSection(kv.Key.ToString(), BuildRows(kv.Value)))
+            .ToList();
+
+    private static IReadOnlyList<MetricRow> BuildRows(LibraryMetrics m) =>
+    [
+        new("Games", m.TotalGames.ToString()),
+        new("With achievements", m.GamesWithAchievements.ToString()),
+        new("Started", m.GamesStarted.ToString()),
+        new("Unstarted", m.GamesUnstarted.ToString()),
+        new("Perfect games", m.PerfectGames.ToString()),
+        new("Achievements unlocked", $"{m.UnlockedAchievements} / {m.TotalAchievements}"),
+        new("Completion", $"{m.PercentComplete}%"),
+        new("Average per-game completion", $"{m.AverageGameCompletionPercent:0.#}%"),
+        new("Total playtime", FormatMinutes(m.TotalPlaytimeMinutes)),
+        new("Most played", m.MostPlayedGameMinutes > 0
+            ? $"{m.MostPlayedGameName} ({FormatMinutes(m.MostPlayedGameMinutes)})"
+            : "—"),
+        new("Most recent unlock", m.MostRecentUnlockDate is { } d
+            ? $"{m.MostRecentUnlockGameName} ({d:d})"
+            : "—"),
+        new("Unlocks (last 7 days)", m.UnlocksLast7Days.ToString()),
+        new("Unlocks (last 30 days)", m.UnlocksLast30Days.ToString()),
+    ];
+
+    private static string FormatMinutes(int minutes)
+    {
+        if (minutes <= 0) return "0h";
+        int hours = minutes / 60;
+        int mins = minutes % 60;
+        return mins == 0 ? $"{hours}h" : $"{hours}h {mins}m";
     }
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
@@ -174,6 +225,7 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
         ProgressStyleCombo.SelectedIndex = (int)_settingsVM.CardProgressStyle;
         TextAlignmentCombo.SelectedIndex = (int)_settingsVM.CardTextAlignment;
         MergedModeCombo.SelectedIndex = (int)_settingsVM.MergedCompletionMode;
+        EditionModeCombo.SelectedIndex = (int)_settingsVM.EditionDisplayMode;
         UpdatePreviewTemplate();
     }
 
@@ -210,7 +262,35 @@ public sealed partial class Settings : Page, INotifyPropertyChanged
             await _settingsVM.Save();
         }
     }
-    
+
+    private async void EditionDisplayModeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox { SelectedIndex: >= 0 } cb)
+        {
+            _settingsVM.EditionDisplayMode = (EditionDisplayMode)cb.SelectedIndex;
+            await _settingsVM.Save();
+        }
+    }
+
+    private async void PriorityUp_Click(object sender, RoutedEventArgs e) => await MovePriority(sender, -1);
+
+    private async void PriorityDown_Click(object sender, RoutedEventArgs e) => await MovePriority(sender, 1);
+
+    private async Task MovePriority(object sender, int delta)
+    {
+        if (sender is not FrameworkElement { Tag: Platforms platform })
+            return;
+
+        var list = _settingsVM.PlatformPriority;
+        int index = list.IndexOf(platform);
+        int newIndex = index + delta;
+        if (index < 0 || newIndex < 0 || newIndex >= list.Count)
+            return;
+
+        list.Move(index, newIndex);
+        await _settingsVM.Save(force: true); // ObservableCollection.Move doesn't flip _hasUnsavedChanges
+    }
+
     private async Task AuthenticateXbox()
     {
         try

@@ -38,7 +38,7 @@
     <Compile Include="..\Alua\Models\AchievementFlags.cs" Link="Linked\AchievementFlags.cs" />
     <Compile Include="..\Alua\Models\Platforms.cs" Link="Linked\Platforms.cs" />
     <Compile Include="..\Alua\Services\GameGrouping.cs" Link="Linked\GameGrouping.cs" />
-    <Compile Include="..\Alua\Services\LibraryStats.cs" Link="Linked\LibraryStats.cs" />
+    <Compile Include="..\Alua\Services\LibraryMetrics.cs" Link="Linked\LibraryMetrics.cs" />
     <Compile Include="..\Alua\Services\ViewModels\OrderBy.cs" Link="Linked\OrderBy.cs" />
     <Compile Include="..\Alua\Services\ViewModels\AppearanceSettings.cs" Link="Linked\AppearanceSettings.cs" />
     <Compile Include="..\Alua\Services\ViewModels\LibraryVM.cs" Link="Linked\LibraryVM.cs" />

@@ -19,9 +19,10 @@ public sealed record FilterArgs(
     bool RAFilter,
     bool PSNFilter,
     bool XBFilter,
-    bool MergeEditions,
+    EditionDisplayMode EditionDisplayMode,
     bool ShowOnlyMerged,
-    MergedCompletionMode MergedCompletionMode = MergedCompletionMode.Best);
+    MergedCompletionMode MergedCompletionMode = MergedCompletionMode.Best,
+    IReadOnlyList<Platforms>? PlatformPriority = null);
 
 /// <summary>
 /// ViewModel that owns per-platform filter toggles and the pure filter/sort logic
@@ -50,14 +51,9 @@ public partial class LibraryVM : ObservableObject
     [ObservableProperty] private bool _XBFilter = true;
 
     /// <summary>
-    /// Whether duplicate / edition / subset games are collapsed into one card with per-edition tabs.
-    /// </summary>
-    [ObservableProperty] private bool _mergeEditions = true;
-
-    /// <summary>
     /// Debug filter: show only games that merged into multiple editions / subsets. Transient
-    /// (not persisted) — resets on restart. Forces grouping even when <see cref="MergeEditions"/>
-    /// is off, so it surfaces what would merge.
+    /// (not persisted) — resets on restart. Forces Merge-mode grouping regardless of the user's
+    /// selected edition display mode, so it surfaces what would merge.
     /// </summary>
     [ObservableProperty] private bool _showOnlyMerged;
 
@@ -80,17 +76,12 @@ public partial class LibraryVM : ObservableObject
             _                           => true
         };
 
-        // Collapse duplicate / edition / subset games into one representative per group first;
-        // every subsequent filter and sort then operates on the (primary) representative's stats.
-        // The platform filter is applied at the *edition* level: a disabled platform's editions are
-        // excluded before the representative is chosen, so disabling a platform truly hides its data
-        // even on a merged card (and a group left with no enabled editions disappears). When grouping
-        // is off it applies per game. The debug "show only merged" filter forces grouping even when
-        // merging is off, so it can surface which games would merge.
-        bool group = args.MergeEditions || args.ShowOnlyMerged;
-        IReadOnlyCollection<Game> source = group
-            ? GameGrouping.Group(games, g => Allowed(g.Platform), args.MergedCompletionMode)
-            : games.Where(g => Allowed(g.Platform)).ToList();
+        // Grouping always runs now — subset attachment must happen in every mode. The debug
+        // "show only merged" toggle forces Merge-mode grouping regardless of the user's selected
+        // mode, so it can surface which games would merge under Merge.
+        var effectiveMode = args.ShowOnlyMerged ? EditionDisplayMode.Merge : args.EditionDisplayMode;
+        IReadOnlyCollection<Game> source = GameGrouping.Group(
+            games, g => Allowed(g.Platform), effectiveMode, args.MergedCompletionMode, args.PlatformPriority);
 
         IEnumerable<Game> list = source;
 

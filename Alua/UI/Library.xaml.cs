@@ -178,6 +178,7 @@ public partial class Library : Page
         var ct = _operationCts.Token;
 
         _appVm.IsScanningOrRefreshing = true;
+        _appVm.LoadingGamesSummary = string.Empty; // clear a previous run's outcome text
 
         // Snapshot current games so we can restore on failure/cancellation
         var previousGames = _settingsVM.Games;
@@ -187,20 +188,14 @@ public partial class Library : Page
             var hltbService = Ioc.Default.GetRequiredService<HowLongToBeatService>();
             var (onGameReady, pendingHltbFetches) = CreateHltbGameReadyCallback(hltbService, ct);
 
-            // Run all providers in parallel for faster scanning. Each provider invokes
-            // onGameReady as soon as one of its games finishes scanning, so HLTB lookups start
-            // immediately and overlap with the rest of the scan instead of running as a
-            // separate pass afterward.
-            var providerTasks = _appVm.Providers.Select(async provider =>
-            {
-                ct.ThrowIfCancellationRequested();
-                Log.Information("Scanning for games from {Provider}", provider.GetType().Name);
-                var games = await provider.GetLibrary(ct, onGameReady);
-                Log.Information("Found {Count} games from {Provider}", games.Length, provider.GetType().Name);
-                return games;
-            });
+            // Run all providers in parallel, each filling its own overlay row. Each provider
+            // invokes onGameReady as soon as one of its games finishes scanning, so HLTB
+            // lookups start immediately and overlap with the rest of the scan instead of
+            // running as a separate pass afterward.
+            var results = await RunProvidersAsync("Scanning",
+                n => n > 0 ? $"Found {n} games" : "No games found",
+                (provider, reporter) => provider.GetLibrary(reporter, ct, onGameReady), ct);
 
-            var results = await Task.WhenAll(providerTasks);
             ct.ThrowIfCancellationRequested();
 
             // Stage all results into a fresh dictionary before committing
@@ -269,11 +264,13 @@ public partial class Library : Page
         var ct = _operationCts.Token;
 
         _appVm.IsScanningOrRefreshing = true;
+        _appVm.LoadingGamesSummary = string.Empty; // clear a previous run's outcome text
+        // Clear stale rows so the memory-load branch below doesn't flash them;
+        // RunProvidersAsync seeds fresh rows for the provider path.
+        _appVm.ProviderScanStatuses.Clear();
 
         try
         {
-            _appVm.LoadingGamesSummary = "Preparing to refresh games...";
-
             // If this is the initial load and we have games in memory, load from memory instead of providers
             if (!_appVm.InitialLoadCompleted && _settingsVM.Games.Count > 0)
             {
@@ -293,19 +290,14 @@ public partial class Library : Page
             var hltbService = Ioc.Default.GetRequiredService<HowLongToBeatService>();
             var (onGameReady, pendingHltbFetches) = CreateHltbGameReadyCallback(hltbService, ct);
 
-            // Regular refresh logic - get recent games from providers IN PARALLEL. Each provider
-            // invokes onGameReady as soon as one of its games finishes scanning, so HLTB lookups
-            // start immediately and overlap with the rest of the refresh.
-            var providerTasks = _appVm.Providers.Select(async provider =>
-            {
-                ct.ThrowIfCancellationRequested();
-                Log.Information("Getting recent games from {Provider}", provider.GetType().Name);
-                var providerGames = await provider.RefreshLibrary(ct, onGameReady);
-                Log.Information("Found {Count} games from {Provider}", providerGames.Length, provider.GetType().Name);
-                return providerGames;
-            });
+            // Regular refresh logic - run all providers in parallel, each filling its own
+            // overlay row. Each provider invokes onGameReady as soon as one of its games
+            // finishes scanning, so HLTB lookups start immediately and overlap with the rest
+            // of the refresh.
+            var results = await RunProvidersAsync("Refreshing",
+                n => n > 0 ? $"Updated {n} games" : "No updates",
+                (provider, reporter) => provider.RefreshLibrary(reporter, ct, onGameReady), ct);
 
-            var results = await Task.WhenAll(providerTasks);
             ct.ThrowIfCancellationRequested();
 
             var games = results.SelectMany(g => g).ToList();
@@ -343,12 +335,72 @@ public partial class Library : Page
             // Still refresh with whatever games we have
             RefreshFiltered();
         }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Refresh failed");
+            _appVm.LoadingGamesSummary = "Refresh failed";
+            // Still refresh with whatever games we have
+            RefreshFiltered();
+        }
         finally
         {
             _appVm.IsScanningOrRefreshing = false;
             // Reclaim the LOH fragmentation left by the scan/refresh allocation burst.
             CompactLargeObjectHeap();
         }
+    }
+
+    private const double SeedProgress = 0.05; // bar visible but not full until the first game completes
+
+    /// <summary>
+    /// Seeds one overlay status row per provider, then runs all providers in parallel, each
+    /// filling its own row as its games complete. Returns each provider's games.
+    /// </summary>
+    /// <remarks>
+    /// Rows are tracked through local references rather than by indexing the shared collection:
+    /// AppVM.Providers returns a fresh snapshot per access, and both it and ProviderScanStatuses
+    /// can be mutated mid-run (sign-ins, auth-failure removals, a cancelled predecessor still
+    /// winding down), so positional lookups can desynchronize.
+    /// </remarks>
+    private async Task<Game[][]> RunProvidersAsync(string verb, Func<int, string> completionText,
+        Func<IAchievementProvider, IProgress<ScanProgress>, Task<Game[]>> runProvider,
+        CancellationToken ct)
+    {
+        var providers = _appVm.Providers;
+        var statuses = providers.Select(AppVM.ProviderScanStatus.Create).ToList();
+
+        _appVm.ProviderScanStatuses.Clear();
+        foreach (var status in statuses)
+        {
+            status.Status = $"{verb}...";
+            status.Progress = SeedProgress;
+            _appVm.ProviderScanStatuses.Add(status);
+        }
+
+        var providerTasks = providers.Select(async (provider, i) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            var status = statuses[i];
+
+            // Progress<T> captures this (UI-thread) SynchronizationContext, so per-game
+            // reports from the provider's background workers marshal back here safely.
+            var reporter = new Progress<ScanProgress>(p =>
+            {
+                status.Progress = p.Total > 0 ? (double)p.Current / p.Total : SeedProgress;
+                status.Status = $"{verb}... ({p.Current}/{p.Total})";
+            });
+
+            Log.Information("{Verb} games from {Provider}", verb, provider.GetType().Name);
+            var games = await runProvider(provider, reporter);
+
+            status.GameCount = games.Length;
+            status.Status = completionText(games.Length);
+            status.Progress = 1.0;
+            Log.Information("Found {Count} games from {Provider}", games.Length, provider.GetType().Name);
+            return games;
+        }).ToList();
+
+        return await Task.WhenAll(providerTasks);
     }
 
     /// <summary>
@@ -431,12 +483,13 @@ public partial class Library : Page
             RAFilter:           LibraryVM.RAFilter,
             PSNFilter:          LibraryVM.PSNFilter,
             XBFilter:           LibraryVM.XBFilter,
-            // Merge editions is a persisted appearance setting (toggled on the Settings page), so read
-            // it straight from SettingsVM — same as MergedCompletionMode below. The debug "show only
-            // merged" toggle still lives on LibraryVM.
-            MergeEditions:      _settingsVM.MergeEditions,
+            // Edition display mode and platform priority are persisted appearance settings (set on
+            // the Settings page), so read them straight from SettingsVM — same as MergedCompletionMode
+            // below. The debug "show only merged" toggle still lives on LibraryVM.
+            EditionDisplayMode: _settingsVM.EditionDisplayMode,
             ShowOnlyMerged:     LibraryVM.ShowOnlyMerged,
-            MergedCompletionMode: _settingsVM.MergedCompletionMode);
+            MergedCompletionMode: _settingsVM.MergedCompletionMode,
+            PlatformPriority:   _settingsVM.PlatformPriority);
 
         var version = ++_filterVersion;
 

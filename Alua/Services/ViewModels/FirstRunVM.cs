@@ -13,7 +13,7 @@ public partial class FirstRunVM : ObservableObject
     private readonly PSNAuthService _psnAuthService;
 
     [ObservableProperty]
-    private string? _steamID;
+    private string? _steamID; 
 
     [ObservableProperty]
     private string? _retroAchievementsUser;
@@ -331,7 +331,7 @@ public partial class FirstRunVM : ObservableObject
     
     /// <summary>
     /// Resets error messages when a field is changed.
-    /// </summary>
+    /// </summary>yes
     private void ClearErrorOnChange()
     {
         if (HasError)

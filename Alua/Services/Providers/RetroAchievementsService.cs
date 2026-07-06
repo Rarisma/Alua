@@ -15,6 +15,8 @@ namespace Alua.Services.Providers;
 /// </summary>
 public class RetroAchievementsService : IAchievementProvider<RetroAchievementsService>
 {
+    public Platforms Platform => Platforms.RetroAchievements;
+
     /// <summary>
     /// RetroAchievements API client instance.
     /// </summary>
@@ -42,7 +44,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// Scan games that have been completed by the user on RetroAchievements.
     /// </summary>
     /// <returns>list of Alua game objects</returns>
-    public async Task<Game[]> GetLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
+    public async Task<Game[]> GetLibrary(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
         if (string.IsNullOrWhiteSpace(_username))
         {
@@ -53,7 +55,6 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
         {
             // Retrieve completed games using the legacy endpoint.
             var completedGames = await _apiClient.GetUserCompletionProgressAsync(_username, cancellationToken: cancellationToken);
-            var appVm = Ioc.Default.GetRequiredService<ViewModels.AppVM>();
 
             if (completedGames.Results.Count == 0)
                 return [];
@@ -82,7 +83,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                         LastPlayed = completed.MostRecentAwardedDate?.UtcDateTime
                     };
                 },
-                progressCallback: (current, total) => appVm.LoadingGamesSummary = $"Scanned RetroAchievements ({current}/{total})",
+                progressCallback: (current, total) => progress?.Report(new ScanProgress(current, total)),
                 onItemCompleted: onGameReady,
                 cancellationToken: cancellationToken
             );
@@ -103,9 +104,24 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
     /// (quicker than full library scan).
     /// </summary>
     /// <returns></returns>
-    public async Task<Game[]> RefreshLibrary(CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
+    public async Task<Game[]> RefreshLibrary(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default, Action<Game>? onGameReady = null)
     {
-        var response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5);
+        List<UserRecentlyPlayedGame> response;
+        try
+        {
+            response = await _apiClient.GetUserRecentlyPlayedGamesAsync(_username, 0, 5, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            // Match the other providers: a failed refresh logs and returns empty rather than
+            // throwing past the caller's per-provider loop.
+            Log.Error(ex, "Failed to fetch recently played RetroAchievements games");
+            return [];
+        }
 
         if (response.Count == 0)
             return [];
@@ -145,6 +161,7 @@ public class RetroAchievementsService : IAchievementProvider<RetroAchievementsSe
                     return null;
                 }
             },
+            progressCallback: (current, total) => progress?.Report(new ScanProgress(current, total)),
             onItemCompleted: onGameReady,
             cancellationToken: cancellationToken
         );

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -194,10 +195,28 @@ public partial class SettingsVM  : ObservableObject
     [ObservableProperty, JsonPropertyName("FilterShowXbox")]
     private bool _XBFilter = true;
 
-    // Collapse duplicate / edition / subset games into one card with per-edition tabs.
-    // Defaults to true so existing settings files without this key merge by default.
-    [ObservableProperty, JsonPropertyName("FilterMergeEditions")]
-    private bool _mergeEditions = true;
+    /// <summary>How duplicate / re-released editions are shown. Migrated from the legacy
+    /// FilterMergeEditions bool on load — see LoadAsync.</summary>
+    [ObservableProperty, JsonPropertyName("AppearanceEditionDisplayMode")]
+    [NotifyPropertyChangedFor(nameof(IsMergeMode)), NotifyPropertyChangedFor(nameof(IsPriorityMode))]
+    private EditionDisplayMode _editionDisplayMode = EditionDisplayMode.Merge;
+
+    /// <summary>Platform order used by <see cref="EditionDisplayMode.PriorityOnly"/>; index 0 is
+    /// shown first. Always exactly <see cref="SupportedPlatforms"/>, in some order — sanitized on
+    /// load (see SanitizePlatformPriority).</summary>
+    [ObservableProperty, JsonPropertyName("AppearancePlatformPriority")]
+    private ObservableCollection<Platforms> _platformPriority = new(SupportedPlatforms);
+
+    /// <summary>True when <see cref="MergedCompletionMode"/> has any effect (Merge mode only).</summary>
+    public bool IsMergeMode => EditionDisplayMode == EditionDisplayMode.Merge;
+
+    /// <summary>True when the platform priority list has any effect.</summary>
+    public bool IsPriorityMode => EditionDisplayMode == EditionDisplayMode.PriorityOnly;
+
+    /// <summary>The 4 platforms with a working provider, in default priority order. Mirrors the
+    /// per-platform filter toggles (FilterShowSteam etc.) just above.</summary>
+    private static readonly Platforms[] SupportedPlatforms =
+        { Platforms.Steam, Platforms.PlayStation, Platforms.Xbox, Platforms.RetroAchievements };
 
     // When true, a game owned on multiple platforms / re-released across editions counts once in
     // aggregate statistics (no double-counting of totals or "perfect games"). Defaults to true.
@@ -252,7 +271,8 @@ public partial class SettingsVM  : ObservableObject
     partial void OnRAFilterChanged(bool value) => _hasUnsavedChanges = true;
     partial void OnPSNFilterChanged(bool value) => _hasUnsavedChanges = true;
     partial void OnXBFilterChanged(bool value) => _hasUnsavedChanges = true;
-    partial void OnMergeEditionsChanged(bool value) => _hasUnsavedChanges = true;
+    partial void OnEditionDisplayModeChanged(EditionDisplayMode value) => _hasUnsavedChanges = true;
+    partial void OnPlatformPriorityChanged(ObservableCollection<Platforms> value) => _hasUnsavedChanges = true;
     partial void OnCountMultiPlatformOnceChanged(bool value) => _hasUnsavedChanges = true;
 
     /// <summary>
@@ -494,7 +514,8 @@ public partial class SettingsVM  : ObservableObject
             _RAFilter = _RAFilter,
             _PSNFilter = _PSNFilter,
             _XBFilter = _XBFilter,
-            _mergeEditions = _mergeEditions,
+            _editionDisplayMode = _editionDisplayMode,
+            _platformPriority = new ObservableCollection<Platforms>(_platformPriority),
             _countMultiPlatformOnce = _countMultiPlatformOnce,
             _pageSize = _pageSize
         };
@@ -550,7 +571,17 @@ public partial class SettingsVM  : ObservableObject
             RAFilter = imported.RAFilter;
             PSNFilter = imported.PSNFilter;
             XBFilter = imported.XBFilter;
-            MergeEditions = imported.MergeEditions;
+            if (imported.EditionDisplayMode == EditionDisplayMode.Merge
+                && imported.LegacyExtras != null
+                && imported.LegacyExtras.TryGetValue("FilterMergeEditions", out var legacyMerge))
+            {
+                imported.EditionDisplayMode = legacyMerge.ValueKind == System.Text.Json.JsonValueKind.True
+                    ? EditionDisplayMode.Merge
+                    : EditionDisplayMode.DontMerge;
+            }
+            EditionDisplayMode = imported.EditionDisplayMode;
+            PlatformPriority = new ObservableCollection<Platforms>(imported.PlatformPriority);
+            SanitizePlatformPriority();
             PageSize = imported.PageSize;
             _hasUnsavedChanges = true;
         }
@@ -693,6 +724,27 @@ public partial class SettingsVM  : ObservableObject
         }
     }
 
+    /// <summary>
+    /// De-duplicates and completes <see cref="PlatformPriority"/> so it always holds exactly the
+    /// 4 supported platforms, in some order — covers settings files that predate this feature (no
+    /// key at all) and any future platform added to <see cref="SupportedPlatforms"/>.
+    /// </summary>
+    private void SanitizePlatformPriority()
+    {
+        var seen = new HashSet<Platforms>();
+        var sanitized = new List<Platforms>();
+        foreach (var p in PlatformPriority)
+            if (SupportedPlatforms.Contains(p) && seen.Add(p)) sanitized.Add(p);
+        foreach (var p in SupportedPlatforms)
+            if (seen.Add(p)) sanitized.Add(p);
+
+        if (!sanitized.SequenceEqual(PlatformPriority))
+        {
+            PlatformPriority = new ObservableCollection<Platforms>(sanitized);
+            _hasUnsavedChanges = true;
+        }
+    }
+
     ///<summary>
     /// Reads settings from disk using stream-based deserialization to reduce memory usage.
     /// </summary>
@@ -731,6 +783,18 @@ public partial class SettingsVM  : ObservableObject
                     Model.LegacyExtras.Remove("FilterFillBackgroundProgress");
                 }
 
+                // Migrate the legacy edition-merge bool to the new 3-way display mode. The old
+                // "FilterMergeEditions" key lands in LegacyExtras now that the bool property is gone.
+                if (Model.EditionDisplayMode == EditionDisplayMode.Merge
+                    && Model.LegacyExtras != null
+                    && Model.LegacyExtras.TryGetValue("FilterMergeEditions", out var legacyMerge))
+                {
+                    Model.EditionDisplayMode = legacyMerge.ValueKind == System.Text.Json.JsonValueKind.True
+                        ? EditionDisplayMode.Merge
+                        : EditionDisplayMode.DontMerge;
+                    Model.LegacyExtras.Remove("FilterMergeEditions");
+                }
+
                 if (MinimumVersion > Model.Version)
                 {
                     Log.Information("Migrating settings from {OldVersion} to {NewVersion}", Model.Version, MinimumVersion);
@@ -743,6 +807,8 @@ public partial class SettingsVM  : ObservableObject
                 // Re-key any legacy bare identifiers (e.g. pre-prefix PlayStation games) so a
                 // later refresh doesn't create duplicate library entries under the new prefixed key.
                 Model.NormalizeGameIdentifiers();
+
+                Model.SanitizePlatformPriority();
 
                 return Model;
             }

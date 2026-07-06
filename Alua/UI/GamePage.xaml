@@ -84,22 +84,64 @@
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
+        <!-- Responsive layout: phones (and any narrow window) get a stacked header and
+             vertically-stacked filters so nothing is squeezed or clipped off-screen.
+             The 640dp breakpoint also drives desktop windows resized narrow. -->
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="640"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="AppIconBorder.Width" Value="200"/>
+                        <Setter Target="AppIconBorder.Height" Value="100"/>
+                        <Setter Target="HeaderContent.(Grid.Row)" Value="0"/>
+                        <Setter Target="HeaderContent.(Grid.Column)" Value="1"/>
+                        <Setter Target="HeaderContent.(Grid.ColumnSpan)" Value="1"/>
+                        <Setter Target="HeaderContent.Margin" Value="0"/>
+                        <Setter Target="FiltersPanel.Orientation" Value="Horizontal"/>
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="NarrowLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0"/>
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="AppIconBorder.Width" Value="120"/>
+                        <Setter Target="AppIconBorder.Height" Value="72"/>
+                        <Setter Target="HeaderContent.(Grid.Row)" Value="1"/>
+                        <Setter Target="HeaderContent.(Grid.Column)" Value="0"/>
+                        <Setter Target="HeaderContent.(Grid.ColumnSpan)" Value="2"/>
+                        <Setter Target="HeaderContent.Margin" Value="0,10,0,0"/>
+                        <Setter Target="FiltersPanel.Orientation" Value="Vertical"/>
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
         <!-- Header Section -->
-        <Grid Grid.Row="0">
+        <Grid Grid.Row="0" x:Name="HeaderGrid">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
             </Grid.ColumnDefinitions>
+            <!-- Second row is only used by the narrow (phone) layout, where HeaderContent
+                 reflows beneath the icon instead of sitting beside it. -->
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
             <!-- App Icon -->
-            <Border Grid.Column="0" Width="200" Height="100" Margin="10"
+            <Border x:Name="AppIconBorder" Grid.Column="0" Grid.Row="0" Width="200" Height="100" Margin="10"
                     CornerRadius="16"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
                 <controls1:CachedImage UriSource="{x:Bind CurrentEdition.IconUri, Mode=OneWay}"
                                        DecodePixelWidth="64" DecodePixelHeight="64" Stretch="Uniform"/>
             </Border>
 
-            <Grid Grid.Column="1" VerticalAlignment="Center">
+            <Grid x:Name="HeaderContent" Grid.Column="1" Grid.Row="0" VerticalAlignment="Center">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -199,7 +241,7 @@
         </ListView>
 
         <!-- Filters -->
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
+        <StackPanel x:Name="FiltersPanel" Grid.Row="2" Orientation="Horizontal" Spacing="10" Margin="0,10,0,0">
             <CheckBox x:Name="CheckShowUnlocked" Content="Show Unlocked" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
             <CheckBox x:Name="CheckShowLocked" Content="Show Locked" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>
             <CheckBox x:Name="CheckHideHidden" Content="Hide Secret Achievements" IsChecked="True" Checked="Filter_Changed" Unchecked="Filter_Changed"/>

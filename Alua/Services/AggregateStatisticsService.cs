@@ -14,16 +14,12 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
 {
     private readonly SettingsVM _settingsVm;
 
-    // Guards _isDirty and all _cached* fields against concurrent reads during a refresh.
+    // Guards _isDirty and all cached fields against concurrent reads during a refresh.
     private readonly object _cacheLock = new();
     private bool _isDirty = true;
 
-    // Cached values
-    private int _cachedTotalGames;
-    private int _cachedUnlockedCount;
-    private int _cachedTotalAchievements;
-    private int _cachedPerfectGames;
-    private int _cachedPercentComplete;
+    private LibraryMetrics _cachedOverall;
+    private Dictionary<Platforms, LibraryMetrics> _cachedPerProvider = new();
 
     public AggregateStatisticsService()
     {
@@ -31,73 +27,40 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
         _settingsVm.PropertyChanged += OnSettingsPropertyChanged;
     }
 
-    /// <summary>
-    /// Total number of games in the library.
-    /// </summary>
-    public int TotalGames
+    /// <summary>Overall library metrics (deduped per <see cref="SettingsVM.CountMultiPlatformOnce"/>).</summary>
+    public LibraryMetrics Overall
     {
-        get
-        {
-            lock (_cacheLock) { EnsureCalculated(); return _cachedTotalGames; }
-        }
+        get { lock (_cacheLock) { EnsureCalculated(); return _cachedOverall; } }
     }
 
-    /// <summary>
-    /// Total number of unlocked achievements across all games.
-    /// </summary>
-    public int UnlockedCount
+    /// <summary>Per-platform metrics. Only platforms with at least one game are present.</summary>
+    public IReadOnlyDictionary<Platforms, LibraryMetrics> PerProvider
     {
-        get
-        {
-            lock (_cacheLock) { EnsureCalculated(); return _cachedUnlockedCount; }
-        }
+        get { lock (_cacheLock) { EnsureCalculated(); return _cachedPerProvider; } }
     }
 
-    /// <summary>
-    /// Total number of achievements across all games.
-    /// </summary>
-    public int TotalAchievements
-    {
-        get
-        {
-            lock (_cacheLock) { EnsureCalculated(); return _cachedTotalAchievements; }
-        }
-    }
+    /// <summary>Total number of games in the library.</summary>
+    public int TotalGames { get { lock (_cacheLock) { EnsureCalculated(); return _cachedOverall.TotalGames; } } }
 
-    /// <summary>
-    /// Number of games with 100% achievement completion.
-    /// </summary>
-    public int PerfectGames
-    {
-        get
-        {
-            lock (_cacheLock) { EnsureCalculated(); return _cachedPerfectGames; }
-        }
-    }
+    /// <summary>Total number of unlocked achievements across all games.</summary>
+    public int UnlockedCount { get { lock (_cacheLock) { EnsureCalculated(); return _cachedOverall.UnlockedAchievements; } } }
 
-    /// <summary>
-    /// Overall library completion percentage (0-100).
-    /// </summary>
-    public int PercentComplete
-    {
-        get
-        {
-            lock (_cacheLock) { EnsureCalculated(); return _cachedPercentComplete; }
-        }
-    }
+    /// <summary>Total number of achievements across all games.</summary>
+    public int TotalAchievements { get { lock (_cacheLock) { EnsureCalculated(); return _cachedOverall.TotalAchievements; } } }
 
-    /// <summary>
-    /// Forces recalculation of all statistics on next access.
-    /// </summary>
+    /// <summary>Number of games with 100% achievement completion.</summary>
+    public int PerfectGames { get { lock (_cacheLock) { EnsureCalculated(); return _cachedOverall.PerfectGames; } } }
+
+    /// <summary>Overall library completion percentage (0-100).</summary>
+    public int PercentComplete { get { lock (_cacheLock) { EnsureCalculated(); return _cachedOverall.PercentComplete; } } }
+
+    /// <summary>Forces recalculation of all statistics on next access.</summary>
     public void Invalidate()
     {
         lock (_cacheLock) { _isDirty = true; }
     }
 
-    /// <summary>
-    /// Recalculates all statistics and notifies property changes.
-    /// Call this after games have been updated to trigger UI refresh.
-    /// </summary>
+    /// <summary>Recalculates all statistics and notifies property changes.</summary>
     public void Refresh()
     {
         lock (_cacheLock)
@@ -106,6 +69,8 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
             EnsureCalculated();
         }
 
+        OnPropertyChanged(nameof(Overall));
+        OnPropertyChanged(nameof(PerProvider));
         OnPropertyChanged(nameof(TotalGames));
         OnPropertyChanged(nameof(UnlockedCount));
         OnPropertyChanged(nameof(TotalAchievements));
@@ -118,17 +83,16 @@ public sealed partial class AggregateStatisticsService : ObservableObject, IDisp
     {
         if (!_isDirty) return;
 
-        // When CountMultiPlatformOnce is on, a game owned on multiple platforms / re-released across
-        // editions counts once, so totals and "perfect games" aren't inflated for cross-platform users.
         IReadOnlyCollection<Game> source =
-            (IReadOnlyCollection<Game>?)_settingsVm.Games?.Values ?? System.Array.Empty<Game>();
-        var stats = LibraryStats.Compute(source, _settingsVm.CountMultiPlatformOnce);
+            (IReadOnlyCollection<Game>?)_settingsVm.Games?.Values ?? Array.Empty<Game>();
+        var now = DateTime.UtcNow;
 
-        _cachedTotalGames = stats.TotalGames;
-        _cachedUnlockedCount = stats.UnlockedCount;
-        _cachedTotalAchievements = stats.TotalAchievements;
-        _cachedPerfectGames = stats.PerfectGames;
-        _cachedPercentComplete = stats.PercentComplete;
+        _cachedOverall = LibraryMetrics.Compute(source, _settingsVm.CountMultiPlatformOnce, now);
+
+        var perProvider = new Dictionary<Platforms, LibraryMetrics>();
+        foreach (var platformGames in source.GroupBy(g => g.Platform))
+            perProvider[platformGames.Key] = LibraryMetrics.Compute(platformGames.ToList(), dedupe: true, now);
+        _cachedPerProvider = perProvider;
 
         _isDirty = false;
     }

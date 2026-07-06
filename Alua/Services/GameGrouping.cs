@@ -98,23 +98,37 @@ public static class GameGrouping
         return s;
     }
 
+    private static readonly IReadOnlyList<Platforms> DefaultPlatformPriority =
+        new[] { Platforms.Steam, Platforms.PlayStation, Platforms.Xbox, Platforms.RetroAchievements };
+
     /// <summary>
-    /// Groups <paramref name="games"/> into one representative per merged title. The returned
-    /// list contains the chosen primary of each group, with <see cref="Game.Editions"/> and
-    /// <see cref="Game.MergedDisplayName"/> populated on merged primaries.
+    /// Groups <paramref name="games"/> into one representative per card, per <paramref name="editionMode"/>.
     /// </summary>
     /// <param name="games">Snapshot of all games. The objects are mutated (display fields only).</param>
     /// <param name="include">
-    /// Optional per-edition filter (e.g. "platform is enabled"). When supplied, only matching
-    /// editions are considered when choosing a group's representative, building its edition list,
-    /// and its display name — so disabling a platform actually hides that platform's data even on a
-    /// merged card. A group with no matching editions drops out entirely. Parent resolution still
-    /// uses the full set, so a filtered-out parent can still key its visible children.
+    /// Optional per-edition filter (e.g. "platform is enabled"). A group with no matching editions
+    /// drops out entirely. Parent resolution still uses the full set, so a filtered-out parent can
+    /// still key its visible children.
+    /// </param>
+    /// <param name="editionMode">
+    /// <see cref="EditionDisplayMode.DontMerge"/>: every title-alike edition is its own card; RA
+    /// subsets still attach to their parent. <see cref="EditionDisplayMode.Merge"/>: title-alike
+    /// editions collapse into one card, primary = most progress, all editions shown as tabs.
+    /// <see cref="EditionDisplayMode.PriorityOnly"/>: same grouping as Merge, but primary = the
+    /// highest-<paramref name="platformPriority"/> platform (ties broken by progress); other
+    /// editions are dropped entirely (no tabs), though the shown edition's own RA subsets remain.
+    /// </param>
+    /// <param name="completionMode">Only consulted in <see cref="EditionDisplayMode.Merge"/>.</param>
+    /// <param name="platformPriority">
+    /// Only consulted in <see cref="EditionDisplayMode.PriorityOnly"/>; defaults to
+    /// Steam, PlayStation, Xbox, RetroAchievements when null.
     /// </param>
     public static List<Game> Group(
         IReadOnlyCollection<Game> games,
         Func<Game, bool>? include = null,
-        MergedCompletionMode mode = MergedCompletionMode.Best)
+        EditionDisplayMode editionMode = EditionDisplayMode.Merge,
+        MergedCompletionMode completionMode = MergedCompletionMode.Best,
+        IReadOnlyList<Platforms>? platformPriority = null)
     {
         // Reset display state from any prior pass so stale merges never linger. Assign a fresh
         // list rather than clearing in place: an already-open game page may still hold a reference
@@ -127,15 +141,15 @@ public static class GameGrouping
             g.DisplayTotal = null;
         }
 
-        // Index by identifier so a child (RA subset) can resolve to its parent. Identifiers are
-        // unique in the source dictionary; GroupBy().First() is defensive against accidental dupes.
         var byId = games
             .Where(g => !string.IsNullOrEmpty(g.Identifier))
             .GroupBy(g => g.Identifier)
             .ToDictionary(grp => grp.Key, grp => grp.First());
 
-        var groups = new Dictionary<string, List<Game>>(StringComparer.Ordinal);
+        if (editionMode == EditionDisplayMode.DontMerge)
+            return GroupSubsetsOnly(games, byId, include);
 
+        var groups = new Dictionary<string, List<Game>>(StringComparer.Ordinal);
         foreach (var game in games)
         {
             var key = GroupKey(game, byId);
@@ -147,11 +161,15 @@ public static class GameGrouping
             list.Add(game);
         }
 
+        var priority = platformPriority ?? DefaultPlatformPriority;
+        var rank = new Dictionary<Platforms, int>();
+        for (int i = 0; i < priority.Count; i++)
+            rank.TryAdd(priority[i], i);
+        int Rank(Game g) => rank.TryGetValue(g.Platform, out var r) ? r : int.MaxValue;
+
         var representatives = new List<Game>(groups.Count);
         foreach (var group in groups.Values)
         {
-            // Restrict to the editions we're allowed to display (e.g. on an enabled platform).
-            // A group with no displayable editions drops out entirely.
             var members = include == null ? group : group.Where(include).ToList();
             if (members.Count == 0)
                 continue;
@@ -162,7 +180,42 @@ public static class GameGrouping
                 continue;
             }
 
-            // Primary = the edition the user has engaged with most.
+            if (editionMode == EditionDisplayMode.PriorityOnly)
+            {
+                // Primary must be a root-level edition — an RA subset can never be promoted over
+                // its own parent, even if the subset has more progress. Fall back to all members
+                // only if no root candidate survived filtering (e.g. the root's platform is disabled).
+                var rootCandidates = members.Where(m => ReferenceEquals(ResolveSubsetRoot(m, byId), m)).ToList();
+                var candidates = rootCandidates.Count > 0 ? rootCandidates : members;
+
+                var primary = candidates
+                    .OrderBy(Rank)
+                    .ThenByDescending(g => g.UnlockedCount)
+                    .ThenByDescending(g => g.Achievements.Count)
+                    .ThenByDescending(g => g.PlaytimeMinutes)
+                    .ThenByDescending(g => g.LastPlayed ?? DateTime.MinValue)
+                    .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
+                    .First();
+
+                // Alternates on other platforms are dropped entirely, but the chosen edition's own
+                // RA subsets (resolved root == primary) are never hideable, so keep those as tabs.
+                var ownSubsets = members
+                    .Where(m => !ReferenceEquals(m, primary) && ReferenceEquals(ResolveSubsetRoot(m, byId), primary))
+                    .ToList();
+                if (ownSubsets.Count > 0)
+                {
+                    var orderedSubsets = ownSubsets
+                        .OrderByDescending(g => g.UnlockedCount)
+                        .ThenByDescending(g => g.Achievements.Count)
+                        .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase);
+                    primary.Editions = new[] { primary }.Concat(orderedSubsets).ToObservableCollection();
+                }
+
+                representatives.Add(primary);
+                continue;
+            }
+
+            // Merge mode: primary = the edition the user has engaged with most.
             var ordered = members
                 .OrderByDescending(g => g.UnlockedCount)
                 .ThenByDescending(g => g.Achievements.Count)
@@ -171,28 +224,94 @@ public static class GameGrouping
                 .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            var primary = ordered[0];
+            var mergedPrimary = ordered[0];
 
             // Card / header label = the shortest (cleanest) edition name, e.g. "Control".
-            primary.MergedDisplayName = members
+            mergedPrimary.MergedDisplayName = members
                 .OrderBy(g => g.Name.Length)
                 .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase)
                 .First().Name;
 
-            primary.Editions = ordered.ToObservableCollection();
+            mergedPrimary.Editions = ordered.ToObservableCollection();
 
-            // In Aggregate mode the card reports completion summed across the group's editions; in
-            // Best mode it leaves the display counts null so the card uses the primary's own counts.
-            if (mode == MergedCompletionMode.Aggregate)
+            if (completionMode == MergedCompletionMode.Aggregate)
             {
-                primary.DisplayUnlocked = members.Sum(g => g.UnlockedCount);
-                primary.DisplayTotal = members.Sum(g => g.Achievements.Count);
+                mergedPrimary.DisplayUnlocked = members.Sum(g => g.UnlockedCount);
+                mergedPrimary.DisplayTotal = members.Sum(g => g.Achievements.Count);
             }
+
+            representatives.Add(mergedPrimary);
+        }
+
+        return representatives;
+    }
+
+    /// <summary>
+    /// <see cref="EditionDisplayMode.DontMerge"/> grouping: buckets purely by subset-root identity
+    /// (no title normalization), so title-alike editions never merge, but an RA subset always
+    /// attaches to its resolved parent as an edition tab.
+    /// </summary>
+    private static List<Game> GroupSubsetsOnly(
+        IReadOnlyCollection<Game> games,
+        IReadOnlyDictionary<string, Game> byId,
+        Func<Game, bool>? include)
+    {
+        var byRoot = new Dictionary<Game, List<Game>>();
+        foreach (var game in games)
+        {
+            var root = ResolveSubsetRoot(game, byId);
+            if (!byRoot.TryGetValue(root, out var members))
+                byRoot[root] = members = new List<Game>();
+            members.Add(game);
+        }
+
+        var representatives = new List<Game>(byRoot.Count);
+        foreach (var (root, members) in byRoot)
+        {
+            var visible = include == null ? members : members.Where(include).ToList();
+            if (visible.Count == 0)
+                continue;
+
+            if (visible.Count == 1)
+            {
+                representatives.Add(visible[0]);
+                continue;
+            }
+
+            // The root has at least one subset attached. Prefer the root itself as the card even
+            // if it's not first in visible order; fall back to whichever subset survived filtering
+            // if the root itself was filtered out (e.g. its platform is disabled).
+            var primary = visible.Contains(root) ? root : visible[0];
+            primary.MergedDisplayName = primary.Name;
+            var rest = visible
+                .Where(g => !ReferenceEquals(g, primary))
+                .OrderByDescending(g => g.UnlockedCount)
+                .ThenByDescending(g => g.Achievements.Count)
+                .ThenBy(g => g.Name, StringComparer.OrdinalIgnoreCase);
+            primary.Editions = new[] { primary }.Concat(rest).ToObservableCollection();
 
             representatives.Add(primary);
         }
 
         return representatives;
+    }
+
+    /// <summary>
+    /// Follows the RA subset <see cref="Game.ParentIdentifier"/> chain to the ultimate in-library
+    /// ancestor. A game with no parent (or an unresolvable one) is its own root.
+    /// </summary>
+    private static Game ResolveSubsetRoot(Game game, IReadOnlyDictionary<string, Game> byId)
+    {
+        var root = game;
+        int guard = 0;
+        while (!string.IsNullOrEmpty(root.ParentIdentifier)
+               && byId.TryGetValue(root.ParentIdentifier!, out var parent)
+               && !ReferenceEquals(parent, root)
+               && guard++ < 8)
+        {
+            root = parent;
+        }
+        return root;
     }
 
     /// <summary>
@@ -212,22 +331,13 @@ public static class GameGrouping
     }
 
     /// <summary>
-    /// The merge key for a game: an RA subset (or any child) resolves to the normalized title of
-    /// its in-library parent (following the parent chain to the root); everything else keys on its
-    /// own normalized title. Falls back to the raw identifier when a title normalizes to nothing.
+    /// The title-merge key for a game: its subset root's normalized title, or the root's raw
+    /// identifier when the title normalizes to nothing. RA subsets therefore always key alongside
+    /// their parent's title group, regardless of the parent's own title-merge outcome.
     /// </summary>
     private static string GroupKey(Game game, IReadOnlyDictionary<string, Game> byId)
     {
-        var root = game;
-        int guard = 0;
-        while (!string.IsNullOrEmpty(root.ParentIdentifier)
-               && byId.TryGetValue(root.ParentIdentifier!, out var parent)
-               && !ReferenceEquals(parent, root)
-               && guard++ < 8)
-        {
-            root = parent;
-        }
-
+        var root = ResolveSubsetRoot(game, byId);
         var normalized = NormalizeTitle(root.Name);
         return normalized.Length > 0 ? "name:" + normalized : "id:" + root.Identifier;
     }
