@@ -180,7 +180,8 @@ public sealed partial class PSNLogin : Page
             if (doc.RootElement.TryGetProperty("npsso", out var npssoElement))
                 return npssoElement.GetString();
 
-            Log.Warning("ssocookie response: {Response}", bodyText);
+
+            Log.Warning("ssocookie response did not contain an npsso field ({Length} bytes)", bodyText.Length);
             return null;
         }
         catch (Exception ex)

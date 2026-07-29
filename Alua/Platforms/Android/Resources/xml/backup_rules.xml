@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 11 (API 30) and below: android:fullBackupContent. Also governs `adb backup`.
+
+  Keeps Auto Backup on for the library (Settings.json etc.) but excludes the secret store.
+  SecureStorage has no native keystore path on Android, so GetAsync/SetAsync fall through to
+  the file fallback: AES-GCM ciphertext in secrets.bin, HKDF salt in secrets.salt, both in
+  ApplicationData.Current.LocalFolder — which Uno maps to Context.FilesDir, i.e. domain="file".
+  The rest of the key material is MachineName|UserName|alua-secure-v1, fixed and guessable on
+  Android, so backing up the ciphertext and its salt together hands over the PSN NPSSO token,
+  the MSAL cache and the Steam / RetroAchievements API keys.
+
+  msal_token_cache.bin is the pre-SecureStorage cache. SettingsVM deletes it on migration, but
+  excluding it costs nothing and covers installs that have not migrated yet.
+
+  Only <exclude> entries are listed: everything not named here is still backed up.
+-->
+<full-backup-content>
+    <exclude domain="file" path="secrets.bin" />
+    <exclude domain="file" path="secrets.salt" />
+    <exclude domain="file" path="msal_token_cache.bin" />
+</full-backup-content>

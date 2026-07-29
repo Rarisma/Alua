@@ -15,13 +15,22 @@
     <PackageVersion Include="Uno.Fonts.Fluent" Version="2.8.1" />
   </ItemGroup>
   <!--
-    Pin transitive dependency (pulled in by Uno.WinUI.Runtime.Skia.X11) to fix CVE
-    GHSA-xrw6-gwf8-vvr9. Must stay on the 0.21.x line: Uno's X11 LinuxSystemThemeHelper
-    hard-references the Tmds.DBus.Protocol.Address type, which was removed in 0.22.0+.
-    0.21.3 is both a patched version for the CVE and retains that type. Do NOT bump to
-    0.92.x/0.94.x — that throws TypeLoadException for Address at startup on Linux.
+    Tmds.DBus.Protocol used to be pinned here at 0.21.3 to dodge CVE GHSA-xrw6-gwf8-vvr9
+    while keeping the Tmds.DBus.Protocol.Address type that Uno's X11 LinuxSystemThemeHelper
+    hard-referenced (Address was removed in 0.22.0+). As of Uno.Sdk 6.6.x that pin is both
+    unnecessary and actively harmful: Uno.WinUI.Runtime.Skia.X11 6.6.176 requires >= 0.92.0,
+    so the downgrade fails restore with NU1605. 0.92.0 is the advisory's primary patched
+    release, so the transitive resolution is safe on its own. Do NOT re-add the pin.
+
+    AngleSharp is pulled in transitively by Codepotatoes.Scraper.HowLongToBeat (which is
+    deprecated upstream and still asks for 1.4.0). 1.4.0 carries the mXSS bug in
+    GHSA-pgww-w46g-26qg / CVE-2026-54570, fixed in 1.5.0 — hence the direct reference in
+    Alua.csproj to float it. Alua only reads numeric playtimes off the scraped DOM and never
+    re-serializes it into a WebView, so the bug isn't reachable here; this keeps the audit
+    clean rather than fixing a live hole. 1.6.0 is the latest stable if you want to move up,
+    but the scraper is unmaintained, so the minimal step off the CVE is the safer default.
   -->
   <ItemGroup>
-    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.21.3" />
+    <PackageVersion Include="AngleSharp" Version="1.5.0" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android 12 (API 31) and above: android:dataExtractionRules. Supersedes fullBackupContent
+  on these versions, so backup_rules.xml must be kept in step with this file.
+
+  See backup_rules.xml for why these three files are excluded.
+
+  Both channels are covered on purpose:
+    cloud-backup    — Google Drive / Auto Backup, the off-device copy.
+    device-transfer — direct device-to-device migration. Excluded too, because the fallback
+                      key is derived from fixed strings plus a salt that would travel with
+                      the ciphertext, so a transferred blob stays decryptable on the new
+                      device. Cost is re-authenticating providers after a phone migration,
+                      which is the normal expectation for a credential store. If that trade
+                      is not wanted, drop the <device-transfer> block and the tokens will
+                      migrate with the device.
+
+  Only <exclude> entries are listed: everything not named here is still backed up.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="secrets.bin" />
+        <exclude domain="file" path="secrets.salt" />
+        <exclude domain="file" path="msal_token_cache.bin" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="secrets.bin" />
+        <exclude domain="file" path="secrets.salt" />
+        <exclude domain="file" path="msal_token_cache.bin" />
+    </device-transfer>
+</data-extraction-rules>
